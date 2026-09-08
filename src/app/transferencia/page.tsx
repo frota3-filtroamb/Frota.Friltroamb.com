@@ -4,6 +4,7 @@ import RequirePermissao from '@/components/RequirePermissao'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Sidebar from '@/components/Sidebar'
+import Link from 'next/link'
 
 type Transferencia = {
   id: number
@@ -79,6 +80,27 @@ export default function TransferenciaPage() {
 
         <main className="flex-1 p-8 overflow-y-auto">
           <div className="max-w-6xl mx-auto">
+            <div className="flex flex-wrap gap-3 bg-[#132337] border border-emerald-500/20 rounded-xl p-1.5 w-fit mb-6">
+              <Link
+                href="/portaria"
+                className="px-6 py-2 rounded-lg text-sm font-semibold transition whitespace-nowrap text-slate-400 hover:text-white"
+              >
+                Controle
+              </Link>
+              <Link
+                href="/portaria"
+                className="px-6 py-2 rounded-lg text-sm font-semibold transition whitespace-nowrap text-slate-400 hover:text-white"
+              >
+                Pedestres / Visitantes
+              </Link>
+              <button
+                type="button"
+                className="px-6 py-2 rounded-lg text-sm font-semibold transition whitespace-nowrap bg-blue-500 text-white shadow-sm"
+              >
+                Transferência
+              </button>
+            </div>
+
             {/* Header da Tabela */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div>

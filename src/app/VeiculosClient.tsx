@@ -44,7 +44,7 @@ return (
 </div>
 {/* Banner */}
 
-    <header className="bg-[#0b1f33] border-b border-emerald-500/20 sticky top-0 z-10">
+    <header className="bg-[#0b1f33] border-b border-emerald-500/20 shrink-0">
       <div className="px-8 py-5 flex items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-semibold text-white tracking-tight">Veículos</h2>
@@ -66,12 +66,12 @@ return (
       </div>
     </header>
 
-    <main className="animate-tab p-6 bg-[#0a1625] min-h-[calc(100vh-80px)]" style={{ zoom: 0.95 }}>
-      <div className="bg-[#0f1c2e] rounded-2xl border border-emerald-500/15 shadow-[0_0_30px_rgba(16,185,129,0.05)] overflow-hidden">
-        <div className="overflow-x-auto">
+    <main className="animate-tab flex-1 min-h-0 overflow-hidden p-6 bg-[#0a1625]" style={{ zoom: 0.95 }}>
+      <div className="flex h-full min-h-0 flex-col bg-[#0f1c2e] rounded-2xl border border-emerald-500/15 shadow-[0_0_30px_rgba(16,185,129,0.05)] overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-auto">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="bg-[#132337] border-b border-emerald-500/15">
+              <tr className="sticky top-0 z-10 bg-[#132337] border-b border-emerald-500/15">
                 <th className="px-6 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Placa</th>
                 <th className="px-6 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Modelo</th>
                 <th className="px-6 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Marca</th>

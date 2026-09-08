@@ -277,7 +277,23 @@ export default function EncomendasPage() {
                     </thead>
                     <tbody className="divide-y divide-white/5">
                       {carregando ? (
-                        <tr><td colSpan={4} className="px-5 py-8 text-center text-slate-500">Carregando...</td></tr>
+                        <>
+                          <tr className="animate-pulse">
+                            <td colSpan={4} className="px-5 py-4">
+                              <div className="h-6 rounded-lg bg-white/5" />
+                            </td>
+                          </tr>
+                          <tr className="animate-pulse">
+                            <td colSpan={4} className="px-5 py-4">
+                              <div className="h-6 rounded-lg bg-white/5" />
+                            </td>
+                          </tr>
+                          <tr className="animate-pulse">
+                            <td colSpan={4} className="px-5 py-4">
+                              <div className="h-6 rounded-lg bg-white/5" />
+                            </td>
+                          </tr>
+                        </>
                       ) : eFiltradas.length === 0 ? (
                         <tr><td colSpan={4} className="px-5 py-8 text-center text-slate-500">Nenhuma encomenda aguardando.</td></tr>
                       ) : (

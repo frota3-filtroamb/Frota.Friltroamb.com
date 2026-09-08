@@ -5,6 +5,7 @@ import { getRole, podeAcessar } from '@/lib/roles'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { useTheme } from '@/components/ThemeProvider'
+import Link from 'next/link'
 
 export default function Sidebar() {
   const pathname = usePathname()
@@ -54,7 +55,7 @@ export default function Sidebar() {
         </p>
 
         {podeVeiculos && (
-          <a
+          <Link
             href="/"
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
               ativo('/')
@@ -64,7 +65,7 @@ export default function Sidebar() {
           >
             <span className="text-base">🚚</span>
             <span>Veículos</span>
-          </a>
+          </Link>
         )}
 
         {temSubmenuPortaria && (
@@ -93,7 +94,7 @@ export default function Sidebar() {
             {portariaAberta && (
               <div className="mt-1 ml-4 pl-3 border-l border-white/10 space-y-1">
                 {podePortaria && (
-                  <a
+                  <Link
                     href="/portaria"
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
                       ativo('/portaria')
@@ -102,11 +103,11 @@ export default function Sidebar() {
                     }`}
                   >
                     <span>Controle</span>
-                  </a>
+                  </Link>
                 )}
 
                 {podeLiberacao && (
-                  <a
+                  <Link
                     href="/liberacao"
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
                       ativo('/liberacao')
@@ -115,24 +116,11 @@ export default function Sidebar() {
                     }`}
                   >
                     <span>Liberação</span>
-                  </a>
-                )}
-
-                {podeTransferencia && (
-                  <a
-                    href="/transferencia"
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
-                      ativo('/transferencia')
-                        ? 'bg-emerald-500/15 text-emerald-300 font-medium'
-                        : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                    }`}
-                  >
-                    <span>Transferência</span>
-                  </a>
+                  </Link>
                 )}
 
                 {podeEncomendas && (
-                  <a
+                  <Link
                     href="/encomendas"
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
                       ativo('/encomendas')
@@ -142,7 +130,7 @@ export default function Sidebar() {
                   >
                     <span className="mr-1">📦</span>
                     <span>Encomendas</span>
-                  </a>
+                  </Link>
                 )}
               </div>
             )}
