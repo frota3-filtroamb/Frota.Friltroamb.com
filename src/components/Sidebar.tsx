@@ -12,6 +12,7 @@ export default function Sidebar() {
   const { theme, toggleTheme } = useTheme()
   const { user } = useUser()
   const role = getRole(user)
+  const podeUsuarios = role === 'dev'
 
   const podeVeiculos = podeAcessar(user, 'veiculos')
   const podePortaria = podeAcessar(user, 'portaria')
@@ -44,7 +45,7 @@ export default function Sidebar() {
         </div>
         <p className="text-[15px] text-slate-400 mt-2">Gestão de Frota</p>
         <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider">
-          {role === 'gestor' ? 'Gestor' : 'Porteiro'}
+          {role === 'dev' ? 'Dev' : role === 'gestor' ? 'Gestor' : 'Porteiro'}
         </p>
       </div>
 
@@ -136,6 +137,20 @@ export default function Sidebar() {
             )}
           </div>
         )}
+
+        {podeUsuarios && (
+          <Link
+            href="/usuarios"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
+              ativo('/usuarios')
+                ? 'bg-emerald-500/15 text-emerald-300 font-medium'
+                : 'text-slate-300 hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            <span className="text-base">US</span>
+            <span>Usuarios</span>
+          </Link>
+        )}
       </nav>
 
       {/* Tema */}
@@ -156,7 +171,7 @@ export default function Sidebar() {
       <div className="px-4 py-3 border-t border-white/10 flex items-center justify-between">
         <div>
           <p className="text-[11px] text-slate-500">Sistema Interno</p>
-          <p className="text-[10px] text-slate-600 mt-0.5">v1.5</p>
+          <p className="text-[10px] text-slate-600 mt-0.5">v1.7</p>
         </div>
         <UserButton />
       </div>
