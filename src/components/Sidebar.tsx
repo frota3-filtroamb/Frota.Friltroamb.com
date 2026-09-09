@@ -19,6 +19,7 @@ export default function Sidebar() {
   const podeLiberacao = podeAcessar(user, 'liberacao')
   const podeTransferencia = podeAcessar(user, 'transferencia')
   const podeEncomendas = podeAcessar(user, 'encomendas')
+  const podeAlmoxarifado = podeAcessar(user, 'almoxarifado')
 
   const temSubmenuPortaria =
     podePortaria || podeLiberacao || podeTransferencia || podeEncomendas
@@ -136,6 +137,20 @@ export default function Sidebar() {
               </div>
             )}
           </div>
+        )}
+
+        {podeAlmoxarifado && (
+          <Link
+            href="/almoxarifado"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
+              ativo('/almoxarifado')
+                ? 'bg-cyan-500/15 text-cyan-300 font-medium'
+                : 'text-slate-300 hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            <span className="text-base">AL</span>
+            <span>Almoxarifado</span>
+          </Link>
         )}
 
         {podeUsuarios && (

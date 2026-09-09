@@ -14,6 +14,7 @@ export type Permissao =
   | 'liberacao.veiculo_interno'
   | 'transferencia'
   | 'encomendas'
+  | 'almoxarifado'
 
 export const PERMISSOES: Permissao[] = [
   'veiculos',
@@ -29,6 +30,7 @@ export const PERMISSOES: Permissao[] = [
   'liberacao.veiculo_interno',
   'transferencia',
   'encomendas',
+  'almoxarifado',
 ]
 
 const PERMISSOES_DETALHADAS: Partial<Record<Permissao, Permissao[]>> = {
@@ -56,6 +58,7 @@ const PERMISSOES_GESTOR: Permissao[] = [
   'liberacao.veiculo_interno',
   'transferencia',
   'encomendas',
+  'almoxarifado',
 ]
 
 const PERMISSOES_DEV: Permissao[] = PERMISSOES_GESTOR

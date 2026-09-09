@@ -39,6 +39,7 @@ const ABAS: { id: Permissao; label: string; filhos?: { id: Permissao; label: str
   },
   { id: 'transferencia', label: 'Transferencia' },
   { id: 'encomendas', label: 'Encomendas' },
+  { id: 'almoxarifado', label: 'Almoxarifado' },
 ]
 
 const ROLES: { id: Role; label: string }[] = [
