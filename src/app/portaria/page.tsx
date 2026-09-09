@@ -1,9 +1,11 @@
 ﻿'use client'
 
 import RequirePermissao from '@/components/RequirePermissao'
+import { useUser } from '@clerk/nextjs'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Sidebar from '@/components/Sidebar'
+import { podeAcessarDetalhe } from '@/lib/roles'
 
 type Movimentacao = {
   id: number
@@ -45,6 +47,7 @@ type Transferencia = {
 
 export default function PortariaPage() {
   const supabase = createClient()
+  const { user, isLoaded } = useUser()
 
   const [abaAtual, setAbaAtual] = useState<'veiculos' | 'pedestres' | 'transferencia'>('veiculos')
   const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([])
@@ -55,6 +58,15 @@ export default function PortariaPage() {
   const [carregando, setCarregando] = useState(true)
   const [mensagem, setMensagem] = useState('')
   const [busca, setBusca] = useState('')
+
+  const podeControleVeiculos = podeAcessarDetalhe(user, 'portaria', 'portaria.veiculos')
+  const podeControlePedestres = podeAcessarDetalhe(user, 'portaria', 'portaria.pedestres')
+  const podeControleTransferencia = podeAcessarDetalhe(user, 'portaria', 'portaria.transferencia')
+  const abasPermitidas = [
+    podeControleVeiculos ? 'veiculos' : null,
+    podeControlePedestres ? 'pedestres' : null,
+    podeControleTransferencia ? 'transferencia' : null,
+  ].filter(Boolean) as typeof abaAtual[]
 
   async function carregar() {
     setCarregando(true)
@@ -82,6 +94,12 @@ export default function PortariaPage() {
   useEffect(() => {
     carregar()
   }, [])
+
+  useEffect(() => {
+    if (!isLoaded || abasPermitidas.length === 0 || abasPermitidas.includes(abaAtual)) return
+    setAbaAtual(abasPermitidas[0])
+    setMensagem('')
+  }, [isLoaded, abasPermitidas, abaAtual])
 
   async function registrarSaidaVeiculo(id: number) {
     const { error } = await supabase.from('movimentacoes').update({ status: 'em_rota', saida_em: new Date().toISOString() }).eq('id', id)
@@ -146,23 +164,24 @@ export default function PortariaPage() {
           <div className="flex-1 overflow-y-auto overflow-x-hidden bg-[#0a1625]" style={{ zoom: 0.95 }}>
             <div className="px-6 mt-4">
               <div className="flex flex-wrap gap-3 bg-[#132337] border border-emerald-500/20 rounded-xl p-1.5 w-fit">
-                <button onClick={() => setAbaAtual('veiculos')} className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${abaAtual === 'veiculos' ? 'bg-emerald-500 text-[#0a1625] shadow-sm' : 'text-slate-400 hover:text-white'}`}>Veiculos</button>
-                <button onClick={() => setAbaAtual('pedestres')} className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${abaAtual === 'pedestres' ? 'bg-purple-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}>Pedestres / Visitantes</button>
-                <button onClick={() => { setAbaAtual('transferencia'); setMensagem('') }} className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${abaAtual === 'transferencia' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}>Transferencia</button>
+                {podeControleVeiculos && <button onClick={() => setAbaAtual('veiculos')} className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${abaAtual === 'veiculos' ? 'bg-emerald-500 text-[#0a1625] shadow-sm' : 'text-slate-400 hover:text-white'}`}>Veiculos</button>}
+                {podeControlePedestres && <button onClick={() => setAbaAtual('pedestres')} className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${abaAtual === 'pedestres' ? 'bg-purple-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}>Pedestres / Visitantes</button>}
+                {podeControleTransferencia && <button onClick={() => { setAbaAtual('transferencia'); setMensagem('') }} className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${abaAtual === 'transferencia' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}>Transferencia</button>}
               </div>
             </div>
 
             <div key={abaAtual} className="animate-tab p-6 pt-4 flex-1">
               {mensagem && <div className={`mb-4 p-4 rounded-xl text-sm border ${mensagem.includes('Erro') ? 'bg-red-500/10 text-red-300 border-red-500/20' : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'}`}>{mensagem}</div>}
+              {abasPermitidas.length === 0 && <div className="p-6 rounded-2xl border border-white/10 bg-[#0f1c2e] text-slate-400">Nenhum topico do controle liberado para este usuario.</div>}
 
-              <div className="mb-4 flex items-center gap-3">
+              {abasPermitidas.length > 0 && <div className="mb-4 flex items-center gap-3">
                 <div className="relative flex-1 max-w-md">
                   <input type="text" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder={abaAtual === 'veiculos' ? 'Filtrar placa, motorista, destino...' : abaAtual === 'pedestres' ? 'Filtrar nome, cpf, empresa...' : 'Filtrar placa, origem, destino...'} className="w-full pl-10 pr-4 py-2.5 bg-[#132337] border border-emerald-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition" />
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400/70 text-sm">🔍</span>
                 </div>
-              </div>
+              </div>}
 
-              {carregando ? (
+              {abasPermitidas.length === 0 ? null : carregando ? (
                 <div className="space-y-6 animate-pulse">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">{[...Array(4)].map((_, i) => <div key={i} className="h-28 rounded-2xl bg-white/5 border border-white/5" />)}</div>
                   <div className="rounded-2xl border border-white/5 bg-[#0f1c2e] overflow-hidden"><div className="h-12 bg-[#132337]" /><div className="space-y-3 p-5"><div className="h-10 rounded-lg bg-white/5" /><div className="h-10 rounded-lg bg-white/5" /><div className="h-10 rounded-lg bg-white/5" /></div></div>
@@ -177,13 +196,13 @@ export default function PortariaPage() {
                   </div>
                   <div className="bg-[#0f1c2e] rounded-2xl border border-emerald-500/15 shadow-[0_0_30px_rgba(16,185,129,0.05)] overflow-hidden mb-8">
                     <div className="max-h-[52vh] overflow-auto">
-                      <table className="min-w-full text-sm"><thead><tr className="bg-[#132337] border-b border-emerald-500/15 sticky top-0 z-10"><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Placa</th><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Motorista</th><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Destino</th><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">KM</th><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Horário de Liberação</th><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Horário de Saida</th><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Status</th><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Acao</th></tr></thead><tbody className="divide-y divide-white/5">{mFiltradas.length === 0 ? <tr><td colSpan={8} className="px-5 py-10 text-center text-slate-500">Nenhum veiculo em andamento.</td></tr> : mFiltradas.map((m) => <tr key={m.id} className="hover:bg-emerald-500/5 transition-colors"><td className="px-5 py-3.5"><div className="flex items-center gap-2"><span className="font-medium text-emerald-300">{m.placa}</span>{m.tipo_veiculo === 'externo' && <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-orange-500/15 text-orange-300 border border-orange-500/25">Externo</span>}</div></td><td className="px-5 py-3.5 text-slate-300">{m.motorista || '—'}</td><td className="px-5 py-3.5 text-slate-300">{m.destino || '—'}</td><td className="px-5 py-3.5 text-slate-400">{m.km ? m.km.toLocaleString('pt-BR') : '—'}</td><td className="px-5 py-3.5 text-slate-500 text-xs">{formatarData(m.liberado_em)}</td><td className="px-5 py-3.5 text-slate-500 text-xs">{formatarData(m.saida_em)}</td><td className="px-5 py-3.5"><span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${m.status === 'aguardando_saida' ? 'bg-orange-500/15 text-orange-300 border border-orange-500/20' : 'bg-blue-500/15 text-blue-300 border border-blue-500/20'}`}>{m.status === 'aguardando_saida' ? 'Aguardando Saida' : 'Em Rota'}</span></td><td className="px-5 py-3.5">{m.status === 'aguardando_saida' ? <button onClick={() => registrarSaidaVeiculo(m.id)} className="bg-orange-500 hover:bg-orange-400 text-[#0a1625] text-xs font-semibold px-3 py-1.5 rounded-lg transition">Registrar Saida</button> : <button onClick={() => registrarEntradaVeiculo(m.id)} className="bg-emerald-500 hover:bg-emerald-400 text-[#0a1625] text-xs font-semibold px-3 py-1.5 rounded-lg transition">Registrar Entrada</button>}</td></tr>)}</tbody></table>
+                      <table className="min-w-full text-sm"><thead><tr className="bg-[#132337] border-b border-emerald-500/15 sticky top-0 z-10"><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Placa</th><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Motorista</th><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Destino</th><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">KM</th><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Horário de Liberação</th><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Horário de Saida</th><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Status</th><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Acao</th></tr></thead><tbody className="divide-y divide-white/5">{mFiltradas.length === 0 ? <tr><td colSpan={8} className="px-5 py-10 text-center text-slate-500">Nenhum veiculo em andamento.</td></tr> : mFiltradas.map((m) => <tr key={m.id} className="hover:bg-emerald-500/5 transition-colors"><td className="px-5 py-3.5"><div className="flex items-center gap-2"><span className="font-medium text-emerald-300">{m.placa}</span>{m.tipo_veiculo === 'interno' && <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-blue-500/15 text-blue-300 border border-blue-500/25">Veiculo interno</span>}{m.tipo_veiculo === 'externo' && <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-orange-500/15 text-orange-300 border border-orange-500/25">Externo</span>}</div></td><td className="px-5 py-3.5 text-slate-300">{m.motorista || '—'}</td><td className="px-5 py-3.5 text-slate-300">{m.destino || '—'}</td><td className="px-5 py-3.5 text-slate-400">{m.km ? m.km.toLocaleString('pt-BR') : '—'}</td><td className="px-5 py-3.5 text-slate-500 text-xs">{formatarData(m.liberado_em)}</td><td className="px-5 py-3.5 text-slate-500 text-xs">{formatarData(m.saida_em)}</td><td className="px-5 py-3.5"><span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${m.status === 'aguardando_saida' ? 'bg-orange-500/15 text-orange-300 border border-orange-500/20' : 'bg-blue-500/15 text-blue-300 border border-blue-500/20'}`}>{m.status === 'aguardando_saida' ? 'Aguardando Saida' : 'Em Rota'}</span></td><td className="px-5 py-3.5">{m.status === 'aguardando_saida' ? <button onClick={() => registrarSaidaVeiculo(m.id)} className="bg-orange-500 hover:bg-orange-400 text-[#0a1625] text-xs font-semibold px-3 py-1.5 rounded-lg transition">Registrar Saida</button> : <button onClick={() => registrarEntradaVeiculo(m.id)} className="bg-emerald-500 hover:bg-emerald-400 text-[#0a1625] text-xs font-semibold px-3 py-1.5 rounded-lg transition">Registrar Entrada</button>}</td></tr>)}</tbody></table>
                     </div>
                   </div>
                   <h3 className="text-lg font-semibold text-white mb-3 tracking-tight">Historico de Entradas e Saidas (Veiculos)</h3>
                   <div className="bg-[#0f1c2e] rounded-2xl border border-emerald-500/15 overflow-hidden mb-8">
                     <div className="max-h-[52vh] overflow-auto">
-                      <table className="min-w-full text-sm"><thead><tr className="bg-[#132337] border-b border-emerald-500/15 sticky top-0 z-10"><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Placa</th><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Motorista</th><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Destino</th><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Saida</th><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Entrada</th></tr></thead><tbody className="divide-y divide-white/5">{mHistFiltrado.length === 0 ? <tr><td colSpan={5} className="px-5 py-10 text-center text-slate-500">Nenhum registro.</td></tr> : mHistFiltrado.map((m) => <tr key={m.id} className="hover:bg-emerald-500/5 transition-colors"><td className="px-5 py-3.5"><div className="flex items-center gap-2"><span className="font-medium text-emerald-300">{m.placa}</span>{m.tipo_veiculo === 'externo' && <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-orange-500/15 text-orange-300 border border-orange-500/25">Externo</span>}</div></td><td className="px-5 py-3.5 text-slate-300">{m.motorista || '—'}</td><td className="px-5 py-3.5 text-slate-300">{m.destino || '—'}</td><td className="px-5 py-3.5 text-slate-500 text-xs">{formatarData(m.saida_em)}</td><td className="px-5 py-3.5 text-slate-500 text-xs">{formatarData(m.entrada_em)}</td></tr>)}</tbody></table>
+                      <table className="min-w-full text-sm"><thead><tr className="bg-[#132337] border-b border-emerald-500/15 sticky top-0 z-10"><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Placa</th><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Motorista</th><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Destino</th><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Saida</th><th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Entrada</th></tr></thead><tbody className="divide-y divide-white/5">{mHistFiltrado.length === 0 ? <tr><td colSpan={5} className="px-5 py-10 text-center text-slate-500">Nenhum registro.</td></tr> : mHistFiltrado.map((m) => <tr key={m.id} className="hover:bg-emerald-500/5 transition-colors"><td className="px-5 py-3.5"><div className="flex items-center gap-2"><span className="font-medium text-emerald-300">{m.placa}</span>{m.tipo_veiculo === 'interno' && <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-blue-500/15 text-blue-300 border border-blue-500/25">Veiculo interno</span>}{m.tipo_veiculo === 'externo' && <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-orange-500/15 text-orange-300 border border-orange-500/25">Externo</span>}</div></td><td className="px-5 py-3.5 text-slate-300">{m.motorista || '—'}</td><td className="px-5 py-3.5 text-slate-300">{m.destino || '—'}</td><td className="px-5 py-3.5 text-slate-500 text-xs">{formatarData(m.saida_em)}</td><td className="px-5 py-3.5 text-slate-500 text-xs">{formatarData(m.entrada_em)}</td></tr>)}</tbody></table>
                     </div>
                   </div>
                 </>

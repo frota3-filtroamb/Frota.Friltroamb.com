@@ -3,8 +3,8 @@
 import Sidebar from '@/components/Sidebar'
 import { useUser } from '@clerk/nextjs'
 import { useEffect, useState } from 'react'
+import type { Permissao } from '@/lib/roles'
 
-type Permissao = 'veiculos' | 'portaria' | 'liberacao' | 'transferencia' | 'encomendas'
 type Role = 'dev' | 'gestor' | 'porteiro'
 
 type Usuario = {
@@ -15,10 +15,28 @@ type Usuario = {
   permissoes: Permissao[]
 }
 
-const ABAS: { id: Permissao; label: string }[] = [
+const ABAS: { id: Permissao; label: string; filhos?: { id: Permissao; label: string }[] }[] = [
   { id: 'veiculos', label: 'Veiculos' },
-  { id: 'portaria', label: 'Controle' },
-  { id: 'liberacao', label: 'Liberacao' },
+  {
+    id: 'portaria',
+    label: 'Controle',
+    filhos: [
+      { id: 'portaria.veiculos', label: 'Veiculos' },
+      { id: 'portaria.pedestres', label: 'Pedestres' },
+      { id: 'portaria.transferencia', label: 'Transferencia' },
+    ],
+  },
+  {
+    id: 'liberacao',
+    label: 'Liberacao',
+    filhos: [
+      { id: 'liberacao.veiculo_empresa', label: 'Veiculo Empresa' },
+      { id: 'liberacao.veiculo_externo', label: 'Veiculo Externo' },
+      { id: 'liberacao.pedestre', label: 'Pedestre' },
+      { id: 'liberacao.transferencia', label: 'Transferencia' },
+      { id: 'liberacao.veiculo_interno', label: 'Veiculo Interno' },
+    ],
+  },
   { id: 'transferencia', label: 'Transferencia' },
   { id: 'encomendas', label: 'Encomendas' },
 ]
@@ -70,10 +88,44 @@ export default function UsuariosPage() {
       atuais.map((usuario) => {
         if (usuario.id !== usuarioId) return usuario
         const ativa = usuario.permissoes.includes(permissao)
+        const aba = ABAS.find((item) => item.id === permissao)
+        const filhos = aba?.filhos?.map((item) => item.id) || []
+
+        if (filhos.length > 0) {
+          const remover = [permissao, ...filhos]
+          return {
+            ...usuario,
+            permissoes: ativa
+              ? usuario.permissoes.filter((item) => !remover.includes(item))
+              : Array.from(new Set([...usuario.permissoes, permissao, ...filhos])),
+          }
+        }
+
         return {
           ...usuario,
           permissoes: ativa ? usuario.permissoes.filter((item) => item !== permissao) : [...usuario.permissoes, permissao],
         }
+      }),
+    )
+  }
+
+  function alternarSubPermissao(usuarioId: string, permissaoPai: Permissao, permissao: Permissao) {
+    setUsuarios((atuais) =>
+      atuais.map((usuario) => {
+        if (usuario.id !== usuarioId) return usuario
+        const filhos = ABAS.find((aba) => aba.id === permissaoPai)?.filhos?.map((item) => item.id) || []
+        const temDetalheConfigurado = filhos.some((item) => usuario.permissoes.includes(item))
+        const permissoesBase =
+          usuario.permissoes.includes(permissaoPai) && !temDetalheConfigurado
+            ? Array.from(new Set([...usuario.permissoes, ...filhos]))
+            : usuario.permissoes
+        const ativa = permissoesBase.includes(permissao)
+        const permissoes = ativa
+          ? permissoesBase.filter((item) => item !== permissao)
+          : Array.from(new Set([...permissoesBase, permissaoPai, permissao]))
+
+        const temFilhoAtivo = filhos.some((item) => permissoes.includes(item))
+        return { ...usuario, permissoes: temFilhoAtivo ? permissoes : permissoes.filter((item) => item !== permissaoPai) }
       }),
     )
   }
@@ -180,22 +232,46 @@ export default function UsuariosPage() {
                           </select>
                         </td>
                         <td className="px-5 py-4">
-                          <div className="flex flex-wrap gap-2">
+                          <div className="space-y-3">
                             {ABAS.map((aba) => {
                               const ativa = usuario.permissoes.includes(aba.id)
                               return (
-                                <button
-                                  key={aba.id}
-                                  type="button"
-                                  onClick={() => alternarPermissao(usuario.id, aba.id)}
-                                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                                    ativa
-                                      ? 'bg-emerald-500 text-[#0a1625] border-emerald-400 shadow-sm'
-                                      : 'bg-[#132337] text-slate-400 border-white/10 hover:text-white hover:border-white/20'
-                                  }`}
-                                >
-                                  {aba.label}
-                                </button>
+                                <div key={aba.id} className="space-y-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => alternarPermissao(usuario.id, aba.id)}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                                      ativa
+                                        ? 'bg-emerald-500 text-[#0a1625] border-emerald-400 shadow-sm'
+                                        : 'bg-[#132337] text-slate-400 border-white/10 hover:text-white hover:border-white/20'
+                                    }`}
+                                  >
+                                    {aba.label}
+                                  </button>
+
+                                  {ativa && aba.filhos && (
+                                    <div className="flex flex-wrap gap-2 pl-3 border-l border-white/10">
+                                      {aba.filhos.map((filho) => {
+                                        const temDetalheConfigurado = aba.filhos?.some((item) => usuario.permissoes.includes(item.id))
+                                        const filhoAtivo = temDetalheConfigurado ? usuario.permissoes.includes(filho.id) : ativa
+                                        return (
+                                          <button
+                                            key={filho.id}
+                                            type="button"
+                                            onClick={() => alternarSubPermissao(usuario.id, aba.id, filho.id)}
+                                            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all ${
+                                              filhoAtivo
+                                                ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+                                                : 'bg-[#0a1625] text-slate-500 border-white/10 hover:text-white hover:border-white/20'
+                                            }`}
+                                          >
+                                            {filho.label}
+                                          </button>
+                                        )
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
                               )
                             })}
                           </div>

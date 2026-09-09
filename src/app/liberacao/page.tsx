@@ -1,9 +1,11 @@
 'use client'
 
 import RequirePermissao from '@/components/RequirePermissao'
+import { useUser } from '@clerk/nextjs'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Sidebar from '@/components/Sidebar'
+import { podeAcessarDetalhe } from '@/lib/roles'
 
 type Veiculo = {
   NR_PLACA: string
@@ -30,6 +32,7 @@ type Transferencia = {
 
 export default function LiberacaoPage() {
   const supabase = createClient()
+  const { user, isLoaded } = useUser()
 
   const [veiculos, setVeiculos] = useState<Veiculo[]>([])
   const [origens, setOrigens] = useState<Item[]>([])
@@ -37,7 +40,7 @@ export default function LiberacaoPage() {
   const [motoristas, setMotoristas] = useState<Item[]>([])
   const [listaTransferencias, setListaTransferencias] = useState<Transferencia[]>([])
 
-  const [tipoVeiculo, setTipoVeiculo] = useState<'interno' | 'externo' | 'transferencia' | 'pedestre'>('interno')
+  const [tipoVeiculo, setTipoVeiculo] = useState<'interno' | 'externo' | 'veiculo_interno' | 'transferencia' | 'pedestre'>('interno')
 
   const [buscaPlaca, setBuscaPlaca] = useState('')
   const [veiculoSelecionado, setVeiculoSelecionado] = useState<Veiculo | null>(null)
@@ -84,6 +87,20 @@ export default function LiberacaoPage() {
   const [carregando, setCarregando] = useState(false)
   const [mensagem, setMensagem] = useState('')
 
+  const podeVeiculoEmpresa = podeAcessarDetalhe(user, 'liberacao', 'liberacao.veiculo_empresa')
+  const podeVeiculoExterno = podeAcessarDetalhe(user, 'liberacao', 'liberacao.veiculo_externo')
+  const podePedestre = podeAcessarDetalhe(user, 'liberacao', 'liberacao.pedestre')
+  const podeTransferencia = podeAcessarDetalhe(user, 'liberacao', 'liberacao.transferencia')
+  const podeVeiculoInterno = podeAcessarDetalhe(user, 'liberacao', 'liberacao.veiculo_interno')
+
+  const tiposPermitidos = [
+    podeVeiculoEmpresa ? 'interno' : null,
+    podeVeiculoExterno ? 'externo' : null,
+    podePedestre ? 'pedestre' : null,
+    podeTransferencia ? 'transferencia' : null,
+    podeVeiculoInterno ? 'veiculo_interno' : null,
+  ].filter(Boolean) as typeof tipoVeiculo[]
+
   async function carregarDados() {
     const [v, o, d, m, t] = await Promise.all([
       supabase.from('veiculos').select('NR_PLACA, DS_MODELO, DS_MARCA, NR_ANO_MODELO').order('NR_PLACA'),
@@ -102,6 +119,12 @@ export default function LiberacaoPage() {
   useEffect(() => {
     carregarDados()
   }, [])
+
+  useEffect(() => {
+    if (!isLoaded || tiposPermitidos.length === 0 || tiposPermitidos.includes(tipoVeiculo)) return
+    setTipoVeiculo(tiposPermitidos[0])
+    setMensagem('')
+  }, [isLoaded, tiposPermitidos, tipoVeiculo])
 
   // Fecha dropdowns ao clicar fora
   useEffect(() => {
@@ -141,8 +164,49 @@ export default function LiberacaoPage() {
     carregarDados()
   }
 
+  async function validarKmVeiculo(placa: string) {
+    const kmAtual = Number(km.replace(/\D/g, ''))
+
+    if (!Number.isFinite(kmAtual) || kmAtual <= 0) {
+      setMensagem('Informe um KM maior que zero')
+      return null
+    }
+
+    const { data, error } = await supabase
+      .from('movimentacoes')
+      .select('km')
+      .eq('placa', placa)
+      .not('km', 'is', null)
+      .order('km', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (error) {
+      setMensagem('Erro ao validar KM: ' + error.message)
+      return null
+    }
+
+    const ultimoKm = Number(data?.km ?? 0)
+    if (kmAtual < ultimoKm) {
+      setMensagem(`KM informado nao pode ser menor que o ultimo registrado (${ultimoKm})`)
+      return null
+    }
+
+    return kmAtual
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+
+    if (!tiposPermitidos.includes(tipoVeiculo)) {
+      setMensagem('Voce nao tem permissao para acessar este topico.')
+      return
+    }
+
+    if (tipoVeiculo === 'veiculo_interno') {
+      await registrarEntradaVeiculoInterno()
+      return
+    }
 
     if (tipoVeiculo === 'pedestre') {
       if (!nomePedestre) {
@@ -260,13 +324,15 @@ export default function LiberacaoPage() {
       setMensagem('Preencha KM e data/hora')
       return
     }
+    const kmAtual = await validarKmVeiculo(placaFinal)
+    if (kmAtual === null) return
 
     setCarregando(true)
     setMensagem('')
 
     const { error } = await supabase.from('movimentacoes').insert({
       placa: placaFinal,
-      km: Number(km),
+      km: kmAtual,
       motorista: motoristaSelecionado,
       localizacao: origemSelecionada || buscaOrigem,
       destino: destinoSelecionado,
@@ -288,6 +354,59 @@ export default function LiberacaoPage() {
     setBuscaPlaca('')
     setPlacaExterna('')
     setModeloExterno('')
+    setMotoristaSelecionado('')
+    setBuscaMotorista('')
+    setDestinoSelecionado('')
+    setBuscaDestino('')
+    setKm('')
+    setDataHora('')
+  }
+
+  async function registrarEntradaVeiculoInterno(e?: React.FormEvent) {
+    e?.preventDefault()
+    const placaFinal = veiculoSelecionado?.NR_PLACA
+
+    if (!placaFinal) {
+      setMensagem('Selecione um veículo da lista')
+      return
+    }
+    if (!motoristaSelecionado) {
+      setMensagem('Selecione um motorista')
+      return
+    }
+    if (!km || !dataHora) {
+      setMensagem('Preencha KM e data/hora')
+      return
+    }
+    const kmAtual = await validarKmVeiculo(placaFinal)
+    if (kmAtual === null) return
+
+    setCarregando(true)
+    setMensagem('')
+
+    const { error } = await supabase.from('movimentacoes').insert({
+      placa: placaFinal,
+      km: kmAtual,
+      motorista: motoristaSelecionado,
+      localizacao: origemSelecionada || buscaOrigem,
+      destino: null,
+      status: 'em_rota',
+      liberado_por: 'Gestor',
+      liberado_em: new Date(dataHora).toISOString(),
+      saida_em: new Date(dataHora).toISOString(),
+      tipo_veiculo: 'interno',
+    })
+
+    setCarregando(false)
+
+    if (error) {
+      setMensagem('Erro ao registrar entrada: ' + error.message)
+      return
+    }
+
+    setMensagem('Entrada liberada com sucesso! A Portaria ja pode registrar a entrada do veiculo interno.')
+    setVeiculoSelecionado(null)
+    setBuscaPlaca('')
     setMotoristaSelecionado('')
     setBuscaMotorista('')
     setDestinoSelecionado('')
@@ -392,13 +511,15 @@ export default function LiberacaoPage() {
           <div data-banner className="absolute inset-0 flex items-end pb-4 px-8">
             <div>
               <h1 className="text-xl font-bold text-white tracking-tight">
-                {tipoVeiculo === 'transferencia' ? 'Transferência de Bases' : 
-                 tipoVeiculo === 'pedestre' ? 'Liberação de Pedestres / Visitantes' : 'Liberação Portaria'}
+                {tipoVeiculo === 'transferencia' ? 'Transferencia de Bases' :
+                 tipoVeiculo === 'pedestre' ? 'Liberacao de Pedestres / Visitantes' :
+                 tipoVeiculo === 'veiculo_interno' ? 'Entrada de Veiculo Interno' : 'Liberacao Portaria'}
               </h1>
               <p className="text-sm text-emerald-300 mt-0.5">
-                {tipoVeiculo === 'transferencia' ? 'Mudança definitiva de base (não fica em rota)' :
-                 tipoVeiculo === 'pedestre' ? 'Autorize a entrada de terceiros, visitantes e funcionários sem veículo' :
-                 'Autorize a saída de veículos internos ou externos'}
+                {tipoVeiculo === 'transferencia' ? 'Mudanca definitiva de base (nao fica em rota)' :
+                 tipoVeiculo === 'pedestre' ? 'Autorize a entrada de terceiros, visitantes e funcionarios sem veiculo' :
+                 tipoVeiculo === 'veiculo_interno' ? 'Registre a entrada de veiculos internos da empresa' :
+                 'Autorize a saida de veiculos internos ou externos'}
               </p>
             </div>
           </div>
@@ -409,87 +530,80 @@ export default function LiberacaoPage() {
           <main className="p-6">
             <div className="max-w-6xl mx-auto">
               <div className="flex gap-3 mb-4 overflow-x-auto pb-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setTipoVeiculo('interno')
-                  setMensagem('')
-                }}
-                className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-200 border ${
-                  tipoVeiculo === 'interno'
-                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.25)]'
-                    : 'bg-[#0f1c2e] border-white/10 text-slate-400 hover:border-emerald-500/30 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] hover:-translate-y-0.5'
-                }`}
-              >
-                Veículo da Empresa
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setTipoVeiculo('externo')
-                  setMensagem('')
-                }}
-                className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-200 border ${
-                  tipoVeiculo === 'externo'
-                    ? 'bg-orange-500/15 border-orange-500/40 text-orange-300 shadow-[0_0_20px_rgba(249,115,22,0.25)]'
-                    : 'bg-[#0f1c2e] border-white/10 text-slate-400 hover:border-orange-500/30 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] hover:-translate-y-0.5'
-                }`}
-              >
-                Veículo Externo
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setTipoVeiculo('pedestre')
-                  setMensagem('')
-                }}
-                className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-200 border ${
-                  tipoVeiculo === 'pedestre'
-                    ? 'bg-purple-500/15 border-purple-500/40 text-purple-300 shadow-[0_0_20px_rgba(168,85,247,0.25)]'
-                    : 'bg-[#0f1c2e] border-white/10 text-slate-400 hover:border-purple-500/30 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] hover:-translate-y-0.5'
-                }`}
-              >
-                Pedestres / Visitantes
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setTipoVeiculo('transferencia')
-                  setMensagem('')
-                }}
-                className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-200 border ${
-                  tipoVeiculo === 'transferencia'
-                    ? 'bg-blue-500/15 border-blue-500/40 text-blue-300 shadow-[0_0_20px_rgba(59,130,246,0.25)]'
-                    : 'bg-[#0f1c2e] border-white/10 text-slate-400 hover:border-blue-500/30 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] hover:-translate-y-0.5'
-                }`}
-              >
-                Transferência de Bases
-              </button>
-            </div>
+                {podeVeiculoEmpresa && (
+                  <button
+                    type="button"
+                    onClick={() => { setTipoVeiculo('interno'); setMensagem('') }}
+                    className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-200 border ${tipoVeiculo === 'interno' ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.25)]' : 'bg-[#0f1c2e] border-white/10 text-slate-400 hover:border-emerald-500/30 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] hover:-translate-y-0.5'}`}
+                  >
+                    Veiculo da Empresa
+                  </button>
+                )}
+                {podeVeiculoExterno && (
+                  <button
+                    type="button"
+                    onClick={() => { setTipoVeiculo('externo'); setMensagem('') }}
+                    className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-200 border ${tipoVeiculo === 'externo' ? 'bg-orange-500/15 border-orange-500/40 text-orange-300 shadow-[0_0_20px_rgba(249,115,22,0.25)]' : 'bg-[#0f1c2e] border-white/10 text-slate-400 hover:border-orange-500/30 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] hover:-translate-y-0.5'}`}
+                  >
+                    Veiculo Externo
+                  </button>
+                )}
+                {podePedestre && (
+                  <button
+                    type="button"
+                    onClick={() => { setTipoVeiculo('pedestre'); setMensagem('') }}
+                    className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-200 border ${tipoVeiculo === 'pedestre' ? 'bg-purple-500/15 border-purple-500/40 text-purple-300 shadow-[0_0_20px_rgba(168,85,247,0.25)]' : 'bg-[#0f1c2e] border-white/10 text-slate-400 hover:border-purple-500/30 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] hover:-translate-y-0.5'}`}
+                  >
+                    Pedestres / Visitantes
+                  </button>
+                )}
+                {podeTransferencia && (
+                  <button
+                    type="button"
+                    onClick={() => { setTipoVeiculo('transferencia'); setMensagem('') }}
+                    className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-200 border ${tipoVeiculo === 'transferencia' ? 'bg-blue-500/15 border-blue-500/40 text-blue-300 shadow-[0_0_20px_rgba(59,130,246,0.25)]' : 'bg-[#0f1c2e] border-white/10 text-slate-400 hover:border-blue-500/30 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] hover:-translate-y-0.5'}`}
+                  >
+                    Transferencia de Bases
+                  </button>
+                )}
+                {podeVeiculoInterno && (
+                  <button
+                    type="button"
+                    onClick={() => { setTipoVeiculo('veiculo_interno'); setMensagem('') }}
+                    className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-200 border ${tipoVeiculo === 'veiculo_interno' ? 'bg-sky-500/15 border-sky-500/40 text-sky-300 shadow-[0_0_20px_rgba(14,165,233,0.25)]' : 'bg-[#0f1c2e] border-white/10 text-slate-400 hover:border-sky-500/30 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] hover:-translate-y-0.5'}`}
+                  >
+                    Veiculo Interno
+                  </button>
+                )}
+              </div>
 
             <div key={tipoVeiculo} className="animate-tab bg-[#0f1c2e] rounded-2xl border border-emerald-500/15 overflow-visible">
               <div className="px-6 py-3 border-b border-white/5 bg-[#132337]/60 flex items-center justify-between rounded-t-2xl">
                 <div>
                   <h2 className="text-sm font-semibold text-white">
-                    {tipoVeiculo === 'transferencia' ? 'Nova Transferência' : 
-                     tipoVeiculo === 'pedestre' ? 'Liberar Entrada de Pedestre' : 'Nova Autorização de Saída'}
+                    {tipoVeiculo === 'transferencia' ? 'Nova Transferencia' :
+                     tipoVeiculo === 'pedestre' ? 'Liberar Entrada de Pedestre' :
+                     tipoVeiculo === 'veiculo_interno' ? 'Registrar Entrada de Veiculo Interno' : 'Nova Autorizacao de Saida'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
                     {tipoVeiculo === 'interno' && 'Frota própria Filtroamb'}
                     {tipoVeiculo === 'externo' && 'Veículo de terceiro / visitante'}
                     {tipoVeiculo === 'pedestre' && 'Pessoas entrando a pé ou visitantes que deixam o carro fora'}
                     {tipoVeiculo === 'transferencia' && 'Use quando o veículo muda de base de trabalho'}
+                    {tipoVeiculo === 'veiculo_interno' && 'Entrada de veiculo interno da empresa'}
                   </p>
                 </div>
                 <span className={`text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full ${
                   tipoVeiculo === 'interno' ? 'bg-emerald-500/15 text-emerald-300' :
                   tipoVeiculo === 'externo' ? 'bg-orange-500/15 text-orange-300' :
                   tipoVeiculo === 'pedestre' ? 'bg-purple-500/15 text-purple-300' :
+                  tipoVeiculo === 'veiculo_interno' ? 'bg-sky-500/15 text-sky-300' :
                   'bg-blue-500/15 text-blue-300'
                 }`}>
                   {tipoVeiculo === 'interno' ? 'Interno' : 
                    tipoVeiculo === 'externo' ? 'Externo' : 
-                   tipoVeiculo === 'pedestre' ? 'Pedestre' : 'Transferência'}
+                   tipoVeiculo === 'pedestre' ? 'Pedestre' :
+                   tipoVeiculo === 'veiculo_interno' ? 'Veiculo Interno' : 'Transferencia'}
                 </span>
               </div>
 
@@ -831,7 +945,7 @@ export default function LiberacaoPage() {
                   /* ======= FORMULÁRIO DE LIBERAÇÃO ======= */
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                     <div className="space-y-4">
-                      {tipoVeiculo === 'interno' ? (
+                      {(tipoVeiculo === 'interno' || tipoVeiculo === 'veiculo_interno') ? (
                         <div data-dropdown className="relative">
                           <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Veículo</label>
                           <input
@@ -908,9 +1022,11 @@ export default function LiberacaoPage() {
                         <div data-dropdown>
                           <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">KM Atual</label>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             value={km}
-                            onChange={(e) => setKm(e.target.value)}
+                            onChange={(e) => setKm(e.target.value.replace(/\D/g, ''))}
                             placeholder="0"
                             className="w-full px-4 py-2.5 bg-[#132337] border border-emerald-500/20 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition"
                           />
@@ -926,7 +1042,7 @@ export default function LiberacaoPage() {
                         </div>
                       </div>
 
-                      {MotoristaDropdown(false)}
+                      {tipoVeiculo !== 'veiculo_interno' && MotoristaDropdown(false)}
                     </div>
 
                     <div className="space-y-4">
@@ -988,76 +1104,88 @@ export default function LiberacaoPage() {
                         )}
                       </div>
 
-                      <div data-dropdown className="relative">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Destino</label>
-                          <button type="button" onClick={() => setMostrarFormDestino(!mostrarFormDestino)} className="text-xs text-emerald-400">
-                            + Cadastrar
-                          </button>
-                        </div>
-                        {mostrarFormDestino && (
-                          <div className="mb-2 flex gap-2">
-                            <input
-                              type="text"
-                              value={novoDestino}
-                              onChange={(e) => setNovoDestino(e.target.value)}
-                              placeholder="Novo destino..."
-                              className="flex-1 px-3 py-2 bg-[#132337] border border-emerald-500/20 rounded-lg text-sm text-white"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => cadastrarItem('destinos', novoDestino, setBuscaDestino, setDestinoSelecionado, setMostrarFormDestino, setNovoDestino)}
-                              className="px-3 py-2 bg-emerald-500 text-[#0a1625] text-sm font-semibold rounded-lg"
-                            >
-                              Salvar
+                      {tipoVeiculo === 'veiculo_interno' ? (
+                        MotoristaDropdown(false)
+                      ) : (
+                        <div data-dropdown className="relative">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Destino</label>
+                            <button type="button" onClick={() => setMostrarFormDestino(!mostrarFormDestino)} className="text-xs text-emerald-400">
+                              + Cadastrar
                             </button>
                           </div>
-                        )}
-                        <input
-                          type="text"
-                          value={buscaDestino}
-                          onChange={(e) => {
-                            setBuscaDestino(e.target.value)
-                            setDestinoSelecionado('')
-                            setMostrarListaDestino(true)
-                          }}
-                          onFocus={() => setMostrarListaDestino(true)}
-                          placeholder="Buscar destino..."
-                          className="w-full px-4 py-2.5 bg-[#132337] border border-emerald-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition"
-                        />
-                        {mostrarListaDestino && !destinoSelecionado && (
-                          <div className="absolute z-20 w-full mt-1.5 bg-[#132337] border border-emerald-500/25 rounded-xl shadow-2xl max-h-40 overflow-auto">
-                            {destinos
-                              .filter((d) => d.nome.toLowerCase().includes(buscaDestino.toLowerCase()))
-                              .map((d) => (
-                                <button
-                                  key={d.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setDestinoSelecionado(d.nome)
-                                    setBuscaDestino(d.nome)
-                                    setMostrarListaDestino(false)
-                                  }}
-                                  className="w-full text-left px-4 py-2.5 hover:bg-emerald-500/10 text-sm text-slate-200 border-b border-white/5 last:border-0"
-                                >
-                                  {d.nome}
-                                </button>
-                              ))}
-                          </div>
-                        )}
-                      </div>
+                          {mostrarFormDestino && (
+                            <div className="mb-2 flex gap-2">
+                              <input
+                                type="text"
+                                value={novoDestino}
+                                onChange={(e) => setNovoDestino(e.target.value)}
+                                placeholder="Novo destino..."
+                                className="flex-1 px-3 py-2 bg-[#132337] border border-emerald-500/20 rounded-lg text-sm text-white"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => cadastrarItem('destinos', novoDestino, setBuscaDestino, setDestinoSelecionado, setMostrarFormDestino, setNovoDestino)}
+                                className="px-3 py-2 bg-emerald-500 text-[#0a1625] text-sm font-semibold rounded-lg"
+                              >
+                                Salvar
+                              </button>
+                            </div>
+                          )}
+                          <input
+                            type="text"
+                            value={buscaDestino}
+                            onChange={(e) => {
+                              setBuscaDestino(e.target.value)
+                              setDestinoSelecionado('')
+                              setMostrarListaDestino(true)
+                            }}
+                            onFocus={() => setMostrarListaDestino(true)}
+                            placeholder="Buscar destino..."
+                            className="w-full px-4 py-2.5 bg-[#132337] border border-emerald-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition"
+                          />
+                          {mostrarListaDestino && !destinoSelecionado && (
+                            <div className="absolute z-20 w-full mt-1.5 bg-[#132337] border border-emerald-500/25 rounded-xl shadow-2xl max-h-40 overflow-auto">
+                              {destinos
+                                .filter((d) => d.nome.toLowerCase().includes(buscaDestino.toLowerCase()))
+                                .map((d) => (
+                                  <button
+                                    key={d.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setDestinoSelecionado(d.nome)
+                                      setBuscaDestino(d.nome)
+                                      setMostrarListaDestino(false)
+                                    }}
+                                    className="w-full text-left px-4 py-2.5 hover:bg-emerald-500/10 text-sm text-slate-200 border-b border-white/5 last:border-0"
+                                  >
+                                    {d.nome}
+                                  </button>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       <div className="pt-2">
                         <button
                           type="submit"
                           disabled={carregando}
                           className={`w-full font-semibold py-3 rounded-xl transition ${
-                            tipoVeiculo === 'interno'
+                            tipoVeiculo === 'veiculo_interno'
+                              ? 'bg-sky-500 hover:bg-sky-400 text-white shadow-[0_0_20px_rgba(14,165,233,0.25)]'
+                              : tipoVeiculo === 'interno'
                               ? 'bg-emerald-500 hover:bg-emerald-400 text-[#0a1625] shadow-[0_0_20px_rgba(16,185,129,0.25)]'
                               : 'bg-orange-500 hover:bg-orange-400 text-[#0a1625] shadow-[0_0_20px_rgba(249,115,22,0.25)]'
                           } disabled:opacity-40`}
                         >
-                          {carregando ? 'Liberando...' : tipoVeiculo === 'interno' ? 'Liberar Veículo da Empresa' : 'Liberar Veículo Externo'}
+                          {carregando
+                            ? tipoVeiculo === 'veiculo_interno' ? 'Registrando...' : 'Liberando...'
+                            : tipoVeiculo === 'veiculo_interno'
+                              ? 'Registrar Entrada de Veiculo Interno'
+                              : tipoVeiculo === 'interno'
+                                ? 'Liberar Veiculo da Empresa'
+                                : 'Liberar Veiculo Externo'}
                         </button>
                       </div>
 

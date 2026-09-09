@@ -1,7 +1,6 @@
 import { clerkClient, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
-
-const PERMISSOES = ['veiculos', 'portaria', 'liberacao', 'transferencia', 'encomendas'] as const
+import { PERMISSOES, type Permissao } from '@/lib/roles'
 
 function isDev(user: Awaited<ReturnType<typeof currentUser>>) {
   return user?.publicMetadata?.role === 'dev'
@@ -9,7 +8,7 @@ function isDev(user: Awaited<ReturnType<typeof currentUser>>) {
 
 function limparPermissoes(valor: unknown) {
   if (!Array.isArray(valor)) return []
-  return valor.filter((item): item is (typeof PERMISSOES)[number] => PERMISSOES.includes(item))
+  return valor.filter((item): item is Permissao => PERMISSOES.includes(item))
 }
 
 export async function GET() {

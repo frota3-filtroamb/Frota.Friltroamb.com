@@ -1,10 +1,9 @@
 import { clerkClient, currentUser } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { PERMISSOES, type Permissao } from '@/lib/roles'
 
-const PERMISSOES = ['veiculos', 'portaria', 'liberacao', 'transferencia', 'encomendas'] as const
 const ROLES = ['dev', 'gestor', 'porteiro'] as const
 
-type Permissao = (typeof PERMISSOES)[number]
 type Role = (typeof ROLES)[number]
 
 type Body = {
