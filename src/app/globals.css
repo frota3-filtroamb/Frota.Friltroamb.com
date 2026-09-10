@@ -26,25 +26,25 @@ body {
 }
 
 /* ================================================================
-   MODO CLARO — clean
+   MODO CLARO — 
    ================================================================ */
 
 html.light body {
-  background: #f1f5f9 !important;
+  background: #f9f2f1 !important;
   color: #2a0f0f !important;
 }
 
 /* ── Fundos principais ─────────────────────────────────────────── */
-
+/* ── fundo tabela ───────────────────────────────────────────────────── */
 html.light .bg-\[\#0a1625\] {
   background-color: #f1f5f9 !important;
 }
-
+/* ── cor de fundo, sidebar, baixo banner ───────────────────────────────────────────────────── */
 html.light .bg-\[\#0b1f33\] {
   background-color: #e2e8f0 !important;
 }
 
-/* Card externo (wrapper do formulário) */
+/* ── cor das celulas da tabela ───────────────────────────────────────────────────── */
 html.light .bg-\[\#0f1c2e\] {
   background-color: #f8fafc !important;
 }
@@ -53,9 +53,9 @@ html.light .bg-\[\#0f1c2e\] {
 html.light .bg-\[\#132337\]\/60 {
   background-color: #e9eef4 !important;
 }
-
+/* ── cor do card da tabela e da pesquisa ─────────────────────────────────────────────── */
 html.light .bg-\[\#132337\] {
-  background-color: #e9eef4 !important;
+  background-color: #dfe1e2 !important;
 }
 
 /* ── Sidebar ───────────────────────────────────────────────────── */
@@ -73,7 +73,7 @@ html.light aside .text-slate-500,
 html.light aside .text-emerald-300 {
   color: #553333 !important;
 }
-
+/* ── cor do texto ao passar o mouse ─────────────────────────────────────────────── */
 html.light aside a:hover,
 html.light aside button:hover {
   background-color: #cbd5e1 !important;
@@ -83,19 +83,19 @@ html.light aside button:hover {
 /* ── Textos gerais ─────────────────────────────────────────────── */
 
 html.light .text-white {
-  color: #2a0f0f !important;
+  color: #333333 !important;
 }
-
+/* ── cores dos textos tabela, modelo, ano, cor. ─────────────────────────────────────────────── */
 html.light .text-slate-300,
 html.light .text-slate-400,
 html.light .text-slate-500,
 html.light .text-slate-600 {
-  color: #694747 !important;
+  color: #333333 !important;
 }
-
+/* ── cores das placas tabela veiculos ─────────────────────────────────────────────── */
 html.light .text-emerald-300,
 html.light .text-emerald-400 {
-  color: #047857 !important;
+  color: #333333 !important;
 }
 
 html.light .text-orange-300 {

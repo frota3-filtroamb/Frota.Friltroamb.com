@@ -23,7 +23,7 @@ export default function Page() {
         {/* Logo */}
         <div className="flex justify-center mb-6">
           <img
-            src="/images/logo-filtroamb.png"
+            src="/images/logo-filtroamb-light.png"
             alt="Filtroamb"
             className="h-12 w-auto object-contain drop-shadow-lg"
           />
