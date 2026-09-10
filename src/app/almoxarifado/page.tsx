@@ -234,14 +234,26 @@ export default function AlmoxarifadoPage() {
 
   async function registrarMovimento(e: React.FormEvent) {
     e.preventDefault()
-    const item = itens.find((registro) => String(registro.id) === itemMovimentoId)
+    const itemSelecionado = itens.find((registro) => String(registro.id) === itemMovimentoId)
     const quantidade = Number(quantidadeMovimento)
 
-    if (!item || !Number.isFinite(quantidade) || quantidade <= 0) {
+    if (!itemSelecionado || !Number.isFinite(quantidade) || quantidade <= 0) {
       setMensagem('Selecione um item e informe uma quantidade maior que zero.')
       return
     }
 
+    const { data: itemAtual, error: buscaError } = await supabase
+      .from('estoque_itens')
+      .select('*')
+      .eq('id', itemSelecionado.id)
+      .single()
+
+    if (buscaError || !itemAtual) {
+      setMensagem('Erro ao buscar saldo atual: ' + (buscaError?.message || 'item nao encontrado.'))
+      return
+    }
+
+    const item = itemAtual as EstoqueItem
     const saldoAtual = numero(item.quantidade)
     const novoSaldo = tipoMovimento === 'entrada' ? saldoAtual + quantidade : saldoAtual - quantidade
 
@@ -253,6 +265,19 @@ export default function AlmoxarifadoPage() {
     setSalvando(true)
     setMensagem('')
 
+    const { data: itemAtualizado, error: itemError } = await supabase
+      .from('estoque_itens')
+      .update({ quantidade: novoSaldo })
+      .eq('id', item.id)
+      .select('id, quantidade')
+      .single()
+
+    if (itemError || !itemAtualizado) {
+      setSalvando(false)
+      setMensagem('Erro ao atualizar saldo: ' + (itemError?.message || 'item nao atualizado.'))
+      return
+    }
+
     const { error: movError } = await supabase.from('estoque_movimentos').insert({
       item_id: item.id,
       tipo: tipoMovimento,
@@ -262,27 +287,19 @@ export default function AlmoxarifadoPage() {
       criado_por: usuarioAtual,
     })
 
-    if (!movError) {
-      const { error: itemError } = await supabase.from('estoque_itens').update({ quantidade: novoSaldo }).eq('id', item.id)
-      if (itemError) {
-        setSalvando(false)
-        setMensagem('Movimento gravado, mas erro ao atualizar saldo: ' + itemError.message)
-        return
-      }
-    }
-
     setSalvando(false)
 
     if (movError) {
-      setMensagem('Erro ao registrar movimento: ' + movError.message)
+      setMensagem('Saldo atualizado, mas erro ao registrar historico: ' + movError.message)
       return
     }
 
+    setItens((atuais) => atuais.map((registro) => (registro.id === item.id ? { ...registro, quantidade: novoSaldo } : registro)))
     setMensagem('Movimento registrado com sucesso.')
     setItemMovimentoId('')
     setQuantidadeMovimento('')
     setObservacaoMovimento('')
-    carregar()
+    await carregar()
   }
 
   async function criarOrdem(e: React.FormEvent) {

@@ -66,19 +66,21 @@ return (
       </div>
     </header>
 
-    <main className="animate-tab flex-1 min-h-0 overflow-hidden p-6 bg-[#0a1625]" style={{ zoom: 0.95 }}>
+    <main className="animate-tab flex-1 min-h-0 overflow-hidden p-6 bg-[#0a1625]" style={{ zoom: 0.90 }}>
       <div className="flex h-full min-h-0 flex-col bg-[#0f1c2e] rounded-2xl border border-emerald-500/15 shadow-[0_0_30px_rgba(16,185,129,0.05)] overflow-hidden">
         <div className="flex-1 min-h-0 overflow-auto">
-          <table className="min-w-full text-sm">
+
+
+          <table className="w-full table-fixed text-sm">
             <thead>
               <tr className="sticky top-0 z-10 bg-[#132337] border-b border-emerald-500/15">
-                <th className="px-6 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Placa</th>
-                <th className="px-6 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Modelo</th>
-                <th className="px-6 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Marca</th>
-                <th className="px-6 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Ano</th>
-                <th className="px-6 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Cor</th>
-                <th className="px-6 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Combustível</th>
-                <th className="px-6 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Tipo</th>
+                <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider">Placa</th>
+                <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider">Modelo</th>
+                <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider">Marca</th>
+                <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider">Ano</th>
+                <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider">Cor</th>
+                <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider">Combustível</th>
+                <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider">Tipo</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -87,13 +89,13 @@ return (
                   key={`${v.NR_PLACA}-${index}`}
                   className="hover:bg-emerald-500/5 transition-colors"
                 >
-                  <td className="px-6 py-3.5 font-medium text-emerald-300">{v.NR_PLACA}</td>
-                  <td className="px-6 py-3.5 text-slate-300">{v.DS_MODELO || '—'}</td>
-                  <td className="px-6 py-3.5 text-slate-300">{v.DS_MARCA || '—'}</td>
-                  <td className="px-6 py-3.5 text-slate-400">{v.NR_ANO_MODELO || '—'}</td>
-                  <td className="px-6 py-3.5 text-slate-400">{v.DS_COR || '—'}</td>
-                  <td className="px-6 py-3.5 text-slate-400">{v.DS_COMBUSTIVEL || '—'}</td>
-                  <td className="px-6 py-3.5 text-slate-400">{v.DS_TIPOVEICULO || '—'}</td>
+                  <td className="px-4 py-3.5 text-center font-medium text-emerald-300">{v.NR_PLACA}</td>
+                  <td className="px-4 py-3.5 text-center text-slate-300">{v.DS_MODELO || '—'}</td>
+                  <td className="px-4 py-3.5 text-center text-slate-300">{v.DS_MARCA || '—'}</td>
+                  <td className="px-4 py-3.5 text-center text-slate-400">{v.NR_ANO_MODELO || '—'}</td>
+                  <td className="px-4 py-3.5 text-center text-slate-400">{v.DS_COR || '—'}</td>
+                  <td className="px-4 py-3.5 text-center text-slate-400">{v.DS_COMBUSTIVEL || '—'}</td>
+                  <td className="px-4 py-3.5 text-center text-slate-400">{v.DS_TIPOVEICULO || '—'}</td>
                 </tr>
               ))}
             </tbody>
