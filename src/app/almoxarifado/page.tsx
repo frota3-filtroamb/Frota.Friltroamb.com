@@ -463,7 +463,7 @@ export default function AlmoxarifadoPage() {
                         setAba(item.id)
                         setMensagem('')
                       }}
-                      className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
+                      className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap hover:-translate-y-0.5 active:translate-y-0 hover:shadow-md cursor-pointer ${
                         aba === item.id ? 'bg-cyan-500 text-[#0a1625] shadow-sm' : 'text-slate-400 hover:text-white'
                       }`}
                     >

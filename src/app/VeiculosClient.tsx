@@ -74,7 +74,7 @@ export default function VeiculosClient({ veiculos }: { veiculos: Veiculo[] }) {
             <table className="w-full table-fixed text-sm">
               <thead>
                 <tr className="sticky top-0 z-10 bg-[#132337] border-b border-emerald-500/15">
-                  <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider">Placa</th>
+                  <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Placa</th>
                   <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider">Modelo</th>
                   <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider">Marca</th>
                   <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider">Ano</th>
@@ -89,7 +89,7 @@ export default function VeiculosClient({ veiculos }: { veiculos: Veiculo[] }) {
                     key={`${v.NR_PLACA}-${index}`}
                     className="hover:bg-emerald-500/5 transition-colors"
                   >
-                    <td className="px-4 py-3.5 text-center font-medium text-emerald-300">{v.NR_PLACA}</td>
+                    <td className="px-4 py-3.5 text-center font-medium text-emerald-300 whitespace-nowrap">{v.NR_PLACA}</td>
                     <td className="px-4 py-3.5 text-center text-slate-300">{v.DS_MODELO || '—'}</td>
                     <td className="px-4 py-3.5 text-center text-slate-300">{v.DS_MARCA || '—'}</td>
                     <td className="px-4 py-3.5 text-center text-slate-400">{v.NR_ANO_MODELO || '—'}</td>

@@ -26,120 +26,404 @@ body {
 }
 
 /* ================================================================
-   MODO CLARO — 
+   Impede que a placa quebre em 2 linhas em qualquer resolução/zoom
+   ================================================================ */
+[data-placa],
+.placa-badge,
+th:has(.placa),
+td:has(.placa),
+.whitespace-nowrap {
+  white-space: nowrap !important;
+}
+
+/* ================================================================
+   BLOCO 1: MODO ESCURO (DARK MODE)
+   Valores padrão quando o tema escuro está ativo
    ================================================================ */
 
-html.light body {
-  background: #f9f2f1 !important;
-  color: #2a0f0f !important;
+/* 1.1 Fundo Geral da Aplicação */
+html:not(.light) body,
+html:not(.light) .bg-\[\#0a1625\] {
+  background-color: #0a1625 !important;
+  color: #f8fafc !important;
 }
 
-/* ── Fundos principais ─────────────────────────────────────────── */
-/* ── fundo tabela ───────────────────────────────────────────────────── */
+/* 1.2 Sidebar e Navegação */
+html:not(.light) aside,
+html:not(.light) .bg-\[\#0b1f33\] {
+  background-color: #0b1f33 !important;
+  border-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+html:not(.light) aside .text-white {
+  color: #ffffff !important;
+}
+
+html:not(.light) aside .text-slate-300 {
+  color: #cbd5e1 !important;
+}
+
+html:not(.light) aside .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+html:not(.light) aside .text-slate-500 {
+  color: #64748b !important;
+}
+
+html:not(.light) aside a:hover,
+html:not(.light) aside button:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  color: #ffffff !important;
+}
+
+html:not(.light) aside .bg-emerald-500\/15 {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  color: #6ee7b7 !important;
+}
+
+/* 1.3 Cards e Containers Principais */
+html:not(.light) .bg-\[\#0f1c2e\] {
+  background-color: #0f1c2e !important;
+  border-color: rgba(16, 185, 129, 0.15) !important;
+}
+
+/* 1.4 Cabeçalhos de Tabelas e Barras de Pesquisa */
+html:not(.light) .bg-\[\#132337\] {
+  background-color: #132337 !important;
+}
+
+html:not(.light) .bg-\[\#132337\]\/60 {
+  background-color: rgba(19, 35, 55, 0.6) !important;
+}
+
+/* 1.5 Textos Gerais e Títulos */
+html:not(.light) .text-white {
+  color: #ffffff !important;
+}
+
+html:not(.light) .text-slate-300 {
+  color: #cbd5e1 !important;
+}
+
+html:not(.light) .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+html:not(.light) .text-slate-500 {
+  color: #64748b !important;
+}
+
+html:not(.light) .text-slate-600 {
+  color: #475569 !important;
+}
+
+/* 1.6 Placas e Cores de Destaque */
+html:not(.light) .text-emerald-300 {
+  color: #6ee7b7 !important;
+}
+
+html:not(.light) .text-emerald-400 {
+  color: #34d399 !important;
+}
+
+html:not(.light) .text-orange-300 {
+  color: #fdba74 !important;
+}
+
+html:not(.light) .text-blue-300 {
+  color: #93c5fd !important;
+}
+
+html:not(.light) .text-red-300 {
+  color: #fca5a5 !important;
+}
+
+html:not(.light) .text-purple-300 {
+  color: #d8b4fe !important;
+}
+
+html:not(.light) .text-purple-400 {
+  color: #c084fc !important;
+}
+
+html:not(.light) .text-cyan-300 {
+  color: #67e8f9 !important;
+}
+
+/* 1.7 Badges e Indicadores de Status */
+html:not(.light) .bg-emerald-500\/10 {
+  background-color: rgba(16, 185, 129, 0.10) !important;
+  border-color: rgba(16, 185, 129, 0.20) !important;
+  color: #6ee7b7 !important;
+}
+
+html:not(.light) .bg-orange-500\/15 {
+  background-color: rgba(249, 115, 22, 0.15) !important;
+  border-color: rgba(249, 115, 22, 0.20) !important;
+  color: #fdba74 !important;
+}
+
+html:not(.light) .bg-blue-500\/15 {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+  border-color: rgba(59, 130, 246, 0.20) !important;
+  color: #93c5fd !important;
+}
+
+html:not(.light) .bg-purple-500\/15 {
+  background-color: rgba(168, 85, 247, 0.15) !important;
+  border-color: rgba(168, 85, 247, 0.20) !important;
+  color: #d8b4fe !important;
+}
+
+/* 1.8 Inputs e Formulários */
+html:not(.light) input,
+html:not(.light) select,
+html:not(.light) textarea {
+  background-color: #132337 !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(16, 185, 129, 0.20) !important;
+}
+
+html:not(.light) input::placeholder,
+html:not(.light) textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* 1.9 Botões de Ação */
+html:not(.light) .bg-emerald-500 {
+  background-color: #10b981 !important;
+  color: #0a1625 !important;
+}
+
+html:not(.light) .bg-orange-500 {
+  background-color: #f97316 !important;
+  color: #0a1625 !important;
+}
+
+html:not(.light) .hover\:bg-emerald-400:hover {
+  background-color: #34d399 !important;
+}
+
+html:not(.light) .hover\:bg-orange-400:hover {
+  background-color: #fb923c !important;
+}
+
+/* 1.10 Bordas e Divisores */
+html:not(.light) .divide-white\/5>*+* {
+  border-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+html:not(.light) .hover\:bg-emerald-500\/5:hover {
+  background-color: rgba(16, 185, 129, 0.05) !important;
+}
+
+
+/* ================================================================
+   BLOCO 2: MODO CLARO (LIGHT MODE)
+   ================================================================ */
+
+/* 2.1 Fundo Geral da Aplicação */
+html.light body,
 html.light .bg-\[\#0a1625\] {
-  background-color: #f1f5f9 !important;
+  background-color: #b4b3b300 !important;
+  /* Fundo suave slate-50 */
+  color: #0f172a !important;
+  /* Texto base escuro slate-900 */
 }
-/* ── cor de fundo, sidebar, baixo banner ───────────────────────────────────────────────────── */
+
+/* 2.2 Sidebar e Navegação */
+html.light aside,
 html.light .bg-\[\#0b1f33\] {
-  background-color: #e2e8f0 !important;
+  background-color: #68686821 !important;
+  /* Sidebar branca e limpa */
+  border-right: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
 }
 
-/* ── cor das celulas da tabela ───────────────────────────────────────────────────── */
-html.light .bg-\[\#0f1c2e\] {
-  background-color: #f8fafc !important;
+html.light aside .text-white {
+  color: #0f172a !important;
+  /* Nome do sistema e perfil */
 }
 
-/* Cabeçalho do card "Nova Autorização de Saída" */
-html.light .bg-\[\#132337\]\/60 {
-  background-color: #e9eef4 !important;
-}
-/* ── cor do card da tabela e da pesquisa ─────────────────────────────────────────────── */
-html.light .bg-\[\#132337\] {
-  background-color: #dfe1e2 !important;
-}
-
-/* ── Sidebar ───────────────────────────────────────────────────── */
-
-html.light aside {
-  background-color: #e2e8f0 !important;
-  border-right: 1px solid #cbd5e1 !important;
-  color: #2a100f !important;
-}
-/* Cor dos Textos da Sidebar */
-html.light aside .text-white,
 html.light aside .text-slate-300,
-html.light aside .text-slate-400,
-html.light aside .text-slate-500,
-html.light aside .text-emerald-300 {
-  color: #553333 !important;
+html.light aside .text-slate-400 {
+  color: #334155 !important;
+  /* Links do menu */
 }
-/* ── cor do texto ao passar o mouse ─────────────────────────────────────────────── */
+
+html.light aside .text-slate-500 {
+  color: #64748b !important;
+  /* Título das seções (ex: MENU) */
+}
+
 html.light aside a:hover,
 html.light aside button:hover {
-  background-color: #cbd5e1 !important;
-  color: #3cb937 !important;
+  background-color: #f1f5f9 !important;
+  /* Efeito hover nos links */
+  color: #059669 !important;
 }
 
-/* ── Textos gerais ─────────────────────────────────────────────── */
+html.light aside .bg-emerald-500\/15 {
+  background-color: #ecfdf5 !important;
+  /* Fundo do item de menu ativo */
+  color: #059669 !important;
+  /* Cor do texto do menu ativo */
+  border: 1px solid #a7f3d0 !important;
+  font-weight: 600 !important;
+}
 
+html.light aside .border-b,
+html.light aside .border-t,
+html.light aside .border-l {
+  border-color: #e2e8f0 !important;
+  /* Divisores internos da sidebar */
+}
+
+/* 2.3 Cards e Containers Principais */
+html.light .bg-\[\#0f1c2e\] {
+  background-color: #ffffff !important;
+  /* Fundo dos cards em branco puro */
+  border-color: #e2e8f0 !important;
+  /* Borda suave e elegante */
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* 2.4 Cabeçalhos de Tabelas e Barras de Pesquisa */
+html.light .bg-\[\#132337\] {
+  background-color: #645e5e2c !important;
+  /* Fundo do cabeçalho da tabela e filtros */
+  border-color: #f0e2e2 !important;
+}
+
+html.light .bg-\[\#132337\]\/60 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light thead tr {
+  background-color: #f1f5f9 !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+html.light th {
+  color: #160175 !important;
+  /* Títulos das colunas em esmeralda elegante */
+}
+
+/* 2.5 Textos Gerais e Títulos */
 html.light .text-white {
-  color: #333333 !important;
+  color: #0f172a !important;
+  /* Títulos e valores em destaque (slate-900) */
 }
-/* ── cores dos textos tabela, modelo, ano, cor. ─────────────────────────────────────────────── */
-html.light .text-slate-300,
-html.light .text-slate-400,
-html.light .text-slate-500,
+
+html.light .text-slate-300 {
+  color: #334155 !important;
+  /* Textos principais da tabela */
+}
+
+html.light .text-slate-400 {
+  color: #475569 !important;
+  /* Textos secundários (ex: modelo, ano) */
+}
+
+html.light .text-slate-500 {
+  color: #64748b !important;
+  /* Horários e datas */
+}
+
 html.light .text-slate-600 {
-  color: #333333 !important;
-}
-/* ── cores das placas tabela veiculos ─────────────────────────────────────────────── */
-html.light .text-emerald-300,
-html.light .text-emerald-400 {
-  color: #333333 !important;
+  color: #94a3b8 !important;
+  /* Textos desabilitados ou neutros */
 }
 
-html.light .text-orange-300 {
-  color: #c2410c !important;
-}
-
-html.light .text-blue-300 {
-  color: #1d4ed8 !important;
-}
-
-html.light .text-red-300 {
-  color: #b91c1c !important;
-}
-
-/* Títulos no banner  */
-/* O banner usa a classe drop-shadow que é exclusiva do overlay */
+/* Textos sobre o Banner Fotográfico (permanecem brancos com sombra) */
 html.light [data-banner] h1,
 html.light [data-banner] h2,
 html.light [data-banner] p {
   color: #ffffff !important;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6) !important;
 }
 
-/*  Labels dos campos (Veículo, KM Atual, Motorista, etc.)  */
+html.light [data-banner] .text-emerald-300 {
+  color: #6ee7b7 !important;
+}
 
+/* 2.6 Placas e Cores de Destaque */
+html.light .text-emerald-300,
+html.light .text-emerald-400 {
+  color: #0f037a !important;
+  font-weight: 600;
+}
+
+html.light .text-orange-300 {
+  color: #c2410c !important;
+  /* Laranja escuro para status aguardando */
+  font-weight: 600;
+}
+
+html.light .text-blue-300 {
+  color: #1d4ed8 !important;
+  /* Azul escuro para status em rota / interno */
+  font-weight: 600;
+}
+
+html.light .text-purple-300,
+html.light .text-purple-400 {
+  color: #7e22ce !important;
+  /* Roxo para visitantes/pedestres */
+  font-weight: 600;
+}
+
+html.light .text-cyan-300 {
+  color: #0e7490 !important;
+  /* Ciano para almoxarifado */
+  font-weight: 600;
+}
+
+html.light .text-red-300 {
+  color: #b91c1c !important;
+  /* Vermelho para avisos de erro */
+  font-weight: 600;
+}
+
+/* 2.7 Badges e Indicadores de Status */
+html.light .bg-emerald-500\/10,
+html.light .bg-emerald-500\/15 {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+  color: #047857 !important;
+}
+
+html.light .bg-orange-500\/15 {
+  background-color: #fff7ed !important;
+  border-color: #fed7aa !important;
+  color: #c2410c !important;
+}
+
+html.light .bg-blue-500\/15 {
+  background-color: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  color: #1d4ed8 !important;
+}
+
+html.light .bg-purple-500\/15 {
+  background-color: #faf5ff !important;
+  border-color: #e9d5ff !important;
+  color: #7e22ce !important;
+}
+
+html.light .bg-red-500\/10 {
+  background-color: #fef2f2 !important;
+  border-color: #fecaca !important;
+  color: #b91c1c !important;
+}
+
+/* 2.8 Inputs e Formulários */
 html.light label {
   color: #1e293b !important;
-  font-weight: 700 !important;
+  font-weight: 600 !important;
 }
-
-/* ── Bordas ────────────────────────────────────────────────────── */
-
-html.light .border-emerald-500\/10,
-html.light .border-emerald-500\/15,
-html.light .border-emerald-500\/20,
-html.light .border-emerald-500\/25,
-html.light .border-orange-500\/20,
-html.light .border-blue-500\/20,
-html.light .border-white\/5,
-html.light .border-white\/10 {
-  border-color: #cbd5e1 !important;
-}
-
-/* ── Inputs e campos de formulário ─────────────────────────────── */
 
 html.light input,
 html.light select,
@@ -153,9 +437,9 @@ html.light textarea {
 html.light input:focus,
 html.light select:focus,
 html.light textarea:focus {
-  border-color: #94a3b8 !important;
+  border-color: #059669 !important;
   outline: none !important;
-  box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.25) !important;
+  box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.20) !important;
 }
 
 html.light input::placeholder,
@@ -163,81 +447,41 @@ html.light textarea::placeholder {
   color: #94a3b8 !important;
 }
 
-/* ── Dropdown de autocomplete ──────────────────────────────────── */
-
-/* Container do dropdown */
+/* Autocomplete e Dropdown flutuante */
 html.light div[class*="absolute"][class*="z-20"] {
   background-color: #ffffff !important;
   border: 1px solid #e2e8f0 !important;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.10) !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05) !important;
 }
 
-/* Cada item do dropdown */
 html.light div[class*="absolute"][class*="z-20"] button {
   background-color: transparent !important;
   color: #1e293b !important;
   border-bottom-color: #f1f5f9 !important;
-  font-weight: 500 !important;
 }
 
 html.light div[class*="absolute"][class*="z-20"] button:hover {
   background-color: #f1f5f9 !important;
-  color: #0f172a !important;
+  color: #059669 !important;
 }
 
-/* Placa em destaque dentro do dropdown */
-html.light div[class*="absolute"][class*="z-20"] .text-emerald-300 {
-  color: #1e293b !important;
-  font-weight: 700 !important;
+/* 2.9 Botões de Ação */
+html.light .bg-emerald-500 {
+  background-color: #059669 !important;
+  color: #ffffff !important;
 }
 
-/* Subtexto (modelo/marca) dentro do dropdown */
-html.light div[class*="absolute"][class*="z-20"] .text-slate-400 {
-  color: #64748b !important;
-  font-weight: 400 !important;
+html.light .hover\:bg-emerald-400:hover {
+  background-color: #10b981 !important;
 }
 
-/* ── Chip "selecionado" (veículo/motorista confirmado) ─────────── */
-
-html.light .bg-emerald-500\/10 {
-  background-color: #f0fdf4 !important;
-  border-color: #bbf7d0 !important;
-  color: #15803d !important;
+html.light .bg-orange-500 {
+  background-color: #ea580c !important;
+  color: #ffffff !important;
 }
 
-/* ── Hover nas linhas da tabela ────────────────────────────────── */
-
-html.light .hover\:bg-emerald-500\/10:hover,
-html.light .hover\:bg-emerald-500\/5:hover {
-  background-color: #f8fafc !important;
-}
-
-/* ── Divisores de linha ────────────────────────────────────────── */
-
-html.light .divide-white\/5 > * + * {
-  border-color: #f1f5f9 !important;
-}
-
-/* ── Remove sombras neon ───────────────────────────────────────── */
-
-html.light [class*="shadow-[0_0_"] {
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.07) !important;
-}
-
-/* ── Botões de toggle (Veículo da Empresa / Externo) ───────────── */
-
-html.light button[class*="bg-emerald-500\/15"] {
-  background-color: #dcfce7 !important;
-  border-color: #86efac !important;
-  color: #15803d !important;
-  box-shadow: none !important;
-}
-
-html.light button[class*="bg-orange-500\/15"] {
-  background-color: #fff7ed !important;
-  border-color: #fed7aa !important;
-  color: #c2410c !important;
-  box-shadow: none !important;
+html.light .hover\:bg-orange-400:hover {
+  background-color: #f97316 !important;
 }
 
 html.light button[class*="bg-\[#0f1c2e\]"] {
@@ -246,60 +490,37 @@ html.light button[class*="bg-\[#0f1c2e\]"] {
   color: #64748b !important;
 }
 
-/* ── Botões de ação (submit / registrar saída / entrada) ────────── */
-
-html.light .bg-emerald-500 {
-  background-color: #059669 !important;
-  color: #ffffff !important;
-  box-shadow: none !important;
+/* 2.10 Bordas e Divisores */
+html.light .border-emerald-500\/10,
+html.light .border-emerald-500\/15,
+html.light .border-emerald-500\/20,
+html.light .border-emerald-500\/25,
+html.light .border-orange-500\/20,
+html.light .border-blue-500\/20,
+html.light .border-purple-500\/15,
+html.light .border-purple-500\/20,
+html.light .border-white\/5,
+html.light .border-white\/10 {
+  border-color: #a8a6a683 !important;
+  /* Bordas suaves */
 }
 
-html.light .bg-orange-500 {
-  background-color: #ea580c !important;
-  color: #ffffff !important;
-  box-shadow: none !important;
+html.light .divide-white\/5>*+* {
+  border-color: #f9f2f1 !important;
+  /* Divisor entre linhas de tabela */
 }
 
-html.light .hover\:bg-emerald-400:hover {
-  background-color: #047857 !important;
+html.light .hover\:bg-emerald-500\/5:hover,
+html.light .hover\:bg-purple-500\/5:hover {
+  background-color: #bdb6b642 !important;
+  /* Fundo suave ao passar o mouse nas linhas */
 }
 
-html.light .hover\:bg-orange-400:hover {
-  background-color: #c2410c !important;
+/* Remove sombras de neon no modo claro */
+html.light [class*="shadow-[0_0_"] {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
 }
 
-/* ── Botão secundário "Atualizar" ──────────────────────────────── */
-
-html.light .bg-emerald-500\/10 {
-  background-color: #f0fdf4 !important;
-  border-color: #bbf7d0 !important;
-  color: #15803d !important;
-}
-
-/* ── Badges de status ──────────────────────────────────────────── */
-
-html.light .bg-orange-500\/15 {
-  background-color: #fff7ed !important;
-  border-color: #fed7aa !important;
-}
-
-html.light .bg-blue-500\/15 {
-  background-color: #eff6ff !important;
-  border-color: #bfdbfe !important;
-}
-
-/* ── Mensagens de feedback ─────────────────────────────────────── */
-
-html.light .bg-red-500\/10 {
-  background-color: #fef2f2 !important;
-  border-color: #fecaca !important;
-}
-
-/* ── Link "Cadastrar" dentro dos campos ────────────────────────── */
-
-html.light .text-emerald-400 {
-  color: #059669 !important;
-}
 
 /* ================================================================
    ANIMAÇÕES DE TRANSIÇÃO
@@ -309,6 +530,7 @@ html.light .text-emerald-400 {
     opacity: 0;
     transform: translateY(8px) scale(0.99);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);

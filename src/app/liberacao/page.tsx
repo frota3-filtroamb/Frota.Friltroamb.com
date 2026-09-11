@@ -221,7 +221,7 @@ export default function LiberacaoPage() {
       setCarregando(true)
       setMensagem('')
 
-      const { error } = await supabase.from('movimentacoes_pedestres').insert({
+      const { error, data: insertData } = await supabase.from('movimentacoes_pedestres').insert({
         nome: nomePedestre,
         cpf_rg: cpfPedestre || null,
         telefone: telefonePedestre || null,
@@ -232,7 +232,10 @@ export default function LiberacaoPage() {
         liberado_em: dataHora
           ? new Date(dataHora).toISOString()
           : new Date().toISOString(),
-      })
+      }).select()
+
+      // DEBUG temporário — verificar no Console do navegador (F12)
+      console.log('[Liberacao] insert pedestre - data:', insertData, 'error:', error)
 
       setCarregando(false)
 
@@ -534,7 +537,7 @@ export default function LiberacaoPage() {
                   <button
                     type="button"
                     onClick={() => { setTipoVeiculo('interno'); setMensagem('') }}
-                    className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-200 border ${tipoVeiculo === 'interno' ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.25)]' : 'bg-[#0f1c2e] border-white/10 text-slate-400 hover:border-emerald-500/30 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] hover:-translate-y-0.5'}`}
+                    className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-200 border hover:-translate-y-0.5 active:translate-y-0 hover:shadow-md cursor-pointer ${tipoVeiculo === 'interno' ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.25)]' : 'bg-[#0f1c2e] border-white/10 text-slate-400 hover:border-emerald-500/30 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)]'}`}
                   >
                     Veiculo da Empresa
                   </button>
@@ -543,7 +546,7 @@ export default function LiberacaoPage() {
                   <button
                     type="button"
                     onClick={() => { setTipoVeiculo('externo'); setMensagem('') }}
-                    className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-200 border ${tipoVeiculo === 'externo' ? 'bg-orange-500/15 border-orange-500/40 text-orange-300 shadow-[0_0_20px_rgba(249,115,22,0.25)]' : 'bg-[#0f1c2e] border-white/10 text-slate-400 hover:border-orange-500/30 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] hover:-translate-y-0.5'}`}
+                    className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-200 border hover:-translate-y-0.5 active:translate-y-0 hover:shadow-md cursor-pointer ${tipoVeiculo === 'externo' ? 'bg-orange-500/15 border-orange-500/40 text-orange-300 shadow-[0_0_20px_rgba(249,115,22,0.25)]' : 'bg-[#0f1c2e] border-white/10 text-slate-400 hover:border-orange-500/30 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)]'}`}
                   >
                     Veiculo Externo
                   </button>
@@ -552,7 +555,7 @@ export default function LiberacaoPage() {
                   <button
                     type="button"
                     onClick={() => { setTipoVeiculo('pedestre'); setMensagem('') }}
-                    className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-200 border ${tipoVeiculo === 'pedestre' ? 'bg-purple-500/15 border-purple-500/40 text-purple-300 shadow-[0_0_20px_rgba(168,85,247,0.25)]' : 'bg-[#0f1c2e] border-white/10 text-slate-400 hover:border-purple-500/30 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] hover:-translate-y-0.5'}`}
+                    className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-200 border hover:-translate-y-0.5 active:translate-y-0 hover:shadow-md cursor-pointer ${tipoVeiculo === 'pedestre' ? 'bg-purple-500/15 border-purple-500/40 text-purple-300 shadow-[0_0_20px_rgba(168,85,247,0.25)]' : 'bg-[#0f1c2e] border-white/10 text-slate-400 hover:border-purple-500/30 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)]'}`}
                   >
                     Pedestres / Visitantes
                   </button>
@@ -561,7 +564,7 @@ export default function LiberacaoPage() {
                   <button
                     type="button"
                     onClick={() => { setTipoVeiculo('transferencia'); setMensagem('') }}
-                    className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-200 border ${tipoVeiculo === 'transferencia' ? 'bg-blue-500/15 border-blue-500/40 text-blue-300 shadow-[0_0_20px_rgba(59,130,246,0.25)]' : 'bg-[#0f1c2e] border-white/10 text-slate-400 hover:border-blue-500/30 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] hover:-translate-y-0.5'}`}
+                    className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-200 border hover:-translate-y-0.5 active:translate-y-0 hover:shadow-md cursor-pointer ${tipoVeiculo === 'transferencia' ? 'bg-blue-500/15 border-blue-500/40 text-blue-300 shadow-[0_0_20px_rgba(59,130,246,0.25)]' : 'bg-[#0f1c2e] border-white/10 text-slate-400 hover:border-blue-500/30 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)]'}`}
                   >
                     Transferencia de Bases
                   </button>
@@ -570,7 +573,7 @@ export default function LiberacaoPage() {
                   <button
                     type="button"
                     onClick={() => { setTipoVeiculo('veiculo_interno'); setMensagem('') }}
-                    className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-200 border ${tipoVeiculo === 'veiculo_interno' ? 'bg-sky-500/15 border-sky-500/40 text-sky-300 shadow-[0_0_20px_rgba(14,165,233,0.25)]' : 'bg-[#0f1c2e] border-white/10 text-slate-400 hover:border-sky-500/30 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] hover:-translate-y-0.5'}`}
+                    className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-200 border hover:-translate-y-0.5 active:translate-y-0 hover:shadow-md cursor-pointer ${tipoVeiculo === 'veiculo_interno' ? 'bg-sky-500/15 border-sky-500/40 text-sky-300 shadow-[0_0_20px_rgba(14,165,233,0.25)]' : 'bg-[#0f1c2e] border-white/10 text-slate-400 hover:border-sky-500/30 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)]'}`}
                   >
                     Veiculo Interno
                   </button>
@@ -1225,11 +1228,11 @@ export default function LiberacaoPage() {
                     <table className="min-w-full text-sm">
                       <thead>
                         <tr className="bg-[#132337] border-b border-emerald-500/15">
-                          <th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Placa</th>
-                          <th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">De</th>
-                          <th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Para</th>
-                          <th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Motorista</th>
-                          <th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Data</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Placa</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">De</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Para</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Motorista</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Data</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
@@ -1242,11 +1245,11 @@ export default function LiberacaoPage() {
                         ) : (
                           transferenciasFiltradas.map((t) => (
                             <tr key={t.id} className="hover:bg-emerald-500/5 transition-colors">
-                              <td className="px-5 py-3.5 font-medium text-emerald-300">{t.placa}</td>
-                              <td className="px-5 py-3.5 text-slate-300">{t.base_origem}</td>
-                              <td className="px-5 py-3.5 text-slate-300">{t.base_destino}</td>
-                              <td className="px-5 py-3.5 text-slate-400">{t.motorista || '—'}</td>
-                              <td className="px-5 py-3.5 text-slate-500 text-xs">
+                              <td className="px-5 py-3.5 font-medium text-emerald-300 whitespace-nowrap">{t.placa}</td>
+                              <td className="px-5 py-3.5 text-slate-300 whitespace-nowrap">{t.base_origem}</td>
+                              <td className="px-5 py-3.5 text-slate-300 whitespace-nowrap">{t.base_destino}</td>
+                              <td className="px-5 py-3.5 text-slate-400 whitespace-nowrap">{t.motorista || '—'}</td>
+                              <td className="px-5 py-3.5 text-slate-500 text-xs whitespace-nowrap">
                                 {formatarData(t.transferido_em)}
                               </td>
                             </tr>

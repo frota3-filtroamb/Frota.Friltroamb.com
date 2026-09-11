@@ -83,19 +83,19 @@ export default function TransferenciaPage() {
             <div className="flex flex-wrap gap-3 bg-[#132337] border border-emerald-500/20 rounded-xl p-1.5 w-fit mb-6">
               <Link
                 href="/portaria"
-                className="px-6 py-2 rounded-lg text-sm font-semibold transition whitespace-nowrap text-slate-400 hover:text-white"
+                className="px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap hover:-translate-y-0.5 active:translate-y-0 hover:shadow-md cursor-pointer text-slate-400 hover:text-white"
               >
                 Controle
               </Link>
               <Link
                 href="/portaria"
-                className="px-6 py-2 rounded-lg text-sm font-semibold transition whitespace-nowrap text-slate-400 hover:text-white"
+                className="px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap hover:-translate-y-0.5 active:translate-y-0 hover:shadow-md cursor-pointer text-slate-400 hover:text-white"
               >
                 Pedestres / Visitantes
               </Link>
               <button
                 type="button"
-                className="px-6 py-2 rounded-lg text-sm font-semibold transition whitespace-nowrap bg-blue-500 text-white shadow-sm"
+                className="px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap hover:-translate-y-0.5 active:translate-y-0 hover:shadow-md cursor-pointer bg-blue-500 text-white shadow-sm"
               >
                 Transferência
               </button>
@@ -129,12 +129,12 @@ export default function TransferenciaPage() {
                 <table className="min-w-full text-sm">
                   <thead>
                     <tr className="bg-[#132337] border-b border-emerald-500/15">
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Veículo</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Origem</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Destino</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Motorista</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Data / Hora</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Responsável</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Veículo</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Origem</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Destino</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Motorista</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Data / Hora</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Responsável</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
@@ -151,7 +151,7 @@ export default function TransferenciaPage() {
                       listaFiltrada.map((t) => (
                         <tr key={t.id} className="hover:bg-emerald-500/5 transition-colors group">
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="font-semibold text-emerald-300 bg-emerald-500/10 px-2 py-1 rounded-md inline-block">
+                            <div className="font-semibold text-emerald-300 bg-emerald-500/10 px-2 py-1 rounded-md inline-block whitespace-nowrap">
                               {t.placa}
                             </div>
                           </td>
