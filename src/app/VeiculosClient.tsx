@@ -26,7 +26,7 @@ export default function VeiculosClient({ veiculos }: { veiculos: Veiculo[] }) {
       {/* Banner */}
       <div className="relative h-28 md:h-36 shrink-0 overflow-hidden">
         <img
-          src="/images/banner-frota.jpg"
+          src="/images/banner-frota3.jpg"
           alt="Filtroamb"
           className="w-full h-full object-cover object-center"
         />
