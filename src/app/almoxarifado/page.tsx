@@ -14,8 +14,8 @@ type EstoqueItem = {
   codigo: string | null
   nome: string
   unidade: string | null
-  quantidade: number | string | null
-  estoque_minimo: number | string | null
+  quantidade: number | string
+  estoque_minimo: number | string
   localizacao: string | null
   created_at: string | null
 }
@@ -437,7 +437,7 @@ export default function AlmoxarifadoPage() {
 
         <div className="flex-1 ml-64 flex flex-col h-screen overflow-hidden">
           <div className="relative h-28 md:h-36 shrink-0 overflow-hidden">
-            <img src="/images/banner-frota.jpg" alt="Filtroamb" className="w-full h-full object-cover object-center" />
+            <img src="/images/banner-frota3.jpg" alt="Filtroamb" className="w-full h-full object-cover object-center" />
             <div className="absolute inset-0 bg-gradient-to-r from-[#0a1625]/90 via-[#0a1625]/55 to-[#0a1625]/15" />
             <div data-banner className="absolute inset-0 flex items-end pb-4 px-8">
               <div>
@@ -463,9 +463,8 @@ export default function AlmoxarifadoPage() {
                         setAba(item.id)
                         setMensagem('')
                       }}
-                      className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap hover:-translate-y-0.5 active:translate-y-0 hover:shadow-md cursor-pointer ${
-                        aba === item.id ? 'bg-cyan-500 text-[#0a1625] shadow-sm' : 'text-slate-400 hover:text-white'
-                      }`}
+                      className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap hover:-translate-y-0.5 active:translate-y-0 hover:shadow-md cursor-pointer ${aba === item.id ? 'bg-cyan-500 text-[#0a1625] shadow-sm' : 'text-slate-400 hover:text-white'
+                        }`}
                     >
                       {item.label}
                     </button>

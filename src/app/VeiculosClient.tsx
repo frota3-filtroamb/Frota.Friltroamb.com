@@ -80,7 +80,7 @@ export default function VeiculosClient({ veiculos }: { veiculos: Veiculo[] }) {
                   <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider">Ano</th>
                   <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider">Cor</th>
                   <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider">Combustível</th>
-                  <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider">Tipo</th>
+                  <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider">Setor</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">

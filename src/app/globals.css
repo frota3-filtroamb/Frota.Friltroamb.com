@@ -45,14 +45,14 @@ td:has(.placa),
 html:not(.light) body,
 html:not(.light) .bg-\[\#0a1625\] {
   background-color: #0a1625 !important;
-  color: #f8fafc !important;
+  color: #f8fafcd5 !important;
 }
 
 /* 1.2 Sidebar e Navegação */
 html:not(.light) aside,
 html:not(.light) .bg-\[\#0b1f33\] {
   background-color: #0b1f33 !important;
-  border-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(173, 153, 153, 0.05) !important;
 }
 
 html:not(.light) aside .text-white {
@@ -99,11 +99,11 @@ html:not(.light) .bg-\[\#132337\]\/60 {
 
 /* 1.5 Textos Gerais e Títulos */
 html:not(.light) .text-white {
-  color: #ffffff !important;
+  color: #ffffffd5 !important;
 }
 
 html:not(.light) .text-slate-300 {
-  color: #cbd5e1 !important;
+  color: #cbe1d8 !important;
 }
 
 html:not(.light) .text-slate-400 {
@@ -211,7 +211,7 @@ html:not(.light) .hover\:bg-orange-400:hover {
 
 /* 1.10 Bordas e Divisores */
 html:not(.light) .divide-white\/5>*+* {
-  border-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(14, 11, 160, 0.05) !important;
 }
 
 html:not(.light) .hover\:bg-emerald-500\/5:hover {
@@ -291,9 +291,9 @@ html.light .bg-\[\#0f1c2e\] {
 
 /* 2.4 Cabeçalhos de Tabelas e Barras de Pesquisa */
 html.light .bg-\[\#132337\] {
-  background-color: #645e5e2c !important;
+  background-color: #9288882c !important;
   /* Fundo do cabeçalho da tabela e filtros */
-  border-color: #f0e2e2 !important;
+  border-color: #5a515128 !important;
 }
 
 html.light .bg-\[\#132337\]\/60 {
@@ -301,10 +301,45 @@ html.light .bg-\[\#132337\]\/60 {
   border-color: #e2e8f0 !important;
 }
 
-html.light thead tr {
-  background-color: #f1f5f9 !important;
+
+/* =======================================================
+   CORREÇÃO DO CABEÇALHO FIXO (MODO ESCURO E CLARO)
+   =======================================================*/
+
+/* Cabeçalho Fixo no Modo Escuro */
+html:not(.light) table thead th {
+  position: sticky;
+  top: 0;
+  background-color: #0f1c2e !important;
+  z-index: 10;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.2) !important;
+}
+
+/* Cabeçalho*/
+html.light table thead th {
+  position: sticky;
+  top: 0;
+  background-color: #ffffff !important;
+  /* Cor opaca idêntica aos cards do modo claro */
+  z-index: 10;
   border-bottom: 1px solid #e2e8f0 !important;
 }
+
+
+table th,
+table td {
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+table td>div {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 auto !important;
+}
+
+
 
 html.light th {
   color: #160175 !important;

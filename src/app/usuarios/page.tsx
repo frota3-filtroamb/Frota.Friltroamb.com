@@ -181,7 +181,7 @@ export default function UsuariosPage() {
 
       <main className="flex-1 ml-64 min-h-screen overflow-y-auto bg-[#0a1625]">
         <div className="relative h-28 md:h-36 shrink-0 overflow-hidden">
-          <img src="/images/banner-frota.jpg" alt="Filtroamb" className="w-full h-full object-cover object-center" />
+          <img src="/images/banner-frota3.jpg" alt="Filtroamb" className="w-full h-full object-cover object-center" />
           <div className="absolute inset-0 bg-gradient-to-r from-[#0a1625]/85 via-[#0a1625]/50 to-[#0a1625]/20" />
           <div className="absolute inset-0 flex items-end pb-6 px-8">
             <div>
@@ -241,11 +241,10 @@ export default function UsuariosPage() {
                                   <button
                                     type="button"
                                     onClick={() => alternarPermissao(usuario.id, aba.id)}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                                      ativa
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${ativa
                                         ? 'bg-emerald-500 text-[#0a1625] border-emerald-400 shadow-sm'
                                         : 'bg-[#132337] text-slate-400 border-white/10 hover:text-white hover:border-white/20'
-                                    }`}
+                                      }`}
                                   >
                                     {aba.label}
                                   </button>
@@ -260,11 +259,10 @@ export default function UsuariosPage() {
                                             key={filho.id}
                                             type="button"
                                             onClick={() => alternarSubPermissao(usuario.id, aba.id, filho.id)}
-                                            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all ${
-                                              filhoAtivo
+                                            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all ${filhoAtivo
                                                 ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
                                                 : 'bg-[#0a1625] text-slate-500 border-white/10 hover:text-white hover:border-white/20'
-                                            }`}
+                                              }`}
                                           >
                                             {filho.label}
                                           </button>

@@ -158,7 +158,7 @@ export default function PortariaPage() {
 
         <div className="flex-1 ml-64 flex flex-col h-screen overflow-hidden">
           <div className="relative h-28 md:h-36 shrink-0 overflow-hidden">
-            <img src="/images/banner-frota.jpg" alt="Filtroamb" className="w-full h-full object-cover object-center" />
+            <img src="/images/banner-frota3.jpg" alt="Filtroamb" className="w-full h-full object-cover object-center" />
             <div className="absolute inset-0 bg-gradient-to-r from-[#0a1625]/85 via-[#0a1625]/50 to-[#0a1625]/20" />
             <div data-banner className="absolute inset-0 flex items-end pb-6 px-8">
               <div>
@@ -242,14 +242,14 @@ export default function PortariaPage() {
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="bg-[#132337] border-b border-emerald-500/15 sticky top-0 z-10">
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Placa</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Motorista</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Destino</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">KM</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Liberação</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Saída</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Status</th>
-                            <th className="px-3 py-2.5 text-center text-[11px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Ação</th>
+                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Placa</th>
+                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Motorista</th>
+                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Destino</th>
+                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">KM</th>
+                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Liberação</th>
+                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Saída</th>
+                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Status</th>
+                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Ação</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -260,9 +260,9 @@ export default function PortariaPage() {
                           ) : (
                             mFiltradas.map((m) => (
                               <tr key={m.id} className="hover:bg-emerald-500/5 transition-colors">
-                                <td className="px-3 py-2.5 whitespace-nowrap">
-                                  <div className="flex items-center gap-1.5 whitespace-nowrap flex-nowrap">
-                                    <span className="font-semibold text-emerald-300 whitespace-nowrap tracking-wide text-xs">{m.placa}</span>
+                                <td className="pl-3 py-2.5 text-center text-white whitespace-nowrap w40">
+                                  <div className="flex items-center justify-center gap-1.0 whitespace-nowrap flex-nowrap align-middle">
+                                    <span className="font-semibold text-emerald-300 whitespace-nowrap tracking-wide text-sm">{m.placa}</span>
                                     {m.tipo_veiculo === 'interno' && (
                                       <span className="inline-flex shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-semibold uppercase bg-blue-500/15 text-blue-300 border border-blue-500/25 whitespace-nowrap">
                                         Interno
@@ -275,13 +275,13 @@ export default function PortariaPage() {
                                     )}
                                   </div>
                                 </td>
-                                <td className="px-3 py-2.5 text-slate-300 whitespace-nowrap">{m.motorista || '—'}</td>
-                                <td className="px-3 py-2.5 text-slate-300 whitespace-nowrap">{m.destino || '—'}</td>
-                                <td className="px-3 py-2.5 text-slate-400 whitespace-nowrap">{m.km ? m.km.toLocaleString('pt-BR') : '—'}</td>
-                                <td className="px-3 py-2.5 text-slate-500 text-[11px] whitespace-nowrap">{formatarData(m.liberado_em)}</td>
-                                <td className="px-3 py-2.5 text-slate-500 text-[11px] whitespace-nowrap">{formatarData(m.saida_em)}</td>
-                                <td className="px-3 py-2.5 whitespace-nowrap">
-                                  <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${m.status === 'aguardando_saida' ? 'bg-orange-500/15 text-orange-300 border border-orange-500/20' : 'bg-blue-500/15 text-blue-300 border border-blue-500/20'}`}>
+                                <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{m.motorista || '—'}</td>
+                                <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{m.destino || '—'}</td>
+                                <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{m.km ? m.km.toLocaleString('pt-BR') : '—'}</td>
+                                <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{formatarData(m.liberado_em)}</td>
+                                <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{formatarData(m.saida_em)}</td>
+                                <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">
+                                  <span className={`inline-flex px-2 py-0.5 rounded-full text-[12px] font-medium whitespace-nowrap ${m.status === 'aguardando_saida' ? 'bg-orange-500/15 text-orange-300 border border-orange-500/20' : 'bg-blue-500/15 text-blue-300 border border-blue-500/20'}`}>
                                     {m.status === 'aguardando_saida' ? 'Aguardando Saída' : 'Em Rota'}
                                   </span>
                                 </td>
@@ -309,11 +309,11 @@ export default function PortariaPage() {
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="bg-[#132337] border-b border-emerald-500/15 sticky top-0 z-10">
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Placa</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Motorista</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Destino</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Saída</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Entrada</th>
+                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Placa</th>
+                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Motorista</th>
+                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Destino</th>
+                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Saída</th>
+                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Entrada</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -326,7 +326,7 @@ export default function PortariaPage() {
                               <tr key={m.id} className="hover:bg-emerald-500/5 transition-colors">
                                 <td className="px-3 py-2.5 whitespace-nowrap">
                                   <div className="flex items-center gap-1.5 whitespace-nowrap flex-nowrap">
-                                    <span className="font-semibold text-emerald-300 whitespace-nowrap tracking-wide text-xs">{m.placa}</span>
+                                    <span className="font-semibold text-emerald-300 whitespace-nowrap tracking-wide text-sm">{m.placa}</span>
                                     {m.tipo_veiculo === 'interno' && (
                                       <span className="inline-flex shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-semibold uppercase bg-blue-500/15 text-blue-300 border border-blue-500/25 whitespace-nowrap">
                                         Interno
@@ -339,10 +339,10 @@ export default function PortariaPage() {
                                     )}
                                   </div>
                                 </td>
-                                <td className="px-3 py-2.5 text-slate-300 whitespace-nowrap">{m.motorista || '—'}</td>
-                                <td className="px-3 py-2.5 text-slate-300 whitespace-nowrap">{m.destino || '—'}</td>
-                                <td className="px-3 py-2.5 text-slate-500 text-[11px] whitespace-nowrap">{formatarData(m.saida_em)}</td>
-                                <td className="px-3 py-2.5 text-slate-500 text-[11px] whitespace-nowrap">{formatarData(m.entrada_em)}</td>
+                                <td className="px-3 py-2.5 text-center text-sm font-bold whitespace-nowrap">{m.motorista || '—'}</td>
+                                <td className="px-3 py-2.5 text-center text-sm font-bold whitespace-nowrap">{m.destino || '—'}</td>
+                                <td className="px-3 py-2.5 text-center text-sm font-bold whitespace-nowrap">{formatarData(m.saida_em)}</td>
+                                <td className="px-3 py-2.5 text-center text-sm font-bold whitespace-nowrap">{formatarData(m.entrada_em)}</td>
                               </tr>
                             ))
                           )}
@@ -364,11 +364,11 @@ export default function PortariaPage() {
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="bg-[#132337] border-b border-purple-500/15 sticky top-0 z-10">
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-purple-400/90 uppercase tracking-wider whitespace-nowrap">Nome / Empresa</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-purple-400/90 uppercase tracking-wider whitespace-nowrap">CPF / Tel</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-purple-400/90 uppercase tracking-wider whitespace-nowrap">Destino</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-purple-400/90 uppercase tracking-wider whitespace-nowrap">Liberação</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-purple-400/90 uppercase tracking-wider whitespace-nowrap">Status</th>
+                            <th className="px-3 py-2.5 text-center text-[11px] font-semibold text-purple-400/90 uppercase tracking-wider whitespace-nowrap">Nome / Empresa</th>
+                            <th className="px-3 py-2.5 text-center text-[11px] font-semibold text-purple-400/90 uppercase tracking-wider whitespace-nowrap">CPF / Tel</th>
+                            <th className="px-3 py-2.5 text-center text-[11px] font-semibold text-purple-400/90 uppercase tracking-wider whitespace-nowrap">Destino</th>
+                            <th className="px-3 py-2.5 text-center text-[11px] font-semibold text-purple-400/90 uppercase tracking-wider whitespace-nowrap">Liberação</th>
+                            <th className="px-3 py-2.5 text-center text-[11px] font-semibold text-purple-400/90 uppercase tracking-wider whitespace-nowrap">Status</th>
                             <th className="px-3 py-2.5 text-center text-[11px] font-semibold text-purple-400/90 uppercase tracking-wider whitespace-nowrap">Ação</th>
                           </tr>
                         </thead>

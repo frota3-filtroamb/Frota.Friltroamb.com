@@ -35,6 +35,10 @@ export default function Page() {
         </div>
 
         <SignIn
+          path="/sign-in"
+          routing="path"
+          fallbackRedirectUrl="/"
+          forceRedirectUrl="/"
           appearance={{
             elements: {
               rootBox: 'mx-auto',

@@ -26,9 +26,9 @@ export default function Sidebar() {
 
   const [portariaAberta, setPortariaAberta] = useState(
     pathname === '/portaria' ||
-      pathname === '/liberacao' ||
-      pathname === '/transferencia' ||
-      pathname === '/encomendas'
+    pathname === '/liberacao' ||
+    pathname === '/transferencia' ||
+    pathname === '/encomendas'
   )
 
   const ativo = (href: string) => pathname === href
@@ -39,7 +39,7 @@ export default function Sidebar() {
       <div className="px-6 py-6 border-b border-white/10">
         <div className="flex items-center gap-3">
           <img
-            src={theme === 'dark' ? '/images/logo-filtroamb-dark.png' : '/images/logo-filtroamb.png'}
+            src={theme === 'dark' ? '/images/logo-filtroamb-dark1.png' : '/images/logo-filtroamb.png'}
             alt="Filtroamb"
             className="h-13 w-auto object-contain"
           />
@@ -59,11 +59,10 @@ export default function Sidebar() {
         {podeVeiculos && (
           <Link
             href="/"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
-              ativo('/')
-                ? 'bg-emerald-500/15 text-emerald-300 font-medium'
-                : 'text-slate-300 hover:bg-white/5 hover:text-white'
-            }`}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${ativo('/')
+              ? 'bg-emerald-500/15 text-emerald-300 font-medium'
+              : 'text-slate-300 hover:bg-white/5 hover:text-white'
+              }`}
           >
             <span className="text-base">🚚</span>
             <span>Veículos</span>
@@ -75,14 +74,13 @@ export default function Sidebar() {
             <button
               type="button"
               onClick={() => setPortariaAberta(!portariaAberta)}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all ${
-                pathname === '/portaria' ||
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all ${pathname === '/portaria' ||
                 pathname === '/liberacao' ||
                 pathname === '/encomendas' ||
                 pathname === '/transferencia'
-                  ? 'bg-emerald-500/10 text-emerald-300 font-medium'
-                  : 'text-slate-300 hover:bg-white/5 hover:text-white'
-              }`}
+                ? 'bg-emerald-500/10 text-emerald-300 font-medium'
+                : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                }`}
             >
               <span className="flex items-center gap-3">
                 <span className="text-base">🚪</span>
@@ -98,11 +96,10 @@ export default function Sidebar() {
                 {podePortaria && (
                   <Link
                     href="/portaria"
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
-                      ativo('/portaria')
-                        ? 'bg-emerald-500/15 text-emerald-300 font-medium'
-                        : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                    }`}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${ativo('/portaria')
+                      ? 'bg-emerald-500/15 text-emerald-300 font-medium'
+                      : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                      }`}
                   >
                     <span>Controle</span>
                   </Link>
@@ -111,11 +108,10 @@ export default function Sidebar() {
                 {podeLiberacao && (
                   <Link
                     href="/liberacao"
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
-                      ativo('/liberacao')
-                        ? 'bg-emerald-500/15 text-emerald-300 font-medium'
-                        : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                    }`}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${ativo('/liberacao')
+                      ? 'bg-emerald-500/15 text-emerald-300 font-medium'
+                      : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                      }`}
                   >
                     <span>Liberação</span>
                   </Link>
@@ -124,11 +120,10 @@ export default function Sidebar() {
                 {podeEncomendas && (
                   <Link
                     href="/encomendas"
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
-                      ativo('/encomendas')
-                        ? 'bg-blue-500/15 text-blue-300 font-medium'
-                        : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                    }`}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${ativo('/encomendas')
+                      ? 'bg-blue-500/15 text-blue-300 font-medium'
+                      : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                      }`}
                   >
                     <span className="mr-1">📦</span>
                     <span>Encomendas</span>
@@ -142,11 +137,10 @@ export default function Sidebar() {
         {podeAlmoxarifado && (
           <Link
             href="/almoxarifado"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
-              ativo('/almoxarifado')
-                ? 'bg-cyan-500/15 text-cyan-300 font-medium'
-                : 'text-slate-300 hover:bg-white/5 hover:text-white'
-            }`}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${ativo('/almoxarifado')
+              ? 'bg-cyan-500/15 text-cyan-300 font-medium'
+              : 'text-slate-300 hover:bg-white/5 hover:text-white'
+              }`}
           >
             <span className="text-base">AL</span>
             <span>Almoxarifado</span>
@@ -156,11 +150,10 @@ export default function Sidebar() {
         {podeUsuarios && (
           <Link
             href="/usuarios"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
-              ativo('/usuarios')
-                ? 'bg-emerald-500/15 text-emerald-300 font-medium'
-                : 'text-slate-300 hover:bg-white/5 hover:text-white'
-            }`}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${ativo('/usuarios')
+              ? 'bg-emerald-500/15 text-emerald-300 font-medium'
+              : 'text-slate-300 hover:bg-white/5 hover:text-white'
+              }`}
           >
             <span className="text-base">US</span>
             <span>Usuarios</span>
@@ -186,7 +179,7 @@ export default function Sidebar() {
       <div className="px-4 py-3 border-t border-white/10 flex items-center justify-between">
         <div>
           <p className="text-[11px] text-slate-500">Sistema Interno</p>
-          <p className="text-[10px] text-slate-600 mt-0.5">v1.7</p>
+          <p className="text-[10px] text-slate-600 mt-0.5">v1.8</p>
         </div>
         <UserButton />
       </div>
