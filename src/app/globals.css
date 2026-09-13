@@ -372,7 +372,7 @@ html.light .text-slate-600 {
   /* Textos desabilitados ou neutros */
 }
 
-/* Textos sobre o Banner Fotográfico (permanecem brancos com sombra) */
+/* Textos sobre o Banner*/
 html.light [data-banner] h1,
 html.light [data-banner] h2,
 html.light [data-banner] p {
@@ -574,4 +574,42 @@ html.light [class*="shadow-[0_0_"] {
 
 .animate-tab {
   animation: fadeInSlide 0.25s ease-out forwards;
+}
+
+/* ================================================================
+   TEMA ESCURO EXCLUSIVO PARA TELAS DE AUTENTICAÇÃO (LOGIN / SIGN-UP)
+   Garante que o tema claro NUNCA seja aplicado nessas páginas
+   ================================================================ */
+[data-auth-page],
+[data-auth-page] * {
+  color-scheme: dark !important;
+}
+
+html.light [data-auth-page],
+html.light [data-auth-page] .bg-\[\#0a1625\] {
+  background-color: #0a1625 !important;
+  color: #f8fafcd5 !important;
+}
+
+html.light [data-auth-page] .bg-\[\#0f1c2e\] {
+  background-color: #0f1c2e !important;
+  border-color: rgba(52, 211, 153, 0.2) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+}
+
+html.light [data-auth-page] .text-white {
+  color: #ffffff !important;
+}
+
+html.light [data-auth-page] input,
+html.light [data-auth-page] select,
+html.light [data-auth-page] textarea {
+  background-color: #132337 !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(52, 211, 153, 0.2) !important;
+}
+
+html.light [data-auth-page] label {
+  color: #cbd5e1 !important;
+  font-weight: 500 !important;
 }

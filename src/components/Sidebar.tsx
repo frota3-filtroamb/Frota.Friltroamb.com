@@ -1,6 +1,7 @@
 'use client'
 
 import { useUser, UserButton } from '@clerk/nextjs'
+import { dark } from '@clerk/themes'
 import { getRole, podeAcessar } from '@/lib/roles'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
@@ -181,7 +182,11 @@ export default function Sidebar() {
           <p className="text-[11px] text-slate-500">Sistema Interno</p>
           <p className="text-[10px] text-slate-600 mt-0.5">v1.8</p>
         </div>
-        <UserButton />
+        <UserButton
+          appearance={{
+            theme: theme === 'dark' ? dark : undefined,
+          }}
+        />
       </div>
     </aside>
   )
