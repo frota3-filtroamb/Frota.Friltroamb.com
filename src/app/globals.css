@@ -25,6 +25,16 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 /* ================================================================
    Impede que a placa quebre em 2 linhas em qualquer resolução/zoom
    ================================================================ */
@@ -51,7 +61,7 @@ html:not(.light) .bg-\[\#0a1625\] {
 /* 1.2 Sidebar e Navegação */
 html:not(.light) aside,
 html:not(.light) .bg-\[\#0b1f33\] {
-  background-color: #0b1f33 !important;
+  background-color: #151431 !important;
   border-color: rgba(173, 153, 153, 0.05) !important;
 }
 
@@ -642,4 +652,233 @@ html.light [data-auth-page] label {
 [data-auth-page] input[inputmode="numeric"][autocomplete="one-time-code"] {
   letter-spacing: 0.25rem !important;
   text-align: center !important;
+}
+
+/* ================================================================
+   RESPONSIVIDADE GLOBAL DO SISTEMA
+   Ajusta sidebar, conteudo, tabelas e zoom para notebooks/celulares
+   ================================================================ */
+@media (max-width: 1280px) {
+  [style*="zoom"] {
+    zoom: 0.9 !important;
+  }
+
+  .text-3xl {
+    font-size: 1.625rem !important;
+    line-height: 2rem !important;
+  }
+
+  .text-2xl {
+    font-size: 1.375rem !important;
+    line-height: 1.75rem !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  [style*="zoom"] {
+    zoom: 1 !important;
+  }
+
+  aside.w-64.fixed {
+    position: sticky !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: 44vh !important;
+    overflow-y: auto !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  }
+
+  aside.w-64.fixed>div:first-child {
+    padding: 0.875rem 1rem !important;
+  }
+
+  aside.w-64.fixed img {
+    max-height: 2.25rem !important;
+  }
+
+  aside.w-64.fixed nav {
+    display: flex !important;
+    gap: 0.5rem !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    padding: 0.75rem 1rem !important;
+    white-space: nowrap !important;
+  }
+
+  aside.w-64.fixed nav>p {
+    display: none !important;
+  }
+
+  aside.w-64.fixed nav>a,
+  aside.w-64.fixed nav>div {
+    flex: 0 0 auto !important;
+  }
+
+  aside.w-64.fixed nav button,
+  aside.w-64.fixed nav a {
+    min-height: 2.5rem !important;
+  }
+
+  aside.w-64.fixed nav div[class*="border-l"] {
+    position: absolute !important;
+    left: 1rem !important;
+    right: 1rem !important;
+    top: calc(100% - 0.5rem) !important;
+    z-index: 60 !important;
+    margin: 0 !important;
+    padding: 0.5rem !important;
+    border-left: 0 !important;
+    border-radius: 0.75rem !important;
+    background: #132337 !important;
+    box-shadow: 0 18px 35px rgba(0, 0, 0, 0.28) !important;
+  }
+
+  aside.w-64.fixed>div:nth-last-child(-n+2) {
+    display: none !important;
+  }
+
+  .min-h-screen.flex.bg-\[\#0a1625\] {
+    flex-direction: column !important;
+  }
+
+  .ml-64 {
+    margin-left: 0 !important;
+  }
+
+  .h-screen {
+    height: auto !important;
+    min-height: 100dvh !important;
+  }
+
+  .overflow-hidden {
+    overflow: visible !important;
+  }
+
+  .overflow-y-auto {
+    overflow-y: visible !important;
+  }
+
+  main,
+  .flex-1 {
+    min-width: 0 !important;
+  }
+
+  [data-banner] {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    padding-bottom: 1rem !important;
+  }
+
+  .p-6 {
+    padding: 1rem !important;
+  }
+
+  .px-8 {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  .py-6 {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+  }
+
+  .max-w-7xl,
+  .max-w-6xl,
+  .max-w-4xl,
+  .max-w-xl {
+    max-width: 100% !important;
+  }
+
+  .w-72,
+  .w-56 {
+    width: 100% !important;
+  }
+
+  header .flex,
+  .items-center.justify-between {
+    flex-wrap: wrap !important;
+  }
+
+  .min-w-\[180px\] {
+    min-width: 10rem !important;
+  }
+
+  table {
+    font-size: 0.75rem !important;
+  }
+
+  table th,
+  table td {
+    padding: 0.625rem 0.5rem !important;
+  }
+
+  table .text-lg {
+    font-size: 0.75rem !important;
+    line-height: 1rem !important;
+  }
+
+  div:has(> table) {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 640px) {
+  aside.w-64.fixed {
+    max-height: 52vh !important;
+  }
+
+  aside.w-64.fixed>div:first-child p {
+    display: none !important;
+  }
+
+  .relative.h-28,
+  .relative.md\:h-36 {
+    height: 5.5rem !important;
+  }
+
+  .text-xl {
+    font-size: 1.125rem !important;
+    line-height: 1.5rem !important;
+  }
+
+  .text-3xl {
+    font-size: 1.5rem !important;
+    line-height: 1.75rem !important;
+  }
+
+  .grid.grid-cols-2 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .sm\:grid-cols-2,
+  .sm\:grid-cols-3,
+  .md\:grid-cols-2,
+  .lg\:grid-cols-4,
+  .xl\:grid-cols-3 {
+    grid-template-columns: 1fr !important;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font-size: 16px !important;
+  }
+
+  table {
+    min-width: 42rem;
+  }
+
+  table.table-fixed {
+    table-layout: auto !important;
+  }
+
+  table th,
+  table td {
+    white-space: nowrap !important;
+  }
 }
