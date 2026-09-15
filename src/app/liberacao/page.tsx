@@ -42,6 +42,7 @@ export default function LiberacaoPage() {
   const [listaTransferencias, setListaTransferencias] = useState<Transferencia[]>([])
 
   const [tipoVeiculo, setTipoVeiculo] = useState<'interno' | 'externo' | 'veiculo_interno' | 'transferencia' | 'pedestre'>('interno')
+  const [movimentoVeiculoInterno, setMovimentoVeiculoInterno] = useState<'entrada' | 'saida'>('entrada')
 
   const [buscaPlaca, setBuscaPlaca] = useState('')
   const [veiculoSelecionado, setVeiculoSelecionado] = useState<Veiculo | null>(null)
@@ -205,7 +206,7 @@ export default function LiberacaoPage() {
     }
 
     if (tipoVeiculo === 'veiculo_interno') {
-      await registrarEntradaVeiculoInterno()
+      await registrarMovimentoVeiculoInterno()
       return
     }
 
@@ -349,6 +350,8 @@ export default function LiberacaoPage() {
     setCarregando(true)
     setMensagem('')
 
+    const dataLiberacao = new Date(dataHora).toISOString()
+
     const { error } = await supabase.from('movimentacoes').insert({
       placa: placaFinal,
       km: kmAtual,
@@ -357,7 +360,8 @@ export default function LiberacaoPage() {
       destino: destinoSelecionado,
       status: 'aguardando_saida',
       liberado_por: 'Gestor',
-      liberado_em: new Date(dataHora).toISOString(),
+      liberado_em: dataLiberacao,
+      entrada_em: tipoVeiculo === 'externo' ? dataLiberacao : null,
       tipo_veiculo: tipoVeiculo,
     })
 
@@ -381,7 +385,7 @@ export default function LiberacaoPage() {
     setDataHora('')
   }
 
-  async function registrarEntradaVeiculoInterno(e?: React.FormEvent) {
+  async function registrarMovimentoVeiculoInterno(e?: React.FormEvent) {
     e?.preventDefault()
     const placaFinal = veiculoSelecionado?.NR_PLACA
 
@@ -411,19 +415,19 @@ export default function LiberacaoPage() {
       status: 'finalizado',
       liberado_por: 'Gestor',
       liberado_em: dataRegistro,
-      saida_em: dataRegistro,
-      entrada_em: dataRegistro,
-      tipo_veiculo: 'interno',
+      saida_em: movimentoVeiculoInterno === 'saida' ? dataRegistro : null,
+      entrada_em: movimentoVeiculoInterno === 'entrada' ? dataRegistro : null,
+      tipo_veiculo: movimentoVeiculoInterno === 'saida' ? 'interno_saida' : 'interno_entrada',
     })
 
     setCarregando(false)
 
     if (error) {
-      setMensagem('Erro ao registrar entrada: ' + error.message)
+      setMensagem(`Erro ao registrar ${movimentoVeiculoInterno}: ` + error.message)
       return
     }
 
-    setMensagem('Veiculo interno registrado com sucesso no historico do controle.')
+    setMensagem(`Veiculo interno registrado com sucesso como ${movimentoVeiculoInterno} no historico do controle.`)
     setVeiculoSelecionado(null)
     setBuscaPlaca('')
     setMotoristaSelecionado('')
@@ -532,12 +536,12 @@ export default function LiberacaoPage() {
                 <h1 className="text-xl font-bold text-white tracking-tight">
                   {tipoVeiculo === 'transferencia' ? 'Transferencia de Bases' :
                     tipoVeiculo === 'pedestre' ? 'Liberacao de Pedestres / Visitantes' :
-                      tipoVeiculo === 'veiculo_interno' ? 'Entrada de Veiculo Interno' : 'Liberacao Portaria'}
+                      tipoVeiculo === 'veiculo_interno' ? `${movimentoVeiculoInterno === 'entrada' ? 'Entrada' : 'Saida'} de Veiculo Interno` : 'Liberacao Portaria'}
                 </h1>
                 <p className="text-sm text-emerald-300 mt-0.5">
                   {tipoVeiculo === 'transferencia' ? 'Mudanca definitiva de base (nao fica em rota)' :
                     tipoVeiculo === 'pedestre' ? 'Autorize a entrada de terceiros, visitantes e funcionarios sem veiculo' :
-                      tipoVeiculo === 'veiculo_interno' ? 'Registre a entrada de veiculos internos da empresa' :
+                      tipoVeiculo === 'veiculo_interno' ? 'Registre entradas e saidas de veiculos internos da empresa' :
                         'Autorize a saida de veiculos internos ou externos'}
                 </p>
               </div>
@@ -588,7 +592,7 @@ export default function LiberacaoPage() {
                   {podeVeiculoInterno && (
                     <button
                       type="button"
-                      onClick={() => { setTipoVeiculo('veiculo_interno'); setMensagem('') }}
+                      onClick={() => { setTipoVeiculo('veiculo_interno'); setMovimentoVeiculoInterno('entrada'); setMensagem('') }}
                       className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-200 border hover:-translate-y-0.5 active:translate-y-0 hover:shadow-md cursor-pointer ${tipoVeiculo === 'veiculo_interno' ? 'bg-sky-500/15 border-sky-500/40 text-sky-300 shadow-[0_0_20px_rgba(14,165,233,0.25)]' : 'bg-[#0f1c2e] border-white/10 text-slate-400 hover:border-sky-500/30 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)]'}`}
                     >
                       Veiculo Interno
@@ -602,14 +606,14 @@ export default function LiberacaoPage() {
                       <h2 className="text-sm font-semibold text-white">
                         {tipoVeiculo === 'transferencia' ? 'Nova Transferencia' :
                           tipoVeiculo === 'pedestre' ? 'Liberar Entrada de Pedestre' :
-                            tipoVeiculo === 'veiculo_interno' ? 'Registrar Entrada de Veiculo Interno' : 'Nova Autorizacao de Saida'}
+                            tipoVeiculo === 'veiculo_interno' ? `Registrar ${movimentoVeiculoInterno === 'entrada' ? 'Entrada' : 'Saida'} de Veiculo Interno` : 'Nova Autorizacao de Saida'}
                       </h2>
                       <p className="text-xs text-slate-500 mt-0.5">
                         {tipoVeiculo === 'interno' && 'Frota própria Filtroamb'}
                         {tipoVeiculo === 'externo' && 'Veículo de terceiro / visitante'}
                         {tipoVeiculo === 'pedestre' && 'Pessoas entrando a pé ou visitantes que deixam o carro fora'}
                         {tipoVeiculo === 'transferencia' && 'Use quando o veículo muda de base de trabalho'}
-                        {tipoVeiculo === 'veiculo_interno' && 'Entrada de veiculo interno da empresa'}
+                        {tipoVeiculo === 'veiculo_interno' && `${movimentoVeiculoInterno === 'entrada' ? 'Entrada' : 'Saida'} de veiculo interno da empresa`}
                       </p>
                     </div>
                     <span className={`text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full ${tipoVeiculo === 'interno' ? 'bg-emerald-500/15 text-emerald-300' :
@@ -965,6 +969,25 @@ export default function LiberacaoPage() {
                       /* ======= FORMULÁRIO DE LIBERAÇÃO ======= */
                       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                         <div className="space-y-4">
+                          {tipoVeiculo === 'veiculo_interno' && (
+                            <div className="grid grid-cols-2 gap-3">
+                              <button
+                                type="button"
+                                onClick={() => { setMovimentoVeiculoInterno('entrada'); setMensagem('') }}
+                                className={`py-2.5 rounded-xl text-sm font-semibold border transition ${movimentoVeiculoInterno === 'entrada' ? 'bg-sky-500 text-white border-sky-400 shadow-[0_0_18px_rgba(14,165,233,0.25)]' : 'bg-[#132337] text-slate-400 border-white/10 hover:text-white hover:border-sky-500/30'}`}
+                              >
+                                Entrada
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setMovimentoVeiculoInterno('saida'); setMensagem('') }}
+                                className={`py-2.5 rounded-xl text-sm font-semibold border transition ${movimentoVeiculoInterno === 'saida' ? 'bg-orange-500 text-[#0a1625] border-orange-400 shadow-[0_0_18px_rgba(249,115,22,0.22)]' : 'bg-[#132337] text-slate-400 border-white/10 hover:text-white hover:border-orange-500/30'}`}
+                              >
+                                Saida
+                              </button>
+                            </div>
+                          )}
+
                           {(tipoVeiculo === 'interno' || tipoVeiculo === 'veiculo_interno') ? (
                             <div data-dropdown className="relative">
                               <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Veículo</label>
@@ -1204,7 +1227,7 @@ export default function LiberacaoPage() {
                               {carregando
                                 ? tipoVeiculo === 'veiculo_interno' ? 'Registrando...' : 'Liberando...'
                                 : tipoVeiculo === 'veiculo_interno'
-                                  ? 'Registrar Entrada de Veiculo Interno'
+                                  ? `Registrar ${movimentoVeiculoInterno === 'entrada' ? 'Entrada' : 'Saida'} de Veiculo Interno`
                                   : tipoVeiculo === 'interno'
                                     ? 'Liberar Veiculo da Empresa'
                                     : 'Liberar Veiculo Externo'}

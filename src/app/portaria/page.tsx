@@ -69,12 +69,26 @@ export default function PortariaPage() {
     podeControleTransferencia ? 'transferencia' : null,
   ].filter(Boolean) as typeof abaAtual[]
 
+  function ordenarHistoricoVeiculos(registros: Movimentacao[]) {
+    const dataEvento = (m: Movimentacao) => {
+      if (m.tipo_veiculo === 'interno_saida') return m.saida_em || m.liberado_em
+      if (m.tipo_veiculo === 'interno_entrada') return m.entrada_em || m.liberado_em
+      return m.entrada_em || m.saida_em || m.liberado_em
+    }
+
+    return [...registros].sort((a, b) => {
+      const dataA = new Date(dataEvento(a) || 0).getTime()
+      const dataB = new Date(dataEvento(b) || 0).getTime()
+      return dataB - dataA
+    })
+  }
+
   async function carregar() {
     setCarregando(true)
     try {
       const [vAtivos, vFinais, pAtivos, pFinais, tQuery] = await Promise.all([
         supabase.from('movimentacoes').select('*').in('status', ['aguardando_saida', 'em_rota']).order('liberado_em', { ascending: false }),
-        supabase.from('movimentacoes').select('*').eq('status', 'finalizado').order('entrada_em', { ascending: false }).limit(30),
+        supabase.from('movimentacoes').select('*').eq('status', 'finalizado').order('liberado_em', { ascending: false }).limit(100),
         supabase.from('movimentacoes_pedestres').select('*').in('status', ['aguardando_entrada', 'em_visita']).order('liberado_em', { ascending: false }),
         supabase.from('movimentacoes_pedestres').select('*').eq('status', 'finalizado').order('saida_em', { ascending: false }).limit(30),
         supabase.from('transferencias').select('*').order('transferido_em', { ascending: false }).limit(100),
@@ -85,7 +99,7 @@ export default function PortariaPage() {
       console.log('[Portaria] vAtivos:', vAtivos.data, 'erro:', vAtivos.error)
 
       setMovimentacoes(vAtivos.data || [])
-      setHistorico(vFinais.data || [])
+      setHistorico(ordenarHistoricoVeiculos(vFinais.data || []).slice(0, 30))
       setPedestres(pAtivos.data || [])
       setHistoricoPedestres(pFinais.data || [])
       setTransferencias(tQuery.data || [])
@@ -109,10 +123,23 @@ export default function PortariaPage() {
     setMensagem('')
   }, [isLoaded, abasPermitidas, abaAtual])
 
-  async function registrarSaidaVeiculo(id: number) {
-    const { error } = await supabase.from('movimentacoes').update({ status: 'em_rota', saida_em: new Date().toISOString() }).eq('id', id)
+  async function registrarSaidaVeiculo(movimentacao: Movimentacao) {
+    const agora = new Date().toISOString()
+    const deveFinalizarNaSaida = isVeiculoExterno(movimentacao.tipo_veiculo) || (
+      Boolean(movimentacao.entrada_em) && !isVeiculoInterno(movimentacao.tipo_veiculo)
+    )
+    const dadosSaida =
+      deveFinalizarNaSaida
+        ? {
+          status: 'finalizado',
+          saida_em: movimentacao.saida_em || agora,
+          entrada_em: movimentacao.entrada_em || movimentacao.liberado_em || agora,
+        }
+        : { status: 'em_rota', saida_em: agora }
+
+    const { error } = await supabase.from('movimentacoes').update(dadosSaida).eq('id', movimentacao.id)
     if (error) setMensagem('Erro: ' + error.message)
-    else { setMensagem('Saida do veiculo registrada!'); carregar() }
+    else { setMensagem(deveFinalizarNaSaida ? 'Saida do veiculo externo registrada e finalizada!' : 'Saida do veiculo registrada!'); carregar() }
   }
 
   async function registrarEntradaVeiculo(id: number) {
@@ -138,9 +165,34 @@ export default function PortariaPage() {
     return new Date(data).toLocaleString('pt-BR')
   }
 
+  function isVeiculoInterno(tipo: string | null | undefined) {
+    return tipo === 'interno' || tipo === 'interno_entrada' || tipo === 'interno_saida'
+  }
+
+  function isVeiculoExterno(tipo: string | null | undefined) {
+    return tipo === 'externo' || tipo === 'veiculo_externo'
+  }
+
+  function deveMostrarAcaoSaida(m: Movimentacao) {
+    return m.status === 'aguardando_saida' || isVeiculoExterno(m.tipo_veiculo)
+  }
+
+  function dataSaidaVeiculo(m: Movimentacao) {
+    if (m.tipo_veiculo === 'interno_entrada') return null
+    return m.saida_em
+  }
+
+  function dataEntradaVeiculo(m: Movimentacao) {
+    if (m.tipo_veiculo === 'interno_saida') return null
+    return m.entrada_em
+  }
+
   const vAguardando = movimentacoes.filter((m) => m.status === 'aguardando_saida').length
   const vEmRota = movimentacoes.filter((m) => m.status === 'em_rota').length
-  const vRetornosHoje = historico.filter((m) => m.entrada_em && new Date(m.entrada_em).toDateString() === new Date().toDateString()).length
+  const vRetornosHoje = historico.filter((m) => {
+    const entrada = dataEntradaVeiculo(m)
+    return entrada && new Date(entrada).toDateString() === new Date().toDateString()
+  }).length
   const pAguardando = pedestres.filter((p) => p.status === 'aguardando_entrada').length
   const pEmVisita = pedestres.filter((p) => p.status === 'em_visita').length
   const pSaidasHoje = historicoPedestres.filter((p) => p.saida_em && new Date(p.saida_em).toDateString() === new Date().toDateString()).length
@@ -265,7 +317,7 @@ export default function PortariaPage() {
                                 <td className="pl-3 py-2.5 text-center text-white whitespace-nowrap w40">
                                   <div className="flex items-center justify-center gap-1.0 whitespace-nowrap flex-nowrap align-middle">
                                     <span className="font-semibold text-emerald-300 whitespace-nowrap tracking-wide text-sm">{m.placa}</span>
-                                    {m.tipo_veiculo === 'interno' && (
+                                    {isVeiculoInterno(m.tipo_veiculo) && (
                                       <span className="inline-flex shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-semibold uppercase bg-blue-500/15 text-blue-300 border border-blue-500/25 whitespace-nowrap">
                                         Interno
                                       </span>
@@ -288,8 +340,8 @@ export default function PortariaPage() {
                                   </span>
                                 </td>
                                 <td className="px-3 py-2.5 text-center whitespace-nowrap">
-                                  {m.status === 'aguardando_saida' ? (
-                                    <button onClick={() => registrarSaidaVeiculo(m.id)} className="bg-orange-500 hover:bg-orange-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-all duration-150 whitespace-nowrap cursor-pointer">
+                                  {deveMostrarAcaoSaida(m) ? (
+                                    <button onClick={() => registrarSaidaVeiculo(m)} className="bg-orange-500 hover:bg-orange-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-all duration-150 whitespace-nowrap cursor-pointer">
                                       Registrar Saída
                                     </button>
                                   ) : (
@@ -329,7 +381,7 @@ export default function PortariaPage() {
                                 <td className="px-3 py-2.5 whitespace-nowrap">
                                   <div className="flex items-center gap-1.5 whitespace-nowrap flex-nowrap">
                                     <span className="font-semibold text-emerald-300 whitespace-nowrap tracking-wide text-sm">{m.placa}</span>
-                                    {m.tipo_veiculo === 'interno' && (
+                                    {isVeiculoInterno(m.tipo_veiculo) && (
                                       <span className="inline-flex shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-semibold uppercase bg-blue-500/15 text-blue-300 border border-blue-500/25 whitespace-nowrap">
                                         Interno
                                       </span>
@@ -343,8 +395,8 @@ export default function PortariaPage() {
                                 </td>
                                 <td className="px-3 py-2.5 text-center text-sm font-bold whitespace-nowrap">{m.motorista || '—'}</td>
                                 <td className="px-3 py-2.5 text-center text-sm font-bold whitespace-nowrap">{m.destino || '—'}</td>
-                                <td className="px-3 py-2.5 text-center text-sm font-bold whitespace-nowrap">{formatarData(m.saida_em)}</td>
-                                <td className="px-3 py-2.5 text-center text-sm font-bold whitespace-nowrap">{formatarData(m.entrada_em)}</td>
+                                <td className="px-3 py-2.5 text-center text-sm font-bold whitespace-nowrap">{formatarData(dataSaidaVeiculo(m))}</td>
+                                <td className="px-3 py-2.5 text-center text-sm font-bold whitespace-nowrap">{formatarData(dataEntradaVeiculo(m))}</td>
                               </tr>
                             ))
                           )}
