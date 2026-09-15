@@ -613,3 +613,33 @@ html.light [data-auth-page] label {
   color: #cbd5e1 !important;
   font-weight: 500 !important;
 }
+
+[data-auth-page] .cl-otpCodeFieldInputs,
+[data-auth-page] [class*="otpCodeFieldInputs"] {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+  flex-wrap: nowrap !important;
+  width: 100% !important;
+}
+
+[data-auth-page] .cl-otpCodeFieldInput,
+[data-auth-page] [class*="otpCodeFieldInput"] {
+  width: 2.75rem !important;
+  min-width: 2.75rem !important;
+  height: 3rem !important;
+  padding: 0 !important;
+  text-align: center !important;
+  font-size: 1.125rem !important;
+  font-weight: 700 !important;
+  line-height: 3rem !important;
+  display: inline-flex !important;
+}
+
+[data-auth-page] input[name="code"],
+[data-auth-page] input[inputmode="numeric"][autocomplete="one-time-code"] {
+  letter-spacing: 0.25rem !important;
+  text-align: center !important;
+}

@@ -198,100 +198,98 @@ export default function UsuariosPage() {
             </div>
           )}
 
-          <div className="bg-[#0f1c2e] rounded-2xl border border-emerald-500/15 shadow-[0_0_30px_rgba(16,185,129,0.05)] overflow-hidden">
-            <div className="max-h-[68vh] overflow-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="bg-[#132337] border-b border-emerald-500/15 sticky top-0 z-10">
-                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Usuario</th>
-                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Perfil</th>
-                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Permissoes</th>
-                    <th className="px-5 py-3.5 text-right text-xs font-semibold text-emerald-400/90 uppercase tracking-wider">Acao</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {usuarios.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-5 py-10 text-center text-slate-500">Nenhum usuario encontrado.</td>
-                    </tr>
-                  ) : (
-                    usuarios.map((usuario) => (
-                      <tr key={usuario.id} className="hover:bg-emerald-500/5 transition-colors">
-                        <td className="px-5 py-4">
-                          <div className="font-medium text-white">{usuario.nome}</div>
-                          <div className="text-xs text-slate-500 mt-1">{usuario.email || usuario.id}</div>
-                        </td>
-                        <td className="px-5 py-4">
-                          <select
-                            value={usuario.role}
-                            onChange={(event) => alterarRole(usuario.id, event.target.value as Role)}
-                            className="bg-[#132337] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
-                          >
-                            {ROLES.map((role) => (
-                              <option key={role.id} value={role.id}>{role.label}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="px-5 py-4">
-                          <div className="space-y-3">
-                            {ABAS.map((aba) => {
-                              const ativa = usuario.permissoes.includes(aba.id)
-                              return (
-                                <div key={aba.id} className="space-y-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => alternarPermissao(usuario.id, aba.id)}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${ativa
-                                        ? 'bg-emerald-500 text-[#0a1625] border-emerald-400 shadow-sm'
-                                        : 'bg-[#132337] text-slate-400 border-white/10 hover:text-white hover:border-white/20'
-                                      }`}
-                                  >
-                                    {aba.label}
-                                  </button>
+          {usuarios.length === 0 ? (
+            <div className="rounded-2xl border border-white/10 bg-[#0f1c2e] px-5 py-10 text-center text-slate-500">Nenhum usuario encontrado.</div>
+          ) : (
+            <div className="space-y-4">
+              {usuarios.map((usuario) => (
+                <section key={usuario.id} className="rounded-2xl border border-emerald-500/15 bg-[#0f1c2e] shadow-[0_0_30px_rgba(16,185,129,0.05)] overflow-hidden">
+                  <div className="flex flex-col gap-4 border-b border-white/5 bg-[#132337]/60 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0">
+                      <h2 className="truncate text-base font-semibold text-white">{usuario.nome}</h2>
+                      <p className="mt-1 truncate text-xs text-slate-500">{usuario.email || usuario.id}</p>
+                    </div>
 
-                                  {ativa && aba.filhos && (
-                                    <div className="flex flex-wrap gap-2 pl-3 border-l border-white/10">
-                                      {aba.filhos.map((filho) => {
-                                        const temDetalheConfigurado = aba.filhos?.some((item) => usuario.permissoes.includes(item.id))
-                                        const filhoAtivo = temDetalheConfigurado ? usuario.permissoes.includes(filho.id) : ativa
-                                        return (
-                                          <button
-                                            key={filho.id}
-                                            type="button"
-                                            onClick={() => alternarSubPermissao(usuario.id, aba.id, filho.id)}
-                                            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all ${filhoAtivo
-                                                ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
-                                                : 'bg-[#0a1625] text-slate-500 border-white/10 hover:text-white hover:border-white/20'
-                                              }`}
-                                          >
-                                            {filho.label}
-                                          </button>
-                                        )
-                                      })}
-                                    </div>
-                                  )}
-                                </div>
-                              )
-                            })}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                        Perfil
+                        <select
+                          value={usuario.role}
+                          onChange={(event) => alterarRole(usuario.id, event.target.value as Role)}
+                          className="bg-[#0f1c2e] border border-white/10 rounded-lg px-3 py-2 text-sm normal-case tracking-normal text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                        >
+                          {ROLES.map((role) => (
+                            <option key={role.id} value={role.id}>{role.label}</option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => salvar(usuario)}
+                        disabled={salvandoId === usuario.id}
+                        className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 disabled:cursor-not-allowed text-[#0a1625] text-xs font-semibold px-4 py-2 rounded-lg transition"
+                      >
+                        {salvandoId === usuario.id ? 'Salvando...' : 'Salvar'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-5">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-emerald-400/90">Permissoes</h3>
+                      <span className="text-xs text-slate-500">{usuario.permissoes.length} ativas</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {ABAS.map((aba) => {
+                        const ativa = usuario.permissoes.includes(aba.id)
+                        return (
+                          <div key={aba.id} className="border-t border-white/10 pt-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <button
+                                type="button"
+                                onClick={() => alternarPermissao(usuario.id, aba.id)}
+                                className={`min-w-28 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${ativa
+                                    ? 'bg-emerald-500 text-[#0a1625] border-emerald-400 shadow-sm'
+                                    : 'bg-[#132337] text-slate-400 border-white/10 hover:text-white hover:border-white/20'
+                                  }`}
+                              >
+                                {aba.label}
+                              </button>
+                            </div>
+
+                            {aba.filhos && (
+                              <div className="mt-2 grid grid-cols-2 gap-2">
+                                {aba.filhos.map((filho) => {
+                                  const temDetalheConfigurado = aba.filhos?.some((item) => usuario.permissoes.includes(item.id))
+                                  const filhoAtivo = temDetalheConfigurado ? usuario.permissoes.includes(filho.id) : ativa
+                                  return (
+                                    <button
+                                      key={filho.id}
+                                      type="button"
+                                      onClick={() => alternarSubPermissao(usuario.id, aba.id, filho.id)}
+                                      disabled={!ativa && !filhoAtivo}
+                                      className={`px-2.5 py-1.5 rounded-md text-[11px] font-semibold border transition-all disabled:cursor-not-allowed ${filhoAtivo
+                                          ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+                                          : 'bg-[#0a1625] text-slate-500 border-white/10 hover:text-white hover:border-white/20 disabled:opacity-45'
+                                        }`}
+                                    >
+                                      {filho.label}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            )}
                           </div>
-                        </td>
-                        <td className="px-5 py-4 text-right">
-                          <button
-                            type="button"
-                            onClick={() => salvar(usuario)}
-                            disabled={salvandoId === usuario.id}
-                            className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 disabled:cursor-not-allowed text-[#0a1625] text-xs font-semibold px-4 py-2 rounded-lg transition"
-                          >
-                            {salvandoId === usuario.id ? 'Salvando...' : 'Salvar'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </section>
+              ))}
             </div>
-          </div>
+          )}
         </div>
       </main>
     </div>

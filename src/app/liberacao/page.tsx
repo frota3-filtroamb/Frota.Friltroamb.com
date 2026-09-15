@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Sidebar from '@/components/Sidebar'
 import { podeAcessarDetalhe } from '@/lib/roles'
+import { formatCpf, formatPhone, formatPlate, onlyDigits } from '@/lib/masks'
 
 type Veiculo = {
   NR_PLACA: string
@@ -217,6 +218,17 @@ export default function LiberacaoPage() {
         setMensagem('Selecione o destino (ex: Setor Comercial, Diretoria, etc)')
         return
       }
+      if (cpfPedestre && onlyDigits(cpfPedestre).length !== 11) {
+        setMensagem('Informe um CPF com 11 digitos')
+        return
+      }
+      if (telefonePedestre) {
+        const telefoneDigits = onlyDigits(telefonePedestre)
+        if (telefoneDigits.length < 10 || telefoneDigits.length > 11) {
+          setMensagem('Informe um telefone com DDD')
+          return
+        }
+      }
 
       setCarregando(true)
       setMensagem('')
@@ -309,10 +321,14 @@ export default function LiberacaoPage() {
     const placaFinal =
       tipoVeiculo === 'interno'
         ? veiculoSelecionado?.NR_PLACA
-        : placaExterna.trim().toUpperCase()
+        : formatPlate(placaExterna)
 
     if (!placaFinal) {
       setMensagem(tipoVeiculo === 'interno' ? 'Selecione um veículo da lista' : 'Informe a placa do veículo externo')
+      return
+    }
+    if (tipoVeiculo === 'externo' && placaFinal.length !== 7) {
+      setMensagem('A placa deve ter exatamente 7 caracteres')
       return
     }
     if (!motoristaSelecionado) {
@@ -377,26 +393,26 @@ export default function LiberacaoPage() {
       setMensagem('Selecione um motorista')
       return
     }
-    if (!km || !dataHora) {
-      setMensagem('Preencha KM e a data/hora')
+    if (!dataHora) {
+      setMensagem('Preencha a data/hora')
       return
     }
-    const kmAtual = await validarKmVeiculo(placaFinal)
-    if (kmAtual === null) return
+    const dataRegistro = new Date(dataHora).toISOString()
 
     setCarregando(true)
     setMensagem('')
 
     const { error } = await supabase.from('movimentacoes').insert({
       placa: placaFinal,
-      km: kmAtual,
+      km: null,
       motorista: motoristaSelecionado,
       localizacao: origemSelecionada || buscaOrigem,
       destino: null,
-      status: 'em_rota',
+      status: 'finalizado',
       liberado_por: 'Gestor',
-      liberado_em: new Date(dataHora).toISOString(),
-      saida_em: new Date(dataHora).toISOString(),
+      liberado_em: dataRegistro,
+      saida_em: dataRegistro,
+      entrada_em: dataRegistro,
       tipo_veiculo: 'interno',
     })
 
@@ -407,7 +423,7 @@ export default function LiberacaoPage() {
       return
     }
 
-    setMensagem('Entrada liberada com sucesso! A Portaria ja pode registrar a entrada do veiculo interno.')
+    setMensagem('Veiculo interno registrado com sucesso no historico do controle.')
     setVeiculoSelecionado(null)
     setBuscaPlaca('')
     setMotoristaSelecionado('')
@@ -634,8 +650,10 @@ export default function LiberacaoPage() {
                             <input
                               type="text"
                               value={cpfPedestre}
-                              onChange={(e) => setCpfPedestre(e.target.value)}
+                              onChange={(e) => setCpfPedestre(formatCpf(e.target.value))}
                               placeholder="000.000.000-00"
+                              inputMode="numeric"
+                              maxLength={14}
                               className="w-full px-4 py-2.5 bg-[#132337] border border-purple-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-400/40 transition"
                             />
                           </div>
@@ -649,8 +667,10 @@ export default function LiberacaoPage() {
                             <input
                               type="text"
                               value={telefonePedestre}
-                              onChange={(e) => setTelefonePedestre(e.target.value)}
-                              placeholder="(00) 00000-0000"
+                              onChange={(e) => setTelefonePedestre(formatPhone(e.target.value))}
+                              placeholder="00 0 0000-0000"
+                              inputMode="tel"
+                              maxLength={15}
                               className="w-full px-4 py-2.5 bg-[#132337] border border-purple-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-400/40 transition"
                             />
                           </div>
@@ -772,7 +792,7 @@ export default function LiberacaoPage() {
                             type="text"
                             value={buscaPlaca}
                             onChange={(e) => {
-                              setBuscaPlaca(e.target.value)
+                              setBuscaPlaca(formatPlate(e.target.value))
                               setVeiculoSelecionado(null)
                               setMostrarListaPlaca(true)
                             }}
@@ -791,7 +811,7 @@ export default function LiberacaoPage() {
                                 new Map(
                                   veiculos
                                     .filter((v) =>
-                                      v.NR_PLACA?.toLowerCase().includes(buscaPlaca.toLowerCase())
+                                      formatPlate(v.NR_PLACA || '').includes(buscaPlaca)
                                     )
                                     .map((v) => [v.NR_PLACA, v])
                                 ).values()
@@ -952,7 +972,7 @@ export default function LiberacaoPage() {
                                 type="text"
                                 value={buscaPlaca}
                                 onChange={(e) => {
-                                  setBuscaPlaca(e.target.value)
+                                  setBuscaPlaca(formatPlate(e.target.value))
                                   setVeiculoSelecionado(null)
                                   setMostrarListaPlaca(true)
                                 }}
@@ -970,7 +990,7 @@ export default function LiberacaoPage() {
                                   {Array.from(
                                     new Map(
                                       veiculos
-                                        .filter((v) => v.NR_PLACA?.toLowerCase().includes(buscaPlaca.toLowerCase()))
+                                        .filter((v) => formatPlate(v.NR_PLACA || '').includes(buscaPlaca))
                                         .map((v) => [v.NR_PLACA, v])
                                     ).values()
                                   )
@@ -1000,8 +1020,9 @@ export default function LiberacaoPage() {
                                 <input
                                   type="text"
                                   value={placaExterna}
-                                  onChange={(e) => setPlacaExterna(e.target.value.toUpperCase())}
+                                  onChange={(e) => setPlacaExterna(formatPlate(e.target.value))}
                                   placeholder="ABC1D23"
+                                  maxLength={7}
                                   className="w-full px-4 py-2.5 bg-[#132337] border border-orange-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-400/40 uppercase transition"
                                 />
                               </div>
@@ -1018,19 +1039,21 @@ export default function LiberacaoPage() {
                             </div>
                           )}
 
-                          <div className="grid grid-cols-2 gap-3">
-                            <div data-dropdown>
-                              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">KM Atual</label>
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                pattern="[0-9]*"
-                                value={km}
-                                onChange={(e) => setKm(e.target.value.replace(/\D/g, ''))}
-                                placeholder="0"
-                                className="w-full px-4 py-2.5 bg-[#132337] border border-emerald-500/20 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition"
-                              />
-                            </div>
+                          <div className={`grid gap-3 ${tipoVeiculo === 'veiculo_interno' ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                            {tipoVeiculo !== 'veiculo_interno' && (
+                              <div data-dropdown>
+                                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">KM Atual</label>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
+                                  value={km}
+                                  onChange={(e) => setKm(e.target.value.replace(/\D/g, ''))}
+                                  placeholder="0"
+                                  className="w-full px-4 py-2.5 bg-[#132337] border border-emerald-500/20 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition"
+                                />
+                              </div>
+                            )}
                             <div>
                               <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Data e Hora</label>
                               <input

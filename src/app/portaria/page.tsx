@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Sidebar from '@/components/Sidebar'
 import { podeAcessarDetalhe } from '@/lib/roles'
+import { formatCpf, formatPhone, onlyDigits } from '@/lib/masks'
 
 type Movimentacao = {
   id: number
@@ -147,8 +148,9 @@ export default function PortariaPage() {
   const textoFiltro = busca.toLowerCase()
   const mFiltradas = movimentacoes.filter((m) => m.placa?.toLowerCase().includes(textoFiltro) || m.motorista?.toLowerCase().includes(textoFiltro) || m.destino?.toLowerCase().includes(textoFiltro))
   const mHistFiltrado = historico.filter((m) => m.placa?.toLowerCase().includes(textoFiltro) || m.motorista?.toLowerCase().includes(textoFiltro) || m.destino?.toLowerCase().includes(textoFiltro))
-  const pFiltrados = pedestres.filter((p) => p.nome?.toLowerCase().includes(textoFiltro) || p.cpf_rg?.includes(textoFiltro) || p.empresa?.toLowerCase().includes(textoFiltro))
-  const pHistFiltrado = historicoPedestres.filter((p) => p.nome?.toLowerCase().includes(textoFiltro) || p.empresa?.toLowerCase().includes(textoFiltro))
+  const digitosFiltro = onlyDigits(busca)
+  const pFiltrados = pedestres.filter((p) => p.nome?.toLowerCase().includes(textoFiltro) || p.cpf_rg?.includes(textoFiltro) || (digitosFiltro && onlyDigits(p.cpf_rg || '').includes(digitosFiltro)) || p.empresa?.toLowerCase().includes(textoFiltro))
+  const pHistFiltrado = historicoPedestres.filter((p) => p.nome?.toLowerCase().includes(textoFiltro) || p.empresa?.toLowerCase().includes(textoFiltro) || p.cpf_rg?.includes(textoFiltro) || (digitosFiltro && onlyDigits(p.cpf_rg || '').includes(digitosFiltro)))
   const transferenciasFiltradas = transferencias.filter((t) => t.placa?.toLowerCase().includes(textoFiltro) || t.base_origem?.toLowerCase().includes(textoFiltro) || t.base_destino?.toLowerCase().includes(textoFiltro) || t.motorista?.toLowerCase().includes(textoFiltro))
 
   return (
@@ -361,45 +363,43 @@ export default function PortariaPage() {
                   </div>
                   <div className="bg-[#0f1c2e] rounded-2xl border border-purple-500/15 shadow-[0_0_30px_rgba(168,85,247,0.05)] overflow-hidden mb-8">
                     <div className="max-h-[52vh] overflow-y-auto overflow-x-hidden">
-                      <table className="w-full text-xs">
+                      <table className="w-full table-fixed text-xs">
                         <thead>
                           <tr className="bg-[#132337] border-b border-purple-500/15 sticky top-0 z-10">
-                            <th className="px-3 py-2.5 text-center text-[11px] font-semibold text-purple-400/90 uppercase tracking-wider whitespace-nowrap">Nome / Empresa</th>
-                            <th className="px-3 py-2.5 text-center text-[11px] font-semibold text-purple-400/90 uppercase tracking-wider whitespace-nowrap">CPF / Tel</th>
-                            <th className="px-3 py-2.5 text-center text-[11px] font-semibold text-purple-400/90 uppercase tracking-wider whitespace-nowrap">Destino</th>
-                            <th className="px-3 py-2.5 text-center text-[11px] font-semibold text-purple-400/90 uppercase tracking-wider whitespace-nowrap">Liberação</th>
-                            <th className="px-3 py-2.5 text-center text-[11px] font-semibold text-purple-400/90 uppercase tracking-wider whitespace-nowrap">Status</th>
-                            <th className="px-3 py-2.5 text-center text-[11px] font-semibold text-purple-400/90 uppercase tracking-wider whitespace-nowrap">Ação</th>
+                            <th className="w-[14%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Nome</th>
+                            <th className="w-[13%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Empresa</th>
+                            <th className="w-[13%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">CPF</th>
+                            <th className="w-[13%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Telefone</th>
+                            <th className="w-[13%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Destino</th>
+                            <th className="w-[15%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Liberação</th>
+                            <th className="w-[11%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Status</th>
+                            <th className="w-[8%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Ação</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
                           {pFiltrados.length === 0 ? (
-                            <tr><td colSpan={6} className="px-3 py-8 text-center text-slate-500">Nenhum pedestre em andamento.</td></tr>
+                            <tr><td colSpan={8} className="px-3 py-8 text-center text-slate-500">Nenhum pedestre em andamento.</td></tr>
                           ) : (
                             pFiltrados.map((p) => (
                               <tr key={p.id} className="hover:bg-purple-500/5 transition-colors">
-                                <td className="px-3 py-2.5 whitespace-nowrap">
-                                  <div className="font-medium text-purple-300 text-xs">{p.nome}</div>
-                                  <div className="text-[10px] text-slate-500">{p.empresa || 'Sem empresa'}</div>
-                                </td>
-                                <td className="px-3 py-2.5 whitespace-nowrap">
-                                  <div className="text-slate-300 text-xs">{p.cpf_rg || '—'}</div>
-                                  <div className="text-[10px] text-slate-500">{p.telefone || '—'}</div>
-                                </td>
-                                <td className="px-3 py-2.5 text-slate-300 whitespace-nowrap">{p.destino || '—'}</td>
-                                <td className="px-3 py-2.5 text-slate-500 text-[11px] whitespace-nowrap">{formatarData(p.liberado_em)}</td>
-                                <td className="px-3 py-2.5 whitespace-nowrap">
-                                  <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${p.status === 'aguardando_entrada' ? 'bg-orange-500/15 text-orange-300 border border-orange-500/20' : 'bg-purple-500/15 text-purple-300 border border-purple-500/20'}`}>
+                                <td className="px-2 py-2.5 text-center font-semibold text-purple-300 text-[14px] truncate">{p.nome}</td>
+                                <td className="px-2 py-2.5 text-center text-slate-300 text-[14px] truncate">{p.empresa || 'Sem empresa'}</td>
+                                <td className="px-2 py-2.5 text-center text-slate-300 text-[14px] truncate">{p.cpf_rg ? formatCpf(p.cpf_rg) : '—'}</td>
+                                <td className="px-2 py-2.5 text-center text-slate-300 text-[14px] truncate">{p.telefone ? formatPhone(p.telefone) : '—'}</td>
+                                <td className="px-2 py-2.5 text-center text-slate-300 text-[14px] truncate">{p.destino || '—'}</td>
+                                <td className="px-2 py-2.5 text-center text-slate-300 text-[14px] truncate">{formatarData(p.liberado_em)}</td>
+                                <td className="px-2 py-2.5 text-center">
+                                  <span className={`inline-flex max-w-full px-2 py-0.5 rounded-full text-[9px] font-medium truncate ${p.status === 'aguardando_entrada' ? 'bg-orange-500/15 text-orange-300 border border-orange-500/20' : 'bg-purple-500/15 text-purple-300 border border-purple-500/20'}`}>
                                     {p.status === 'aguardando_entrada' ? 'Aguardando Entrada' : 'Em Visita'}
                                   </span>
                                 </td>
-                                <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                                <td className="px-2 py-2.5 text-center">
                                   {p.status === 'aguardando_entrada' ? (
-                                    <button onClick={() => registrarEntradaPedestre(p.id)} className="bg-emerald-500 hover:bg-emerald-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-all duration-150 whitespace-nowrap cursor-pointer">
+                                    <button onClick={() => registrarEntradaPedestre(p.id)} className="bg-emerald-500 hover:bg-emerald-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-2 py-1 rounded-lg transition-all duration-150 cursor-pointer">
                                       Entrou
                                     </button>
                                   ) : (
-                                    <button onClick={() => registrarSaidaPedestre(p.id)} className="bg-orange-500 hover:bg-orange-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-all duration-150 whitespace-nowrap cursor-pointer">
+                                    <button onClick={() => registrarSaidaPedestre(p.id)} className="bg-orange-500 hover:bg-orange-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-2 py-1 rounded-lg transition-all duration-150 cursor-pointer">
                                       Saiu
                                     </button>
                                   )}
@@ -414,28 +414,31 @@ export default function PortariaPage() {
                   <h3 className="text-base font-semibold text-white mb-2 tracking-tight">Histórico de Visitas (Pedestres)</h3>
                   <div className="bg-[#0f1c2e] rounded-2xl border border-purple-500/15 overflow-hidden">
                     <div className="max-h-[52vh] overflow-y-auto overflow-x-hidden">
-                      <table className="w-full text-xs">
+                      <table className="w-full table-fixed text-xs">
                         <thead>
                           <tr className="bg-[#132337] border-b border-purple-500/15 sticky top-0 z-10">
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-purple-400/90 uppercase tracking-wider whitespace-nowrap">Nome / Empresa</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-purple-400/90 uppercase tracking-wider whitespace-nowrap">Destino</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-purple-400/90 uppercase tracking-wider whitespace-nowrap">Entrada</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-purple-400/90 uppercase tracking-wider whitespace-nowrap">Saída</th>
+                            <th className="w-[15%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Nome</th>
+                            <th className="w-[14%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Empresa</th>
+                            <th className="w-[14%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">CPF</th>
+                            <th className="w-[14%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Telefone</th>
+                            <th className="w-[15%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Destino</th>
+                            <th className="w-[14%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Entrada</th>
+                            <th className="w-[14%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Saída</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
                           {pHistFiltrado.length === 0 ? (
-                            <tr><td colSpan={4} className="px-3 py-8 text-center text-slate-500">Nenhum registro.</td></tr>
+                            <tr><td colSpan={7} className="px-3 py-8 text-center text-slate-500">Nenhum registro.</td></tr>
                           ) : (
                             pHistFiltrado.map((p) => (
                               <tr key={p.id} className="hover:bg-purple-500/5 transition-colors">
-                                <td className="px-3 py-2.5 whitespace-nowrap">
-                                  <div className="font-medium text-purple-300 text-xs">{p.nome}</div>
-                                  <div className="text-[10px] text-slate-500">{p.empresa || 'Sem empresa'}</div>
-                                </td>
-                                <td className="px-3 py-2.5 text-slate-300 whitespace-nowrap">{p.destino || '—'}</td>
-                                <td className="px-3 py-2.5 text-slate-500 text-[11px] whitespace-nowrap">{formatarData(p.entrada_em)}</td>
-                                <td className="px-3 py-2.5 text-slate-500 text-[11px] whitespace-nowrap">{formatarData(p.saida_em)}</td>
+                                <td className="px-2 py-2.5 text-center font-semibold text-purple-300 text-[13px] truncate">{p.nome}</td>
+                                <td className="px-2 py-2.5 text-center text-slate-300 text-[12px] truncate">{p.empresa || 'Sem empresa'}</td>
+                                <td className="px-2 py-2.5 text-center text-slate-200 text-[12px] truncate">{p.cpf_rg ? formatCpf(p.cpf_rg) : '—'}</td>
+                                <td className="px-2 py-2.5 text-center text-slate-300 text-[12px] truncate">{p.telefone ? formatPhone(p.telefone) : '—'}</td>
+                                <td className="px-2 py-2.5 text-center text-slate-300 text-[12px] truncate">{p.destino || '—'}</td>
+                                <td className="px-2 py-2.5 text-center text-slate-300 text-[12px] truncate">{formatarData(p.entrada_em)}</td>
+                                <td className="px-2 py-2.5 text-center text-slate-300 text-[12px] truncate">{formatarData(p.saida_em)}</td>
                               </tr>
                             ))
                           )}
@@ -455,12 +458,12 @@ export default function PortariaPage() {
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="bg-[#132337] border-b border-emerald-500/15 sticky top-0 z-10">
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Veículo</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Origem</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Destino</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Motorista</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Data / Hora</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Responsável</th>
+                            <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Veículo</th>
+                            <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Origem</th>
+                            <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Destino</th>
+                            <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Motorista</th>
+                            <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Data / Hora</th>
+                            <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Responsável</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -470,15 +473,15 @@ export default function PortariaPage() {
                             transferenciasFiltradas.map((t) => (
                               <tr key={t.id} className="hover:bg-emerald-500/5 transition-colors">
                                 <td className="px-3 py-2.5 whitespace-nowrap">
-                                  <div className="font-semibold text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md inline-block whitespace-nowrap text-xs">
+                                  <div className="font-semibold text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md inline-block whitespace-nowrap text-[13px]">
                                     {t.placa}
                                   </div>
                                 </td>
-                                <td className="px-3 py-2.5 text-slate-300 whitespace-nowrap">{t.base_origem}</td>
-                                <td className="px-3 py-2.5 text-slate-300 whitespace-nowrap">{t.base_destino}</td>
-                                <td className="px-3 py-2.5 text-slate-400 font-medium whitespace-nowrap">{t.motorista || <span className="text-slate-600 font-normal">Não informado</span>}</td>
-                                <td className="px-3 py-2.5 text-slate-400 text-[11px] whitespace-nowrap">{formatarData(t.transferido_em)}</td>
-                                <td className="px-3 py-2.5 text-slate-500 text-[11px] whitespace-nowrap">{t.transferido_por || '—'}</td>
+                                <td className="px-3 py-2.5 text-slate-300 text-[13px] whitespace-nowrap">{t.base_origem}</td>
+                                <td className="px-3 py-2.5 text-slate-300 text-[13px] whitespace-nowrap">{t.base_destino}</td>
+                                <td className="px-3 py-2.5 text-slate-300 text-[13px] whitespace-nowrap">{t.motorista || <span className="text-slate-600 font-normal">Não informado</span>}</td>
+                                <td className="px-3 py-2.5 text-slate-300 text-[13px] whitespace-nowrap">{formatarData(t.transferido_em)}</td>
+                                <td className="px-3 py-2.5 text-slate-300 text-[13px] whitespace-nowrap">{t.transferido_por || '—'}</td>
                               </tr>
                             ))
                           )}
