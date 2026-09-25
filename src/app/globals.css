@@ -49,6 +49,10 @@ body {
   margin-bottom: 0.5rem !important;
 }
 
+[data-auth-page="true"] .cl-headerSubtitle {
+  display: none !important;
+}
+
 [data-auth-page="true"] .cl-main,
 [data-auth-page="true"] .cl-form,
 [data-auth-page="true"] .cl-formField,
