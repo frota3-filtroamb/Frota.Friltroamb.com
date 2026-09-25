@@ -33,11 +33,6 @@ export default function Page() {
           />
         </div>
 
-        <div className="mb-3 text-center">
-          <h1 className="text-2xl font-bold text-white drop-shadow">Gestão de Frota</h1>
-          <p className="text-sm text-emerald-400 mt-1 font-medium">Sistema interno Filtroamb</p>
-        </div>
-
         <SignIn
           path="/sign-in"
           routing="path"
@@ -58,7 +53,7 @@ export default function Page() {
               rootBox: 'mx-auto w-full',
               card: 'bg-[#0f1c2e]/95 border border-emerald-400/20 shadow-2xl backdrop-blur-sm rounded-2xl',
               headerTitle: 'text-white font-bold text-lg',
-              headerSubtitle: 'text-slate-400 text-xs',
+              headerSubtitle: 'hidden',
               formFieldLabel: 'text-slate-300 font-medium text-xs',
               formFieldInput:
                 'h-9 bg-[#132337] border border-emerald-400/20 text-white rounded-xl focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition-colors',
