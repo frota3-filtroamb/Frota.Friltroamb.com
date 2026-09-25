@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   Tokens e Base
+   ========================================================================== */
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -19,15 +23,52 @@
   }
 }
 
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* ================================================================
-   Impede que a placa quebre em 2 linhas em qualquer resolução/zoom
-   ================================================================ */
+/* Tela de login/cadastro compacta em 100% de zoom. */
+[data-auth-page="true"] .cl-card {
+  padding: 1rem !important;
+}
+
+[data-auth-page="true"] .cl-header {
+  gap: 0.25rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+[data-auth-page="true"] .cl-main,
+[data-auth-page="true"] .cl-form,
+[data-auth-page="true"] .cl-formField,
+[data-auth-page="true"] .cl-socialButtons,
+[data-auth-page="true"] .cl-dividerRow,
+[data-auth-page="true"] .cl-footer {
+  gap: 0.5rem !important;
+}
+
+[data-auth-page="true"] .cl-footer {
+  padding-top: 0.5rem !important;
+}
+
+@media (max-height: 720px) {
+  [data-auth-page="true"] .auth-footnote {
+    display: none;
+  }
+}
+
+/* Mantem placas e textos curtos de tabela em uma linha. */
 [data-placa],
 .placa-badge,
 th:has(.placa),
@@ -36,23 +77,84 @@ td:has(.placa),
   white-space: nowrap !important;
 }
 
-/* ================================================================
-   BLOCO 1: MODO ESCURO (DARK MODE)
-   Valores padrão quando o tema escuro está ativo
-   ================================================================ */
+.app-scroll,
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(52, 211, 153, 0.45) transparent;
+}
 
-/* 1.1 Fundo Geral da Aplicação */
+.app-scroll::-webkit-scrollbar,
+.sidebar-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.app-scroll::-webkit-scrollbar-track,
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-scroll::-webkit-scrollbar-thumb,
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.45), rgba(16, 185, 129, 0.25));
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+.app-scroll::-webkit-scrollbar-thumb:hover,
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.75), rgba(16, 185, 129, 0.45));
+  background-clip: content-box;
+}
+
+/* ==========================================================================
+   Tema Escuro
+   ========================================================================== */
+
 html:not(.light) body,
 html:not(.light) .bg-\[\#0a1625\] {
   background-color: #0a1625 !important;
-  color: #f8fafc !important;
+  color: #f8fafcd5 !important;
 }
 
-/* 1.2 Sidebar e Navegação */
 html:not(.light) aside,
 html:not(.light) .bg-\[\#0b1f33\] {
-  background-color: #0b1f33 !important;
-  border-color: rgba(255, 255, 255, 0.05) !important;
+  background-color: #151431 !important;
+  border-color: rgba(173, 153, 153, 0.05) !important;
+}
+
+html:not(.light) .bg-\[\#0f1c2e\] {
+  background-color: #0f1c2e !important;
+  border-color: rgba(16, 185, 129, 0.15) !important;
+}
+
+html:not(.light) .bg-\[\#132337\] {
+  background-color: #132337 !important;
+}
+
+html:not(.light) .bg-\[\#132337\]\/60 {
+  background-color: rgba(19, 35, 55, 0.6) !important;
+}
+
+html:not(.light) .text-white {
+  color: #ffffffd5 !important;
+}
+
+html:not(.light) .text-slate-300 {
+  color: #cbe1d8 !important;
+}
+
+html:not(.light) .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+html:not(.light) .text-slate-500 {
+  color: #64748b !important;
+}
+
+html:not(.light) .text-slate-600 {
+  color: #475569 !important;
 }
 
 html:not(.light) aside .text-white {
@@ -77,48 +179,6 @@ html:not(.light) aside button:hover {
   color: #ffffff !important;
 }
 
-html:not(.light) aside .bg-emerald-500\/15 {
-  background-color: rgba(16, 185, 129, 0.15) !important;
-  color: #6ee7b7 !important;
-}
-
-/* 1.3 Cards e Containers Principais */
-html:not(.light) .bg-\[\#0f1c2e\] {
-  background-color: #0f1c2e !important;
-  border-color: rgba(16, 185, 129, 0.15) !important;
-}
-
-/* 1.4 Cabeçalhos de Tabelas e Barras de Pesquisa */
-html:not(.light) .bg-\[\#132337\] {
-  background-color: #132337 !important;
-}
-
-html:not(.light) .bg-\[\#132337\]\/60 {
-  background-color: rgba(19, 35, 55, 0.6) !important;
-}
-
-/* 1.5 Textos Gerais e Títulos */
-html:not(.light) .text-white {
-  color: #ffffff !important;
-}
-
-html:not(.light) .text-slate-300 {
-  color: #cbd5e1 !important;
-}
-
-html:not(.light) .text-slate-400 {
-  color: #94a3b8 !important;
-}
-
-html:not(.light) .text-slate-500 {
-  color: #64748b !important;
-}
-
-html:not(.light) .text-slate-600 {
-  color: #475569 !important;
-}
-
-/* 1.6 Placas e Cores de Destaque */
 html:not(.light) .text-emerald-300 {
   color: #6ee7b7 !important;
 }
@@ -151,10 +211,15 @@ html:not(.light) .text-cyan-300 {
   color: #67e8f9 !important;
 }
 
-/* 1.7 Badges e Indicadores de Status */
 html:not(.light) .bg-emerald-500\/10 {
   background-color: rgba(16, 185, 129, 0.10) !important;
   border-color: rgba(16, 185, 129, 0.20) !important;
+  color: #6ee7b7 !important;
+}
+
+html:not(.light) aside .bg-emerald-500\/15,
+html:not(.light) .bg-emerald-500\/15 {
+  background-color: rgba(16, 185, 129, 0.15) !important;
   color: #6ee7b7 !important;
 }
 
@@ -176,13 +241,12 @@ html:not(.light) .bg-purple-500\/15 {
   color: #d8b4fe !important;
 }
 
-/* 1.8 Inputs e Formulários */
 html:not(.light) input,
 html:not(.light) select,
 html:not(.light) textarea {
   background-color: #132337 !important;
-  color: #ffffff !important;
   border: 1px solid rgba(16, 185, 129, 0.20) !important;
+  color: #ffffff !important;
 }
 
 html:not(.light) input::placeholder,
@@ -190,7 +254,6 @@ html:not(.light) textarea::placeholder {
   color: #64748b !important;
 }
 
-/* 1.9 Botões de Ação */
 html:not(.light) .bg-emerald-500 {
   background-color: #10b981 !important;
   color: #0a1625 !important;
@@ -209,67 +272,53 @@ html:not(.light) .hover\:bg-orange-400:hover {
   background-color: #fb923c !important;
 }
 
-/* 1.10 Bordas e Divisores */
 html:not(.light) .divide-white\/5>*+* {
-  border-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(14, 11, 160, 0.05) !important;
 }
 
 html:not(.light) .hover\:bg-emerald-500\/5:hover {
   background-color: rgba(16, 185, 129, 0.05) !important;
 }
 
+/* ==========================================================================
+   Tema Claro
+   ========================================================================== */
 
-/* ================================================================
-   BLOCO 2: MODO CLARO (LIGHT MODE)
-   ================================================================ */
-
-/* 2.1 Fundo Geral da Aplicação */
 html.light body,
 html.light .bg-\[\#0a1625\] {
   background-color: #b4b3b300 !important;
-  /* Fundo suave slate-50 */
   color: #0f172a !important;
-  /* Texto base escuro slate-900 */
 }
 
-/* 2.2 Sidebar e Navegação */
-html.light aside,
-html.light .bg-\[\#0b1f33\] {
-  background-color: #68686821 !important;
-  /* Sidebar branca e limpa */
-  border-right: 1px solid #e2e8f0 !important;
+html.light aside {
+  background-color: #ececec !important;
+  border-right: 1px solid #dddcdb !important;
   color: #0f172a !important;
 }
 
 html.light aside .text-white {
   color: #0f172a !important;
-  /* Nome do sistema e perfil */
 }
 
 html.light aside .text-slate-300,
 html.light aside .text-slate-400 {
   color: #334155 !important;
-  /* Links do menu */
 }
 
 html.light aside .text-slate-500 {
-  color: #64748b !important;
-  /* Título das seções (ex: MENU) */
+  color: #000000 !important;
 }
 
 html.light aside a:hover,
 html.light aside button:hover {
   background-color: #f1f5f9 !important;
-  /* Efeito hover nos links */
   color: #059669 !important;
 }
 
 html.light aside .bg-emerald-500\/15 {
   background-color: #ecfdf5 !important;
-  /* Fundo do item de menu ativo */
-  color: #059669 !important;
-  /* Cor do texto do menu ativo */
   border: 1px solid #a7f3d0 !important;
+  color: #059669 !important;
   font-weight: 600 !important;
 }
 
@@ -277,23 +326,36 @@ html.light aside .border-b,
 html.light aside .border-t,
 html.light aside .border-l {
   border-color: #e2e8f0 !important;
-  /* Divisores internos da sidebar */
 }
 
-/* 2.3 Cards e Containers Principais */
+html.light .app-scroll,
+html.light .sidebar-scroll {
+  scrollbar-color: rgba(100, 116, 139, 0.50) transparent;
+}
+
+html.light .app-scroll::-webkit-scrollbar-thumb,
+html.light .sidebar-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.60), rgba(100, 116, 139, 0.35));
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+html.light .app-scroll::-webkit-scrollbar-thumb:hover,
+html.light .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(100, 116, 139, 0.80), rgba(71, 85, 105, 0.50));
+  background-clip: content-box;
+}
+
 html.light .bg-\[\#0f1c2e\] {
   background-color: #ffffff !important;
-  /* Fundo dos cards em branco puro */
   border-color: #e2e8f0 !important;
-  /* Borda suave e elegante */
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05) !important;
 }
 
-/* 2.4 Cabeçalhos de Tabelas e Barras de Pesquisa */
 html.light .bg-\[\#132337\] {
-  background-color: #645e5e2c !important;
-  /* Fundo do cabeçalho da tabela e filtros */
-  border-color: #f0e2e2 !important;
+  background-color: #9288882c !important;
+  border-color: #df090928 !important;
 }
 
 html.light .bg-\[\#132337\]\/60 {
@@ -301,55 +363,39 @@ html.light .bg-\[\#132337\]\/60 {
   border-color: #e2e8f0 !important;
 }
 
-html.light thead tr {
-  background-color: #f1f5f9 !important;
-  border-bottom: 1px solid #e2e8f0 !important;
+html.light .veiculos-header {
+  background-color: #ffffff !important;
+  border-color: rgba(118, 120, 122, 0.55) !important;
 }
 
-html.light th {
-  color: #160175 !important;
-  /* Títulos das colunas em esmeralda elegante */
+html.light .veiculos-header .text-white {
+  color: #0f0f0f !important;
 }
 
-/* 2.5 Textos Gerais e Títulos */
+html.light .veiculos-header .text-slate-400 {
+  color: #242527 !important;
+}
+
 html.light .text-white {
-  color: #0f172a !important;
-  /* Títulos e valores em destaque (slate-900) */
+  color: #44474bfa !important;
 }
 
 html.light .text-slate-300 {
   color: #334155 !important;
-  /* Textos principais da tabela */
 }
 
 html.light .text-slate-400 {
   color: #475569 !important;
-  /* Textos secundários (ex: modelo, ano) */
 }
 
 html.light .text-slate-500 {
   color: #64748b !important;
-  /* Horários e datas */
 }
 
 html.light .text-slate-600 {
   color: #94a3b8 !important;
-  /* Textos desabilitados ou neutros */
 }
 
-/* Textos sobre o Banner Fotográfico (permanecem brancos com sombra) */
-html.light [data-banner] h1,
-html.light [data-banner] h2,
-html.light [data-banner] p {
-  color: #ffffff !important;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6) !important;
-}
-
-html.light [data-banner] .text-emerald-300 {
-  color: #6ee7b7 !important;
-}
-
-/* 2.6 Placas e Cores de Destaque */
 html.light .text-emerald-300,
 html.light .text-emerald-400 {
   color: #0f037a !important;
@@ -358,36 +404,30 @@ html.light .text-emerald-400 {
 
 html.light .text-orange-300 {
   color: #c2410c !important;
-  /* Laranja escuro para status aguardando */
   font-weight: 600;
 }
 
 html.light .text-blue-300 {
   color: #1d4ed8 !important;
-  /* Azul escuro para status em rota / interno */
   font-weight: 600;
 }
 
 html.light .text-purple-300,
 html.light .text-purple-400 {
   color: #7e22ce !important;
-  /* Roxo para visitantes/pedestres */
   font-weight: 600;
 }
 
 html.light .text-cyan-300 {
   color: #0e7490 !important;
-  /* Ciano para almoxarifado */
   font-weight: 600;
 }
 
 html.light .text-red-300 {
   color: #b91c1c !important;
-  /* Vermelho para avisos de erro */
   font-weight: 600;
 }
 
-/* 2.7 Badges e Indicadores de Status */
 html.light .bg-emerald-500\/10,
 html.light .bg-emerald-500\/15 {
   background-color: #ecfdf5 !important;
@@ -419,7 +459,6 @@ html.light .bg-red-500\/10 {
   color: #b91c1c !important;
 }
 
-/* 2.8 Inputs e Formulários */
 html.light label {
   color: #1e293b !important;
   font-weight: 600 !important;
@@ -429,43 +468,44 @@ html.light input,
 html.light select,
 html.light textarea {
   background-color: #ffffff !important;
-  color: #0f172a !important;
   border: 1px solid #cbd5e1 !important;
   box-shadow: none !important;
+  color: #0f172a !important;
 }
 
 html.light input:focus,
 html.light select:focus,
 html.light textarea:focus {
   border-color: #059669 !important;
-  outline: none !important;
   box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.20) !important;
+  outline: none;
 }
 
 html.light input::placeholder,
 html.light textarea::placeholder {
-  color: #94a3b8 !important;
+  color: #8e98a7 !important;
 }
 
-/* Autocomplete e Dropdown flutuante */
-html.light div[class*="absolute"][class*="z-20"] {
+html.light div[class*="absolute"][class*="z-20"],
+html.light div[class*="absolute"][class*="z-50"] {
   background-color: #ffffff !important;
   border: 1px solid #e2e8f0 !important;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05) !important;
 }
 
-html.light div[class*="absolute"][class*="z-20"] button {
+html.light div[class*="absolute"][class*="z-20"] button,
+html.light div[class*="absolute"][class*="z-50"] button {
   background-color: transparent !important;
-  color: #1e293b !important;
   border-bottom-color: #f1f5f9 !important;
+  color: #1e293b !important;
 }
 
-html.light div[class*="absolute"][class*="z-20"] button:hover {
+html.light div[class*="absolute"][class*="z-20"] button:hover,
+html.light div[class*="absolute"][class*="z-50"] button:hover {
   background-color: #f1f5f9 !important;
   color: #059669 !important;
 }
 
-/* 2.9 Botões de Ação */
 html.light .bg-emerald-500 {
   background-color: #059669 !important;
   color: #ffffff !important;
@@ -490,7 +530,6 @@ html.light button[class*="bg-\[#0f1c2e\]"] {
   color: #64748b !important;
 }
 
-/* 2.10 Bordas e Divisores */
 html.light .border-emerald-500\/10,
 html.light .border-emerald-500\/15,
 html.light .border-emerald-500\/20,
@@ -502,29 +541,130 @@ html.light .border-purple-500\/20,
 html.light .border-white\/5,
 html.light .border-white\/10 {
   border-color: #a8a6a683 !important;
-  /* Bordas suaves */
 }
 
 html.light .divide-white\/5>*+* {
   border-color: #f9f2f1 !important;
-  /* Divisor entre linhas de tabela */
 }
 
 html.light .hover\:bg-emerald-500\/5:hover,
 html.light .hover\:bg-purple-500\/5:hover {
   background-color: #bdb6b642 !important;
-  /* Fundo suave ao passar o mouse nas linhas */
 }
 
-/* Remove sombras de neon no modo claro */
 html.light [class*="shadow-[0_0_"] {
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
 }
 
+/* ==========================================================================
+   Tabelas
+   ========================================================================== */
 
-/* ================================================================
-   ANIMAÇÕES DE TRANSIÇÃO
-   ================================================================ */
+table th,
+table td {
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+table td>div {
+  align-items: center !important;
+  display: inline-flex !important;
+  justify-content: center !important;
+  margin: 0 auto !important;
+}
+
+html:not(.light) table thead th {
+  background-color: #0f1c2e !important;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.2) !important;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+html.light table thead th {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+html.light th {
+  color: #160175 !important;
+}
+
+/* ==========================================================================
+   Telas de Autenticacao
+   ========================================================================== */
+
+[data-auth-page],
+[data-auth-page] * {
+  color-scheme: dark !important;
+}
+
+html.light [data-auth-page],
+html.light [data-auth-page] .bg-\[\#0a1625\] {
+  background-color: #0a1625 !important;
+  color: #f8fafcd5 !important;
+}
+
+html.light [data-auth-page] .bg-\[\#0f1c2e\] {
+  background-color: #0f1c2e !important;
+  border-color: rgba(52, 211, 153, 0.2) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+}
+
+html.light [data-auth-page] .text-white {
+  color: #ffffff !important;
+}
+
+html.light [data-auth-page] input,
+html.light [data-auth-page] select,
+html.light [data-auth-page] textarea {
+  background-color: #132337 !important;
+  border: 1px solid rgba(52, 211, 153, 0.2) !important;
+  color: #ffffff !important;
+}
+
+html.light [data-auth-page] label {
+  color: #cbd5e1 !important;
+  font-weight: 500 !important;
+}
+
+[data-auth-page] .cl-otpCodeFieldInputs,
+[data-auth-page] [class*="otpCodeFieldInputs"] {
+  align-items: center !important;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  gap: 0.375rem !important;
+  justify-content: center !important;
+  width: 100% !important;
+}
+
+[data-auth-page] .cl-otpCodeFieldInput,
+[data-auth-page] [class*="otpCodeFieldInput"] {
+  display: inline-flex !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  height: 2.25rem !important;
+  line-height: 2.25rem !important;
+  min-width: 2rem !important;
+  padding: 0 !important;
+  text-align: center !important;
+  width: 2rem !important;
+}
+
+[data-auth-page] input[name="code"],
+[data-auth-page] input[inputmode="numeric"][autocomplete="one-time-code"] {
+  letter-spacing: 0.25rem !important;
+  text-align: center !important;
+}
+
+/* ==========================================================================
+   Animacoes
+   ========================================================================== */
+
 @keyframes fadeInSlide {
   from {
     opacity: 0;
@@ -539,4 +679,75 @@ html.light [class*="shadow-[0_0_"] {
 
 .animate-tab {
   animation: fadeInSlide 0.25s ease-out forwards;
+}
+
+/* ==========================================================================
+   Responsividade
+   ========================================================================== */
+
+@media (max-width: 1023px) {
+  .min-h-screen.flex.bg-\[\#0a1625\] {
+    flex-direction: column !important;
+  }
+
+  [style*="zoom"] {
+    zoom: 1 !important;
+  }
+
+  main.p-6,
+  .animate-tab.p-6 {
+    padding: 1rem !important;
+  }
+
+  .px-8 {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  .max-w-7xl,
+  .max-w-6xl,
+  .max-w-4xl,
+  .max-w-xl {
+    max-width: 100% !important;
+  }
+
+  .w-72,
+  .w-56 {
+    width: 100% !important;
+  }
+
+  main,
+  .flex-1 {
+    min-width: 0 !important;
+  }
+}
+
+@media (max-width: 640px) {
+
+  .relative.h-28,
+  .relative.md\:h-36 {
+    height: 5.75rem !important;
+  }
+
+  .text-3xl {
+    font-size: 1.625rem !important;
+    line-height: 2rem !important;
+  }
+
+  .text-2xl {
+    font-size: 1.375rem !important;
+    line-height: 1.75rem !important;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font-size: 16px !important;
+  }
+
+  div[class*="overflow-x-auto"],
+  div[class*="overflow-auto"] {
+    -webkit-overflow-scrolling: touch;
+  }
 }
