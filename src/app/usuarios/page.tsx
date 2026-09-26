@@ -161,7 +161,7 @@ export default function UsuariosPage() {
     return (
       <div className="min-h-screen flex bg-[#0a1625]">
         <Sidebar />
-        <div className="flex-1 ml-64 flex items-center justify-center text-slate-400">Carregando usuarios...</div>
+        <div className="flex-1 ml-14 flex items-center justify-center text-slate-400">Carregando usuarios...</div>
       </div>
     )
   }
@@ -170,7 +170,7 @@ export default function UsuariosPage() {
     return (
       <div className="min-h-screen flex bg-[#0a1625]">
         <Sidebar />
-        <div className="flex-1 ml-64 flex items-center justify-center text-slate-400">Acesso negado.</div>
+        <div className="flex-1 ml-14 flex items-center justify-center text-slate-400">Acesso negado.</div>
       </div>
     )
   }
@@ -179,7 +179,7 @@ export default function UsuariosPage() {
     <div className="min-h-screen flex bg-[#0a1625]">
       <Sidebar />
 
-      <main className="flex-1 ml-64 min-h-screen overflow-y-auto bg-[#0a1625]">
+      <main className="flex-1 ml-14 min-h-screen overflow-y-auto bg-[#0a1625]">
         <div className="relative h-28 md:h-36 shrink-0 overflow-hidden">
           <img src="/images/banner-frota.jpg" alt="Filtroamb" className="w-full h-full object-cover object-center" />
           <div className="absolute inset-0 bg-gradient-to-r from-[#0a1625]/85 via-[#0a1625]/50 to-[#0a1625]/20" />

@@ -123,7 +123,7 @@ export default function EncomendasPage() {
     <div className="min-h-screen flex bg-[#0a1625]">
       <Sidebar />
 
-      <div className="flex-1 ml-64 flex flex-col h-screen overflow-hidden">
+      <div className="flex-1 ml-14 flex flex-col h-screen overflow-hidden">
         {/* Banner */}
         <div className="relative h-28 md:h-36 shrink-0 overflow-hidden">
           <img src="/images/banner-frota.jpg" alt="Filtroamb" className="w-full h-full object-cover object-center" />

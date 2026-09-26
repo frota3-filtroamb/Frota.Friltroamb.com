@@ -507,7 +507,7 @@ export default function LiberacaoPage() {
     <div className="min-h-screen flex bg-[#0a1625]">
       <Sidebar />
 
-      <div className="flex-1 ml-64 flex flex-col h-screen overflow-hidden">
+      <div className="flex-1 ml-14 flex flex-col h-screen overflow-hidden">
         <div className="relative h-28 md:h-36 shrink-0 overflow-hidden">
           <img src="/images/banner-frota.jpg" alt="Filtroamb" className="w-full h-full object-cover object-center" />
           <div className="absolute inset-0 bg-gradient-to-r from-[#0a1625]/90 via-[#0a1625]/55 to-transparent" />

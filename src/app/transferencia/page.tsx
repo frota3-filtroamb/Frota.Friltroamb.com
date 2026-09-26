@@ -57,7 +57,7 @@ export default function TransferenciaPage() {
     <div className="min-h-screen flex bg-[#0a1625]">
       <Sidebar />
 
-      <div className="flex-1 ml-64 flex flex-col h-screen overflow-hidden">
+      <div className="flex-1 ml-14 flex flex-col h-screen overflow-hidden">
         {/* Banner */}
         <div className="relative h-44 shrink-0 overflow-hidden">
           <img

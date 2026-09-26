@@ -24,7 +24,7 @@ export default async function Home() {
 <div className="min-h-screen flex bg-[#0a1625]">      {/* Barra lateral */}
 <Sidebar />
       {/* Conteúdo */}
-      <div className="flex-1 ml-64 flex flex-col h-screen overflow-hidden">
+      <div className="flex-1 ml-14 flex flex-col h-screen overflow-hidden">
         <VeiculosClient veiculos={veiculos || []} />
       </div>
     </div>
