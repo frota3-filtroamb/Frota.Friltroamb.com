@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 type Veiculo = {
   NR_PLACA: string
@@ -13,102 +13,221 @@ type Veiculo = {
   DS_TIPOVEICULO: string | null
 }
 
-export default function VeiculosClient({ veiculos }: { veiculos: Veiculo[] }) {
-  const [busca, setBusca] = useState('')
+type ColunaFiltro = 'placa' | 'modelo' | 'marca' | 'ano' | 'cor' | 'combustivel' | 'setor'
+type Filtros = Record<ColunaFiltro, string[]>
 
-  const veiculosFiltrados = veiculos.filter((v) =>
-    v.NR_PLACA?.toLowerCase().includes(busca.toLowerCase()) ||
-    v.DS_MODELO?.toLowerCase().includes(busca.toLowerCase())
-  )
+const FILTROS_INICIAIS: Filtros = {
+  placa: [],
+  modelo: [],
+  marca: [],
+  ano: [],
+  cor: [],
+  combustivel: [],
+  setor: [],
+}
+
+function CabecalhoFiltro({
+  coluna,
+  label,
+  selecionados,
+  opcoes,
+  aberto,
+  ativo,
+  onAbrir,
+  onAlternar,
+  onFechar,
+  onLimpar,
+}: {
+  coluna: ColunaFiltro
+  label: string
+  selecionados: string[]
+  opcoes: string[]
+  aberto: boolean
+  ativo: boolean
+  onAbrir: (coluna: ColunaFiltro) => void
+  onAlternar: (coluna: ColunaFiltro, valor: string) => void
+  onFechar: () => void
+  onLimpar: (coluna: ColunaFiltro) => void
+}) {
+  const filtroRef = useRef<HTMLTableCellElement>(null)
+
+  useEffect(() => {
+    if (!aberto) return
+
+    function fecharAoClicarFora(event: PointerEvent) {
+      if (!filtroRef.current?.contains(event.target as Node)) {
+        onFechar()
+      }
+    }
+
+    document.addEventListener('pointerdown', fecharAoClicarFora)
+    return () => document.removeEventListener('pointerdown', fecharAoClicarFora)
+  }, [aberto, onFechar])
 
   return (
-    <>
-      {/* Banner */}
-      <div className="relative h-28 md:h-36 shrink-0 overflow-hidden">
-        <img
-          src="/images/banner-frota3.jpg"
-          alt="Filtroamb"
-          className="w-full h-full object-cover object-center"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#0a1625]/85 via-[#0a1625]/50 to-[#0a1625]/20" />
-        <div data-banner className="absolute inset-0 flex items-end pb-4 px-8">
-          <div>
-            <h1 className="text-xl font-bold text-white tracking-tight drop-shadow">
-              FiltroAmb - Frota Ativa
-            </h1>
-            <p className="text-sm text-emerald-300 mt-0.5 drop-shadow">
-              Controle de Frota
-            </p>
+    <th ref={filtroRef} className="relative px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">
+      <button
+        type="button"
+        onClick={() => onAbrir(coluna)}
+        className={`inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-1 transition ${ativo ? 'bg-emerald-500/15 text-emerald-300' : 'hover:bg-white/5'}`}
+      >
+        <span>{label}</span>
+        <span className="text-[11px]">{aberto ? '^' : 'v'}</span>
+      </button>
+
+      {aberto && (
+        <div className="absolute left-1/2 top-full z-30 mt-1 w-56 -translate-x-1/2 rounded-lg border border-emerald-500/20 bg-[#0f1c2e] p-2 text-left shadow-2xl shadow-black/40">
+          <div className="mb-2 flex items-center justify-between gap-2 border-b border-white/10 pb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              Filtrar
+            </span>
+            <button
+              type="button"
+              onClick={() => onLimpar(coluna)}
+              className="text-[11px] font-semibold normal-case tracking-normal text-emerald-300 hover:text-emerald-200"
+            >
+              Limpar
+            </button>
+          </div>
+
+          <div className="app-scroll max-h-56 overflow-y-auto pr-1">
+            {opcoes.map((opcao) => (
+              <label key={opcao} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs normal-case tracking-normal text-slate-300 hover:bg-white/5">
+                <input
+                  type="checkbox"
+                  checked={selecionados.includes(opcao)}
+                  onChange={() => onAlternar(coluna, opcao)}
+                  className="h-3.5 w-3.5 accent-emerald-500"
+                />
+                <span className="truncate">{opcao}</span>
+              </label>
+            ))}
           </div>
         </div>
-      </div>
-      {/* Banner */}
+      )}
+    </th>
+  )
+}
 
-      <header className="bg-[#0b1f33] border-b border-emerald-500/20 shrink-0">
-        <div className="px-8 py-5 flex items-center justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold text-white tracking-tight">Veículos</h2>
-            <p className="text-sm text-slate-400 mt-0.5">
-              {veiculosFiltrados.length} de {veiculos.length} veículos
-            </p>
-          </div>
+export default function VeiculosClient({ veiculos }: { veiculos: Veiculo[] }) {
+  const [filtros, setFiltros] = useState<Filtros>(FILTROS_INICIAIS)
+  const [menuAberto, setMenuAberto] = useState<ColunaFiltro | null>(null)
 
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Buscar por placa ou modelo..."
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              className="w-72 pl-10 pr-4 py-2.5 bg-[#132337] border border-emerald-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 focus:border-emerald-400/50 transition"
-            />
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400/70 text-sm">🔍</span>
-          </div>
+  const valorColuna = (veiculo: Veiculo, coluna: ColunaFiltro) => {
+    if (coluna === 'placa') return veiculo.NR_PLACA || 'Sem placa'
+    if (coluna === 'modelo') return veiculo.DS_MODELO || 'Nao informado'
+    if (coluna === 'marca') return veiculo.DS_MARCA || 'Nao informado'
+    if (coluna === 'ano') return veiculo.NR_ANO_MODELO ? String(veiculo.NR_ANO_MODELO) : 'Nao informado'
+    if (coluna === 'cor') return veiculo.DS_COR || 'Nao informado'
+    if (coluna === 'combustivel') return veiculo.DS_COMBUSTIVEL || 'Nao informado'
+    return veiculo.DS_TIPOVEICULO || 'Nao informado'
+  }
+
+  const opcoesPorColuna = useMemo(() => {
+    const colunas: ColunaFiltro[] = ['placa', 'modelo', 'marca', 'ano', 'cor', 'combustivel', 'setor']
+    return colunas.reduce((acc, coluna) => {
+      acc[coluna] = Array.from(new Set(veiculos.map((veiculo) => valorColuna(veiculo, coluna))))
+        .sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }))
+      return acc
+    }, {} as Record<ColunaFiltro, string[]>)
+  }, [veiculos])
+
+  const veiculosFiltrados = veiculos.filter((veiculo) => {
+    return (Object.keys(filtros) as ColunaFiltro[]).every((coluna) => {
+      const selecionados = filtros[coluna]
+      if (selecionados.length === 0) return true
+      return selecionados.includes(valorColuna(veiculo, coluna))
+    })
+  })
+
+  const filtrosAtivos = Object.values(filtros).some((valores) => valores.length > 0)
+
+  function alternarFiltro(coluna: ColunaFiltro, valor: string) {
+    setFiltros((atuais) => {
+      const selecionados = atuais[coluna]
+      const proximos = selecionados.includes(valor)
+        ? selecionados.filter((item) => item !== valor)
+        : [...selecionados, valor]
+      return { ...atuais, [coluna]: proximos }
+    })
+  }
+
+  function limparFiltro(coluna: ColunaFiltro) {
+    setFiltros((atuais) => ({ ...atuais, [coluna]: [] }))
+  }
+
+  return (
+    <main className="animate-tab flex flex-1 min-h-0 flex-col overflow-hidden bg-[#0a1625] p-6" style={{ zoom: 0.90 }}>
+      {filtrosAtivos && (
+        <div className="mb-3 flex shrink-0 justify-end">
+          <button
+            type="button"
+            onClick={() => {
+              setFiltros(FILTROS_INICIAIS)
+              setMenuAberto(null)
+            }}
+            className="rounded-lg border border-emerald-500/20 bg-[#132337] px-3 py-2 text-xs font-semibold text-slate-300 transition hover:border-emerald-500/40 hover:text-white"
+          >
+            Limpar filtros
+          </button>
         </div>
-      </header>
+      )}
 
-      <main className="animate-tab flex-1 min-h-0 overflow-hidden p-6 bg-[#0a1625]" style={{ zoom: 0.80 }}>
-        <div className="flex h-full min-h-0 flex-col bg-[#0f1c2e] rounded-2xl border border-emerald-500/15 shadow-[0_0_30px_rgba(16,185,129,0.05)] overflow-hidden">
-          <div className="flex-1 min-h-0 overflow-auto">
-
-
-            <table className="w-full table-fixed text-sm">
-              <thead>
-                <tr className="sticky top-0 z-10 bg-[#132337] border-b border-emerald-500/15">
-                  <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Placa</th>
-                  <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider">Modelo</th>
-                  <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider">Marca</th>
-                  <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider">Ano</th>
-                  <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider">Cor</th>
-                  <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider">Combustível</th>
-                  <th className="px-4 py-3.5 text-center text-lg font-semibold text-emerald-400/90 uppercase tracking-wider">Tipo</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {veiculosFiltrados.map((v, index) => (
-                  <tr
-                    key={`${v.NR_PLACA}-${index}`}
-                    className="hover:bg-emerald-500/5 transition-colors"
-                  >
-                    <td className="px-4 py-3.5 text-center font-medium text-emerald-300 whitespace-nowrap">{v.NR_PLACA}</td>
-                    <td className="px-4 py-3.5 text-center text-slate-300">{v.DS_MODELO || '—'}</td>
-                    <td className="px-4 py-3.5 text-center text-slate-300">{v.DS_MARCA || '—'}</td>
-                    <td className="px-4 py-3.5 text-center text-slate-400">{v.NR_ANO_MODELO || '—'}</td>
-                    <td className="px-4 py-3.5 text-center text-slate-400">{v.DS_COR || '—'}</td>
-                    <td className="px-4 py-3.5 text-center text-slate-400">{v.DS_COMBUSTIVEL || '—'}</td>
-                    <td className="px-4 py-3.5 text-center text-slate-400">{v.DS_TIPOVEICULO || '—'}</td>
-                  </tr>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-emerald-500/15 bg-[#0f1c2e] shadow-[0_0_30px_rgba(16,185,129,0.05)]">
+        <div className="app-scroll min-h-0 flex-1 overflow-auto">
+          <table className="w-full table-fixed text-sm">
+            <thead>
+              <tr className="sticky top-0 z-10 border-b border-emerald-500/15 bg-[#132337]">
+                {([
+                  ['placa', 'Placa'],
+                  ['modelo', 'Modelo'],
+                  ['marca', 'Marca'],
+                  ['ano', 'Ano'],
+                  ['cor', 'Cor'],
+                  ['combustivel', 'Combustivel'],
+                  ['setor', 'Setor'],
+                ] as Array<[ColunaFiltro, string]>).map(([coluna, label]) => (
+                  <CabecalhoFiltro
+                    key={coluna}
+                    coluna={coluna}
+                    label={label}
+                    selecionados={filtros[coluna]}
+                    opcoes={opcoesPorColuna[coluna]}
+                    aberto={menuAberto === coluna}
+                    ativo={filtros[coluna].length > 0}
+                    onAbrir={(proximaColuna) => setMenuAberto(menuAberto === proximaColuna ? null : proximaColuna)}
+                    onAlternar={alternarFiltro}
+                    onFechar={() => setMenuAberto(null)}
+                    onLimpar={limparFiltro}
+                  />
                 ))}
-              </tbody>
-            </table>
-          </div>
-
-          {veiculosFiltrados.length === 0 && (
-            <div className="py-16 text-center text-slate-500 text-sm">
-              Nenhum veículo encontrado.
-            </div>
-          )}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {veiculosFiltrados.map((veiculo, index) => (
+                <tr
+                  key={`${veiculo.NR_PLACA}-${index}`}
+                  className="transition-colors hover:bg-emerald-500/5"
+                >
+                  <td className="px-4 py-3.5 text-center text-base font-semibold text-emerald-300 whitespace-nowrap">{veiculo.NR_PLACA}</td>
+                  <td className="px-4 py-3.5 text-center text-base text-slate-300">{veiculo.DS_MODELO || '-'}</td>
+                  <td className="px-4 py-3.5 text-center text-base text-slate-300">{veiculo.DS_MARCA || '-'}</td>
+                  <td className="px-4 py-3.5 text-center text-base text-slate-300">{veiculo.NR_ANO_MODELO || '-'}</td>
+                  <td className="px-4 py-3.5 text-center text-base text-slate-300">{veiculo.DS_COR || '-'}</td>
+                  <td className="px-4 py-3.5 text-center text-base text-slate-300">{veiculo.DS_COMBUSTIVEL || '-'}</td>
+                  <td className="px-4 py-3.5 text-center text-base text-slate-300">{veiculo.DS_TIPOVEICULO || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </main>
-    </>
+
+        {veiculosFiltrados.length === 0 && (
+          <div className="py-16 text-center text-sm text-slate-500">
+            Nenhum veiculo encontrado.
+          </div>
+        )}
+      </div>
+    </main>
   )
 }

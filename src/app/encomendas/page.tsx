@@ -1,49 +1,59 @@
 'use client'
 
 import RequirePermissao from '@/components/RequirePermissao'
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Sidebar from '@/components/Sidebar'
+
+type AbaEncomenda = 'avisar_encomenda' | 'portaria' | 'historico'
 
 type Encomenda = {
   id: number
   item: string
-  loja_remetente: string
+  loja_remetente: string | null
   destinatario: string
   recebido_em: string | null
   recebido_por: string | null
   status: string
   entregue_em: string | null
+  retirado_por: string | null
 }
 
 export default function EncomendasPage() {
   const supabase = createClient()
-  
+
+  const [abaAtual, setAbaAtual] = useState<AbaEncomenda>('portaria')
+  const [previstas, setPrevistas] = useState<Encomenda[]>([])
   const [encomendas, setEncomendas] = useState<Encomenda[]>([])
   const [historico, setHistorico] = useState<Encomenda[]>([])
-  
+
   const [carregando, setCarregando] = useState(true)
   const [mensagem, setMensagem] = useState('')
   const [busca, setBusca] = useState('')
 
-  // Form states
   const [item, setItem] = useState('')
   const [loja, setLoja] = useState('')
   const [destinatario, setDestinatario] = useState('')
+  const [codigoPalavraChave, setCodigoPalavraChave] = useState('')
   const [dataHora, setDataHora] = useState('')
   const [salvando, setSalvando] = useState(false)
+  const [confirmandoChegadaId, setConfirmandoChegadaId] = useState<number | null>(null)
+  const [confirmandoRetiradaId, setConfirmandoRetiradaId] = useState<number | null>(null)
+  const [retiradoPor, setRetiradoPor] = useState('')
 
   async function carregar() {
     setCarregando(true)
     try {
-      const [ativos, finais] = await Promise.all([
+      const [avisos, pendentes, finais] = await Promise.all([
+        supabase.from('encomendas').select('*').eq('status', 'prevista').order('recebido_em', { ascending: true }),
         supabase.from('encomendas').select('*').eq('status', 'aguardando_retirada').order('recebido_em', { ascending: false }),
-        supabase.from('encomendas').select('*').eq('status', 'entregue').order('entregue_em', { ascending: false }).limit(30)
+        supabase.from('encomendas').select('*').eq('status', 'entregue').order('entregue_em', { ascending: false }).limit(80),
       ])
 
-      setEncomendas(ativos.data || [])
+      setPrevistas(avisos.data || [])
+      setEncomendas(pendentes.data || [])
       setHistorico(finais.data || [])
-    } catch (e) {
+    } catch {
       setMensagem('Erro ao carregar dados. A tabela encomendas existe?')
     } finally {
       setCarregando(false)
@@ -54,312 +64,526 @@ export default function EncomendasPage() {
     carregar()
   }, [])
 
+  function limparFormulario() {
+    setItem('')
+    setLoja('')
+    setDestinatario('')
+    setCodigoPalavraChave('')
+    setDataHora('')
+  }
+
+  function montarRemetente() {
+    const remetente = loja.trim()
+    const codigo = codigoPalavraChave.trim()
+
+    if (abaAtual !== 'avisar_encomenda' || !codigo) return remetente || null
+    return `${remetente || 'Sem remetente'} | Codigo: ${codigo}`
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
-    if (!item || !destinatario) {
-      setMensagem('Preencha o Item e o Destinatário')
+    if (!item.trim() || !destinatario.trim()) {
+      setMensagem('Preencha o item e o destinatario')
       return
     }
 
     setSalvando(true)
     setMensagem('')
 
-    const { error } = await supabase.from('encomendas').insert({
-      item,
-      loja_remetente: loja || null,
-      destinatario,
-      status: 'aguardando_retirada',
-      recebido_por: 'Gestor (Portaria)',
-      recebido_em: dataHora ? new Date(dataHora).toISOString() : new Date().toISOString(),
-    })
+    const avisoEntrega = abaAtual === 'avisar_encomenda'
+    try {
+      const resposta = await fetch('/api/encomendas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          acao: 'registrar',
+          tipo_registro: avisoEntrega ? 'aviso_entrega' : 'chegada_portaria',
+          item: item.trim(),
+          loja_remetente: montarRemetente(),
+          destinatario: destinatario.trim(),
+          data: dataHora || null,
+        }),
+      })
+      const resultado = await resposta.json()
+      if (!resposta.ok) throw new Error(resultado.error || 'Erro ao registrar.')
 
-    setSalvando(false)
+      setMensagem(resultado.mensagem || 'Registro salvo.')
+      limparFormulario()
+      carregar()
+    } catch (error) {
+      setMensagem(error instanceof Error ? 'Erro ao registrar: ' + error.message : 'Erro ao registrar.')
+    } finally {
+      setSalvando(false)
+    }
+  }
 
-    if (error) {
-      setMensagem('Erro ao registrar encomenda: ' + error.message)
+  function abrirConfirmacaoChegada(id: number) {
+    setMensagem('')
+    setConfirmandoRetiradaId(null)
+    setRetiradoPor('')
+    setConfirmandoChegadaId(id)
+  }
+
+  function abrirConfirmacaoRetirada(id: number) {
+    setMensagem('')
+    setConfirmandoChegadaId(null)
+    setRetiradoPor('')
+    setConfirmandoRetiradaId(id)
+  }
+
+  function cancelarConfirmacao() {
+    setConfirmandoChegadaId(null)
+    setConfirmandoRetiradaId(null)
+    setRetiradoPor('')
+  }
+
+  async function confirmarChegada(id: number) {
+    try {
+      const resposta = await fetch('/api/encomendas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'confirmar_chegada', id }),
+      })
+      const resultado = await resposta.json()
+      if (!resposta.ok) throw new Error(resultado.error || 'Erro ao confirmar chegada.')
+
+      cancelarConfirmacao()
+      setMensagem(resultado.mensagem || 'Chegada confirmada.')
+      carregar()
+    } catch (error) {
+      setMensagem(error instanceof Error ? 'Erro ao confirmar chegada: ' + error.message : 'Erro ao confirmar chegada.')
+    }
+  }
+
+  async function registrarRetirada(id: number) {
+    if (!retiradoPor.trim()) {
+      setMensagem('Informe quem retirou a encomenda.')
       return
     }
 
-    setMensagem('Encomenda recebida com sucesso!')
-    setItem('')
-    setLoja('')
-    setDestinatario('')
-    setDataHora('')
-    carregar()
-  }
+    try {
+      const resposta = await fetch('/api/encomendas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'entregar', id, retirado_por: retiradoPor.trim() }),
+      })
+      const resultado = await resposta.json()
+      if (!resposta.ok) throw new Error(resultado.error || 'Erro ao retirar.')
 
-  async function registrarEntrega(id: number) {
-    const { error } = await supabase.from('encomendas').update({ 
-      status: 'entregue', 
-      entregue_em: new Date().toISOString() 
-    }).eq('id', id)
-    
-    if (error) setMensagem('Erro ao entregar: ' + error.message)
-    else { setMensagem('Encomenda entregue!'); carregar() }
+      cancelarConfirmacao()
+      setMensagem(resultado.mensagem || 'Encomenda marcada como retirada.')
+      carregar()
+    } catch (error) {
+      setMensagem(error instanceof Error ? 'Erro ao retirar: ' + error.message : 'Erro ao retirar.')
+    }
   }
 
   function formatarData(data: string | null) {
-    if (!data) return '—'
+    if (!data) return '-'
     return new Date(data).toLocaleString('pt-BR')
   }
 
-  const aguardando = encomendas.length
+  const textoFiltro = busca.toLowerCase()
   const entreguesHoje = historico.filter((e) => e.entregue_em && new Date(e.entregue_em).toDateString() === new Date().toDateString()).length
-
-  const eFiltradas = encomendas.filter((e) => 
-    e.item?.toLowerCase().includes(busca.toLowerCase()) || 
-    e.destinatario?.toLowerCase().includes(busca.toLowerCase()) || 
-    e.loja_remetente?.toLowerCase().includes(busca.toLowerCase())
+  const totalEmAberto = previstas.length + encomendas.length
+  const historicoFiltrado = historico.filter((e) =>
+    e.item?.toLowerCase().includes(textoFiltro) ||
+    e.destinatario?.toLowerCase().includes(textoFiltro) ||
+    e.loja_remetente?.toLowerCase().includes(textoFiltro)
   )
-
-  const hFiltrado = historico.filter((e) => 
-    e.item?.toLowerCase().includes(busca.toLowerCase()) || 
-    e.destinatario?.toLowerCase().includes(busca.toLowerCase())
+  const pendenciasFiltradas = encomendas.filter((e) =>
+    e.item?.toLowerCase().includes(textoFiltro) ||
+    e.destinatario?.toLowerCase().includes(textoFiltro) ||
+    e.loja_remetente?.toLowerCase().includes(textoFiltro)
   )
+  const previstasFiltradas = previstas.filter((e) =>
+    e.item?.toLowerCase().includes(textoFiltro) ||
+    e.destinatario?.toLowerCase().includes(textoFiltro) ||
+    e.loja_remetente?.toLowerCase().includes(textoFiltro)
+  )
+  const encomendaConfirmandoChegada = previstas.find((encomenda) => encomenda.id === confirmandoChegadaId) || null
+  const encomendaConfirmandoRetirada = encomendas.find((encomenda) => encomenda.id === confirmandoRetiradaId) || null
+
+  const exibindoHistorico = abaAtual === 'historico'
+  const exibindoPortaria = abaAtual === 'portaria'
+  const exibindoFormulario = abaAtual === 'avisar_encomenda' || abaAtual === 'portaria'
+  const tituloFormulario = abaAtual === 'avisar_encomenda' ? 'Avisar Encomenda' : 'Registrar Chegada Sem Aviso'
+  const subtituloFormulario = abaAtual === 'avisar_encomenda'
+    ? 'Avise a portaria sobre uma encomenda que ainda vai chegar'
+    : 'Registre uma encomenda que chegou na portaria e deixe em aberto para retirada'
+
+  function renderTabelasEmAberto(comAcoes: boolean) {
+    return (
+      <div className="space-y-4">
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold text-white tracking-tight">Previstas para ser entregues na portaria</h3>
+          <div className="bg-[#0f1c2e] rounded-2xl border border-blue-500/20 overflow-hidden">
+            <div className="app-scroll max-h-[34vh] overflow-y-auto overflow-x-hidden">
+              <table className="w-full table-fixed text-sm">
+                <thead>
+                  <tr className="bg-[#132337]/70 border-b border-white/5 sticky top-0 z-10">
+                    <th className="w-[24%] px-4 py-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Item</th>
+                    <th className="w-[24%] px-4 py-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Loja / Remetente</th>
+                    <th className="w-[20%] px-4 py-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Destinatario</th>
+                    <th className="w-[17%] px-4 py-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Previsao</th>
+                    <th className="w-[15%] px-4 py-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Chegada</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {carregando ? (
+                    <tr className="animate-pulse">
+                      <td colSpan={5} className="px-5 py-4"><div className="h-6 rounded-lg bg-white/5" /></td>
+                    </tr>
+                  ) : previstasFiltradas.length === 0 ? (
+                    <tr><td colSpan={5} className="px-5 py-8 text-center text-slate-500">Nenhuma encomenda prevista.</td></tr>
+                  ) : (
+                    previstasFiltradas.map((encomenda) => (
+                      <tr key={encomenda.id} className="hover:bg-white/5 transition-colors">
+                        <td className="px-4 py-3 text-center font-medium text-white truncate">{encomenda.item}</td>
+                        <td className="px-4 py-3 text-center text-slate-400 text-xs truncate">{encomenda.loja_remetente || 'Remetente nao informado'}</td>
+                        <td className="px-4 py-3 text-center font-medium text-blue-300 truncate">{encomenda.destinatario}</td>
+                        <td className="px-4 py-3 text-center text-slate-400 text-xs truncate">{formatarData(encomenda.recebido_em)}</td>
+                        <td className="px-4 py-3 text-center">
+                          {comAcoes ? (
+                            <button onClick={() => abrirConfirmacaoChegada(encomenda.id)} className="cursor-pointer bg-blue-500 hover:bg-blue-400 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition">
+                              Confirmar
+                            </button>
+                          ) : (
+                            <span className="text-xs font-semibold text-blue-300">Pendente</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold text-white tracking-tight">Aguardando retirada do destinatário</h3>
+          <div className="bg-[#0f1c2e] rounded-2xl border border-orange-500/20 overflow-hidden">
+            <div className="app-scroll max-h-[52vh] overflow-y-auto overflow-x-hidden">
+              <table className="w-full table-fixed text-sm">
+                <thead>
+                  <tr className="bg-[#132337]/70 border-b border-white/5 sticky top-0 z-10">
+                    <th className="w-[23%] px-4 py-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Item</th>
+                    <th className="w-[23%] px-4 py-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Loja / Remetente</th>
+                    <th className="w-[20%] px-4 py-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Destinatario</th>
+                    <th className="w-[19%] px-4 py-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Chegada / Previsao</th>
+                    <th className="w-[15%] px-4 py-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Retirada</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {carregando ? (
+                    <tr className="animate-pulse">
+                      <td colSpan={5} className="px-5 py-4"><div className="h-6 rounded-lg bg-white/5" /></td>
+                    </tr>
+                  ) : pendenciasFiltradas.length === 0 ? (
+                    <tr><td colSpan={5} className="px-5 py-8 text-center text-slate-500">Nenhuma encomenda em aberto.</td></tr>
+                  ) : (
+                    pendenciasFiltradas.map((encomenda) => (
+                      <tr key={encomenda.id} className="hover:bg-white/5 transition-colors">
+                        <td className="px-4 py-3 text-center font-medium text-white truncate">{encomenda.item}</td>
+                        <td className="px-4 py-3 text-center text-slate-400 text-xs truncate">{encomenda.loja_remetente || 'Remetente nao informado'}</td>
+                        <td className="px-4 py-3 text-center font-medium text-blue-300 truncate">{encomenda.destinatario}</td>
+                        <td className="px-4 py-3 text-center text-slate-400 text-xs truncate">{formatarData(encomenda.recebido_em)}</td>
+                        <td className="px-4 py-3 text-center">
+                          {comAcoes ? (
+                            <button onClick={() => abrirConfirmacaoRetirada(encomenda.id)} className="cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-[#0a1625] text-xs font-bold px-3 py-1.5 rounded-lg transition">
+                              Retirado
+                            </button>
+                          ) : (
+                            <span className="text-xs font-semibold text-orange-300">Aguardando</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <RequirePermissao permissao="encomendas">
-    <div className="min-h-screen flex bg-[#0a1625]">
-      <Sidebar />
+      <div className="min-h-screen flex bg-[#0a1625]">
+        <Sidebar />
 
-      <div className="flex-1 ml-14 flex flex-col h-screen overflow-hidden">
-        {/* Banner */}
-        <div className="relative h-28 md:h-36 shrink-0 overflow-hidden">
-          <img src="/images/banner-frota.jpg" alt="Filtroamb" className="w-full h-full object-cover object-center" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0a1625]/90 via-[#0a1625]/60 to-[#0a1625]/20" />
-          <div data-banner className="absolute inset-0 flex items-end pb-4 px-8">
-            <div>
-              <h1 className="text-xl font-bold text-white tracking-tight drop-shadow flex items-center gap-2">
-                <span>📦</span> Recebimento de Encomendas
-              </h1>
-              <p className="text-sm text-blue-300 mt-0.5 drop-shadow">
-                Registre os pacotes recebidos na portaria e gerencie as retiradas
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* zoom da pagina */}
-        <div className="flex-1 overflow-y-auto bg-[#0a1625]" style={{ zoom: 0.95 }}>
-        <main className="animate-tab p-6">
-          <div className="max-w-6xl mx-auto space-y-6">
-
-            {/* Formulário de Recebimento */}
-            <div className="bg-[#0f1c2e] rounded-2xl border border-blue-500/20 shadow-[0_0_30px_rgba(59,130,246,0.05)] overflow-hidden">
-              <div className="px-6 py-4 border-b border-white/5 bg-[#132337]/60">
-                <h2 className="text-base font-semibold text-white">Registrar Nova Encomenda</h2>
-                <p className="text-xs text-slate-400 mt-0.5">Dê baixa nos itens que chegaram agora</p>
-              </div>
-
-              <form onSubmit={handleSubmit} className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                      Item / Descrição *
-                    </label>
-                    <input
-                      type="text"
-                      value={item}
-                      onChange={(e) => setItem(e.target.value)}
-                      placeholder="Ex: Caixa pequena, Envelope, 2x Filtros"
-                      className="w-full px-4 py-2.5 bg-[#132337] border border-blue-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400/40 transition"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                      Destinatário *
-                    </label>
-                    <input
-                      type="text"
-                      value={destinatario}
-                      onChange={(e) => setDestinatario(e.target.value)}
-                      placeholder="Para quem é? (Ex: João do TI, Marketing)"
-                      className="w-full px-4 py-2.5 bg-[#132337] border border-blue-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400/40 transition"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                      Remetente / Loja
-                    </label>
-                    <input
-                      type="text"
-                      value={loja}
-                      onChange={(e) => setLoja(e.target.value)}
-                      placeholder="Ex: Mercado Livre, Correios, Fulano"
-                      className="w-full px-4 py-2.5 bg-[#132337] border border-blue-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400/40 transition"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                      Data e Hora do Recebimento
-                    </label>
-                    <input
-                      type="datetime-local"
-                      value={dataHora}
-                      onChange={(e) => setDataHora(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-[#132337] border border-blue-500/20 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/40 transition"
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-6">
+        <div className="flex-1 flex flex-col h-screen overflow-hidden">
+          <div className="app-scroll flex-1 overflow-y-auto bg-[#0a1625]" style={{ zoom: 0.95 }}>
+            <main className="animate-tab p-6">
+              <div className="max-w-6xl mx-auto space-y-6">
+                <div className="flex flex-col gap-2 rounded-xl border border-blue-500/20 bg-[#132337] p-1.5 sm:flex-row sm:items-center">
                   <button
-                    type="submit"
-                    disabled={salvando}
-                    className="bg-blue-500 hover:bg-blue-400 text-white font-semibold px-6 py-2.5 rounded-xl transition shadow-[0_0_15px_rgba(59,130,246,0.25)] disabled:opacity-40"
+                    type="button"
+                    onClick={() => {
+                      setAbaAtual('avisar_encomenda')
+                      setMensagem('')
+                    }}
+                    className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap active:translate-y-0 cursor-pointer ${abaAtual === 'avisar_encomenda' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
                   >
-                    {salvando ? 'Registrando...' : 'Registrar Recebimento'}
+                    Avisar Encomenda
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAbaAtual('portaria')
+                      setMensagem('')
+                    }}
+                    className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap active:translate-y-0 cursor-pointer ${abaAtual === 'portaria' ? 'bg-emerald-500 text-[#0a1625] shadow-sm' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+                  >
+                    Portaria
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAbaAtual('historico')
+                      setMensagem('')
+                    }}
+                    className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap active:translate-y-0 cursor-pointer ${abaAtual === 'historico' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+                  >
+                    Historico
+                  </button>
+                  <div className="hidden h-8 border-l border-blue-500/20 sm:block" />
+                  <input
+                    type="text"
+                    value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
+                    placeholder="Pesquisar pacote, nome ou codigo..."
+                    className="w-full min-w-0 flex-1 rounded-lg border border-blue-500/20 bg-[#0f1c2e] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 transition focus:outline-none focus:ring-2 focus:ring-blue-400/40 sm:max-w-sm"
+                  />
                 </div>
-              </form>
-            </div>
 
-            {mensagem && (
-              <div className={`p-4 rounded-xl text-sm border ${mensagem.includes('Erro') ? 'bg-red-500/10 text-red-300 border-red-500/20' : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'}`}>
-                {mensagem}
-              </div>
-            )}
+                {exibindoFormulario && (
+                  <div className="bg-[#0f1c2e] rounded-2xl border border-blue-500/20 shadow-[0_0_30px_rgba(59,130,246,0.05)] overflow-hidden">
+                    <div className="px-6 py-4 border-b border-white/5 bg-[#132337]/60">
+                      <h2 className="text-base font-semibold text-white">{tituloFormulario}</h2>
+                      <p className="text-xs text-slate-400 mt-0.5">{subtituloFormulario}</p>
+                    </div>
 
-            {/* Dashboards Rápidos */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-[#0f1c2e] border border-orange-500/20 rounded-2xl p-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-wider">Aguardando Retirada</p>
-                    <p className="text-3xl font-bold text-orange-300 mt-1">{aguardando}</p>
+                    <form onSubmit={handleSubmit} className="p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Item / Descrição da encomenda *</label>
+                          <input
+
+                            type="text"
+                            value={item}
+                            onChange={(e) => setItem(e.target.value)}
+                            placeholder="Ex: Caixa pequena, Envelope, Cartas"
+                            className="w-full px-4 py-2.5 bg-[#132337] border border-blue-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400/40 transition"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Destinatario *</label>
+                          <input
+                            type="text"
+                            value={destinatario}
+                            onChange={(e) => setDestinatario(e.target.value)}
+                            placeholder="Para quem é? Ex: Joao, Setor Oluc"
+                            className="w-full px-4 py-2.5 bg-[#132337] border border-blue-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400/40 transition"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Remetente / Loja / Entregador</label>
+                          <input
+                            type="text"
+                            value={loja}
+                            onChange={(e) => setLoja(e.target.value)}
+                            placeholder="Ex: Mercado Livre, Correios, Amazon"
+                            className="w-full px-4 py-2.5 bg-[#132337] border border-blue-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400/40 transition"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">{abaAtual === 'avisar_encomenda' ? 'Previsao De Entrega' : 'Data e Hora Da Chegada'}</label>
+                          <input
+                            type="datetime-local"
+                            value={dataHora}
+                            onChange={(e) => setDataHora(e.target.value)}
+                            className="w-full px-4 py-2.5 bg-[#132337] border border-blue-500/20 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/40 transition"
+                          />
+                        </div>
+
+                        {abaAtual === 'avisar_encomenda' && (
+                          <div className="md:col-span-2">
+                            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Codigo / Palavra-chave</label>
+                            <input
+                              type="text"
+                              value={codigoPalavraChave}
+                              onChange={(e) => setCodigoPalavraChave(e.target.value)}
+                              placeholder="Ex: PIN, protocolo, palavra combinada"
+                              className="w-full px-4 py-2.5 bg-[#132337] border border-emerald-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-6">
+                        <button
+                          type="submit"
+                          disabled={salvando}
+                          className="cursor-pointer bg-blue-500 hover:bg-blue-400 text-white font-semibold px-6 py-2.5 rounded-xl transition shadow-[0_0_15px_rgba(59,130,246,0.25)] disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {salvando ? 'Registrando...' : tituloFormulario}
+                        </button>
+                      </div>
+                    </form>
                   </div>
-                  <div className="w-11 h-11 rounded-xl bg-orange-500/15 flex items-center justify-center text-xl">📦</div>
-                </div>
-              </div>
-              <div className="bg-[#0f1c2e] border border-emerald-500/20 rounded-2xl p-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-wider">Entregues Hoje</p>
-                    <p className="text-3xl font-bold text-emerald-300 mt-1">{entreguesHoje}</p>
+                )}
+
+                {mensagem && (
+                  <div className={`p-4 rounded-xl text-sm border ${mensagem.includes('Erro') ? 'bg-red-500/10 text-red-300 border-red-500/20' : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'}`}>
+                    {mensagem}
                   </div>
-                  <div className="w-11 h-11 rounded-xl bg-emerald-500/15 flex items-center justify-center text-xl">✅</div>
-                </div>
-              </div>
-            </div>
+                )}
 
-            {/* Listas */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-white tracking-tight">Controle</h3>
-                <input
-                  type="text"
-                  value={busca}
-                  onChange={(e) => setBusca(e.target.value)}
-                  placeholder="Pesquisar pacote ou nome..."
-                  className="w-64 px-4 py-2 bg-[#132337] border border-blue-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400/40 transition"
-                />
-              </div>
+                {exibindoHistorico && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="bg-[#0f1c2e] border border-emerald-500/20 rounded-2xl p-5">
+                      <p className="text-xs text-slate-400 uppercase tracking-wider">Retiradas Hoje</p>
+                      <p className="text-3xl font-bold text-emerald-300 mt-1">{entreguesHoje}</p>
+                    </div>
+                    <div className="bg-[#0f1c2e] border border-blue-500/20 rounded-2xl p-5">
+                      <p className="text-xs text-slate-400 uppercase tracking-wider">Historico</p>
+                      <p className="text-3xl font-bold text-blue-300 mt-1">{historico.length}</p>
+                    </div>
+                    <div className="bg-[#0f1c2e] border border-orange-500/20 rounded-2xl p-5">
+                      <p className="text-xs text-slate-400 uppercase tracking-wider">Em Aberto</p>
+                      <p className="text-3xl font-bold text-orange-300 mt-1">{totalEmAberto}</p>
+                    </div>
+                  </div>
+                )}
+                {exibindoPortaria && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-white tracking-tight">Controle da Portaria</h3>
+                    {renderTabelasEmAberto(true)}
+                  </div>
+                )}
 
-              {/* Tabela Aguardando */}
-              <div className="bg-[#0f1c2e] rounded-2xl border border-orange-500/20 overflow-hidden">
-                <div className="px-5 py-3 border-b border-orange-500/10 bg-orange-500/5">
-                  <h4 className="text-sm font-semibold text-orange-300">Aguardando Retirada</h4>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead>
-                      <tr className="bg-[#132337]/50 border-b border-white/5">
-                        <th className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Item / Loja</th>
-                        <th className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Destinatário</th>
-                        <th className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Recebido em</th>
-                        <th className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Ação</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {carregando ? (
-                        <>
-                          <tr className="animate-pulse">
-                            <td colSpan={4} className="px-5 py-4">
-                              <div className="h-6 rounded-lg bg-white/5" />
-                            </td>
-                          </tr>
-                          <tr className="animate-pulse">
-                            <td colSpan={4} className="px-5 py-4">
-                              <div className="h-6 rounded-lg bg-white/5" />
-                            </td>
-                          </tr>
-                          <tr className="animate-pulse">
-                            <td colSpan={4} className="px-5 py-4">
-                              <div className="h-6 rounded-lg bg-white/5" />
-                            </td>
-                          </tr>
-                        </>
-                      ) : eFiltradas.length === 0 ? (
-                        <tr><td colSpan={4} className="px-5 py-8 text-center text-slate-500">Nenhuma encomenda aguardando.</td></tr>
-                      ) : (
-                        eFiltradas.map((e) => (
-                          <tr key={e.id} className="hover:bg-white/5 transition-colors">
-                            <td className="px-5 py-3">
-                              <div className="font-medium text-white">{e.item}</div>
-                              <div className="text-xs text-slate-400">{e.loja_remetente || 'Remetente não informado'}</div>
-                            </td>
-                            <td className="px-5 py-3 text-blue-300 font-medium">{e.destinatario}</td>
-                            <td className="px-5 py-3 text-slate-400 text-xs">{formatarData(e.recebido_em)}</td>
-                            <td className="px-5 py-3">
-                              <button onClick={() => registrarEntrega(e.id)} className="bg-emerald-500 hover:bg-emerald-400 text-[#0a1625] text-xs font-bold px-3 py-1.5 rounded-lg transition">
-                                Marcar Entregue
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                {exibindoHistorico && (
+                  <div className="space-y-4">
+                    {renderTabelasEmAberto(false)}
+                    <div className="pt-2">
+                      <h3 className="text-lg font-semibold text-white tracking-tight mb-4">Historico de Encomendas</h3>
+                      <div className="bg-[#0f1c2e] rounded-2xl border border-emerald-500/15 overflow-hidden">
+                        <div className="app-scroll max-h-[52vh] overflow-y-auto overflow-x-hidden">
+                          <table className="w-full table-fixed text-sm">
+                            <thead>
+                              <tr className="bg-[#132337]/70 border-b border-white/5 sticky top-0 z-10">
+                                <th className="w-[20%] px-4 py-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Item</th>
+                                <th className="w-[20%] px-4 py-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Loja / Remetente</th>
+                                <th className="w-[18%] px-4 py-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Destinatario</th>
+                                <th className="w-[14%] px-4 py-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Recebido</th>
+                                <th className="w-[14%] px-4 py-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Retirado</th>
+                                <th className="w-[14%] px-4 py-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Retirado por</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {carregando ? (
+                                <tr className="animate-pulse">
+                                  <td colSpan={6} className="px-5 py-4"><div className="h-6 rounded-lg bg-white/5" /></td>
+                                </tr>
+                              ) : historicoFiltrado.length === 0 ? (
+                                <tr><td colSpan={6} className="px-5 py-8 text-center text-slate-500">Nenhum historico.</td></tr>
+                              ) : (
+                                historicoFiltrado.map((encomenda) => (
+                                  <tr key={encomenda.id} className="hover:bg-white/5 transition-colors">
+                                    <td className="px-4 py-3 text-center font-medium text-white truncate">{encomenda.item}</td>
+                                    <td className="px-4 py-3 text-center text-slate-400 text-xs truncate">{encomenda.loja_remetente || 'Remetente nao informado'}</td>
+                                    <td className="px-4 py-3 text-center font-medium text-blue-300 truncate">{encomenda.destinatario}</td>
+                                    <td className="px-4 py-3 text-center text-slate-400 text-xs truncate">{formatarData(encomenda.recebido_em)}</td>
+                                    <td className="px-4 py-3 text-center text-emerald-400/80 text-xs font-medium truncate">{formatarData(encomenda.entregue_em)}</td>
+                                    <td className="px-4 py-3 text-center text-slate-400 text-xs truncate">{encomenda.retirado_por || encomenda.recebido_por?.replace('Retirado por: ', '') || '-'}</td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-
-              {/* Tabela Entregues (Histórico) */}
-              <div className="bg-[#0f1c2e] rounded-2xl border border-emerald-500/15 overflow-hidden mt-6">
-                <div className="px-5 py-3 border-b border-emerald-500/10 bg-emerald-500/5">
-                  <h4 className="text-sm font-semibold text-emerald-300">Histórico de Entregas</h4>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead>
-                      <tr className="bg-[#132337]/50 border-b border-white/5">
-                        <th className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Item / Loja</th>
-                        <th className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Destinatário</th>
-                        <th className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Chegou</th>
-                        <th className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Entregue</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {hFiltrado.length === 0 ? (
-                        <tr><td colSpan={4} className="px-5 py-8 text-center text-slate-500">Nenhum histórico.</td></tr>
-                      ) : (
-                        hFiltrado.map((e) => (
-                          <tr key={e.id} className="hover:bg-white/5 transition-colors">
-                            <td className="px-5 py-3">
-                              <div className="font-medium text-white">{e.item}</div>
-                              <div className="text-xs text-slate-400">{e.loja_remetente || 'Remetente não informado'}</div>
-                            </td>
-                            <td className="px-5 py-3 text-blue-300">{e.destinatario}</td>
-                            <td className="px-5 py-3 text-slate-500 text-xs">{formatarData(e.recebido_em)}</td>
-                            <td className="px-5 py-3 text-emerald-400/80 text-xs font-medium">{formatarData(e.entregue_em)}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-            </div>
+            </main>
           </div>
-        </main>
         </div>
       </div>
-    </div>
+
+      {(encomendaConfirmandoChegada || encomendaConfirmandoRetirada) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#132337] p-5 shadow-2xl">
+            {encomendaConfirmandoChegada && (
+              <>
+                <h3 className="text-base font-semibold text-white">Confirmar chegada</h3>
+                <p className="mt-2 text-sm text-slate-300">
+                  Confirma a chegada da encomenda &quot;{encomendaConfirmandoChegada.item}&quot;?
+                </p>
+                <div className="mt-5 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={cancelarConfirmacao}
+                    className="cursor-pointer rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:border-white/20 hover:text-white"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => confirmarChegada(encomendaConfirmandoChegada.id)}
+                    className="cursor-pointer rounded-lg bg-blue-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-400"
+                  >
+                    Confirmar chegada
+                  </button>
+                </div>
+              </>
+            )}
+
+            {encomendaConfirmandoRetirada && (
+              <>
+                <h3 className="text-base font-semibold text-white">Confirmar retirada</h3>
+                <label className="mt-3 flex flex-col gap-1 text-sm font-semibold text-slate-300">
+                  Encomenda de &quot;{encomendaConfirmandoRetirada.destinatario}&quot; está sendo retirada por quem?
+                  <input
+                    type="text"
+                    value={retiradoPor}
+                    onChange={(e) => setRetiradoPor(e.target.value)}
+                    autoFocus
+                    placeholder="Nome de quem retirou"
+                    className="mt-1 w-full rounded-lg border border-emerald-500/20 bg-[#0f1c2e] px-3 py-2 text-sm font-normal text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                  />
+                </label>
+                <div className="mt-5 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={cancelarConfirmacao}
+                    className="cursor-pointer rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:border-white/20 hover:text-white"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => registrarRetirada(encomendaConfirmandoRetirada.id)}
+                    disabled={!retiradoPor.trim()}
+                    className="cursor-pointer rounded-lg bg-emerald-500 px-3 py-2 text-xs font-semibold text-[#0a1625] transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Confirmar retirada
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </RequirePermissao>
   )
 }

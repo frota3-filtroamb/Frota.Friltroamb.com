@@ -5,10 +5,10 @@ import VeiculosClient from './VeiculosClient'
 export default async function Home() {
   const supabase = await createClient()
 
- const { data: veiculos, error } = await supabase
-  .from('veiculos')
-  .select('*')
-  .order('NR_PLACA')
+  const { data: veiculos, error } = await supabase
+    .from('veiculos')
+    .select('*')
+    .order('NR_PLACA')
 
   if (error) {
     return (
@@ -21,10 +21,9 @@ export default async function Home() {
   }
 
   return (
-<div className="min-h-screen flex bg-[#0a1625]">      {/* Barra lateral */}
-<Sidebar />
-      {/* Conteúdo */}
-      <div className="flex-1 ml-14 flex flex-col h-screen overflow-hidden">
+    <div className="min-h-screen flex bg-[#0a1625]">
+      <Sidebar />
+      <div className="flex-1 flex flex-col h-screen overflow-hidden">
         <VeiculosClient veiculos={veiculos || []} />
       </div>
     </div>

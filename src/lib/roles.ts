@@ -1,4 +1,4 @@
-export type Role = 'dev' | 'gestor' | 'porteiro'
+export type Role = 'dev' | 'gestor' | 'editor' | 'porteiro' | 'basico'
 
 export type Permissao =
   | 'veiculos'
@@ -15,6 +15,9 @@ export type Permissao =
   | 'transferencia'
   | 'encomendas'
   | 'almoxarifado'
+  | 'cadastros'
+  | 'cadastros.pessoas'
+  | 'cadastros.destinos'
 
 export const PERMISSOES: Permissao[] = [
   'veiculos',
@@ -31,6 +34,9 @@ export const PERMISSOES: Permissao[] = [
   'transferencia',
   'encomendas',
   'almoxarifado',
+  'cadastros',
+  'cadastros.pessoas',
+  'cadastros.destinos',
 ]
 
 const PERMISSOES_DETALHADAS: Partial<Record<Permissao, Permissao[]>> = {
@@ -42,6 +48,7 @@ const PERMISSOES_DETALHADAS: Partial<Record<Permissao, Permissao[]>> = {
     'liberacao.transferencia',
     'liberacao.veiculo_interno',
   ],
+  cadastros: ['cadastros.pessoas', 'cadastros.destinos'],
 }
 
 const PERMISSOES_GESTOR: Permissao[] = [
@@ -59,18 +66,25 @@ const PERMISSOES_GESTOR: Permissao[] = [
   'transferencia',
   'encomendas',
   'almoxarifado',
+  'cadastros',
+  'cadastros.pessoas',
+  'cadastros.destinos',
 ]
 
 const PERMISSOES_DEV: Permissao[] = PERMISSOES_GESTOR
 const PERMISSOES_PORTEIRO: Permissao[] = ['portaria']
+const PERMISSOES_BASICO: Permissao[] = ['veiculos']
 
 export function getRole(
   user: { publicMetadata?: Record<string, unknown> } | null | undefined
 ): Role {
   const role = user?.publicMetadata?.role
   if (role === 'dev') return 'dev'
+  if (role === 'gestor') return 'gestor'
+  if (role === 'editor') return 'editor'
   if (role === 'porteiro') return 'porteiro'
-  return 'gestor'
+  if (role === 'basico') return 'basico'
+  return 'basico'
 }
 
 export function getPermissoes(
@@ -84,7 +98,10 @@ export function getPermissoes(
 
   const role = getRole(user)
   if (role === 'dev') return PERMISSOES_DEV
-  return role === 'porteiro' ? PERMISSOES_PORTEIRO : PERMISSOES_GESTOR
+  if (role === 'gestor') return PERMISSOES_GESTOR
+  if (role === 'editor') return PERMISSOES_GESTOR
+  if (role === 'porteiro') return PERMISSOES_PORTEIRO
+  return PERMISSOES_BASICO
 }
 
 export function podeAcessar(

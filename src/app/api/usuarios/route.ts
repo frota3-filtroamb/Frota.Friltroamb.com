@@ -1,13 +1,6 @@
 import { clerkClient, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
-import { PERMISSOES, type Permissao } from '@/lib/roles'
-
-function limparPermissoes(valor: unknown): Permissao[] {
-  if (!Array.isArray(valor)) return []
-  return valor.filter((item): item is Permissao =>
-    (PERMISSOES as readonly string[]).includes(String(item))
-  )
-}
+import { getPermissoes, getRole } from '@/lib/roles'
 
 export async function GET() {
   const operador = await currentUser()
@@ -17,7 +10,7 @@ export async function GET() {
   }
 
   const role = operador.publicMetadata?.role
-  if (role !== 'dev' && role !== 'gestor') {
+  if (role !== 'dev') {
     return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 })
   }
 
@@ -34,11 +27,8 @@ export async function GET() {
       u.primaryEmailAddress?.emailAddress ||
       u.emailAddresses[0]?.emailAddress ||
       '',
-    role:
-      typeof u.publicMetadata?.role === 'string'
-        ? u.publicMetadata.role
-        : 'gestor',
-    permissoes: limparPermissoes(u.publicMetadata?.permissoes),
+    role: getRole({ publicMetadata: u.publicMetadata }),
+    permissoes: getPermissoes({ publicMetadata: u.publicMetadata }),
   }))
 
   return NextResponse.json({ usuarios })

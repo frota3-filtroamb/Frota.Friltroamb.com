@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 
 type Theme = 'dark' | 'light'
 
@@ -14,16 +15,29 @@ const ThemeContext = createContext<{
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>('dark')
+  const pathname = usePathname()
+
+  const isAuthRoute = pathname?.startsWith('/sign-in') || pathname?.startsWith('/sign-up')
 
   useEffect(() => {
-    const saved = localStorage.getItem('theme') as Theme | null
-    if (saved === 'light' || saved === 'dark') {
-      setTheme(saved)
-      document.documentElement.classList.toggle('light', saved === 'light')
+    // Se estiver em rota de autenticação (login / cadastro), força tema escuro absoluto
+    if (isAuthRoute) {
+      document.documentElement.classList.remove('light')
+      return
     }
-  }, [])
+
+    const saved = localStorage.getItem('theme') as Theme | null
+    if (saved === 'light') {
+      setTheme('light')
+      document.documentElement.classList.add('light')
+    } else {
+      setTheme('dark')
+      document.documentElement.classList.remove('light')
+    }
+  }, [pathname, isAuthRoute])
 
   function toggleTheme() {
+    if (isAuthRoute) return
     const next = theme === 'dark' ? 'light' : 'dark'
     setTheme(next)
     localStorage.setItem('theme', next)

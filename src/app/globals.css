@@ -112,6 +112,52 @@ td:has(.placa),
   background-clip: content-box;
 }
 
+.sidebar-rail-scroll {
+  scrollbar-width: none;
+}
+
+.sidebar-rail-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.group\/sidebar:hover .sidebar-rail-scroll,
+.group\/sidebar:focus-within .sidebar-rail-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(52, 211, 153, 0.45) transparent;
+}
+
+.group\/sidebar:hover .sidebar-rail-scroll::-webkit-scrollbar,
+.group\/sidebar:focus-within .sidebar-rail-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.group\/sidebar:hover .sidebar-rail-scroll::-webkit-scrollbar-track,
+.group\/sidebar:focus-within .sidebar-rail-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.group\/sidebar:hover .sidebar-rail-scroll::-webkit-scrollbar-thumb,
+.group\/sidebar:focus-within .sidebar-rail-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.45), rgba(16, 185, 129, 0.25));
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+.group\/sidebar:hover .sidebar-rail-scroll::-webkit-scrollbar-thumb:hover,
+.group\/sidebar:focus-within .sidebar-rail-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.75), rgba(16, 185, 129, 0.45));
+  background-clip: content-box;
+}
+
+@media (min-width: 1024px) {
+  aside.group\/sidebar~.flex-1 {
+    padding-top: 3.5rem;
+  }
+}
+
 /* ==========================================================================
    Tema Escuro
    ========================================================================== */
@@ -181,6 +227,17 @@ html:not(.light) aside a:hover,
 html:not(.light) aside button:hover {
   background-color: rgba(255, 255, 255, 0.05) !important;
   color: #ffffff !important;
+}
+
+html:not(.light) .app-topbar {
+  background-color: #151431 !important;
+  border-color: rgba(16, 185, 129, 0.14) !important;
+  color: #f8fafc !important;
+}
+
+html:not(.light) .app-topbar button:hover {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  color: #f8fafc !important;
 }
 
 html:not(.light) .text-emerald-300 {
@@ -296,7 +353,7 @@ html.light .bg-\[\#0a1625\] {
 
 html.light aside {
   background-color: #ececec !important;
-  border-right: 1px solid #dddcdb !important;
+  border-right: 0 !important;
   color: #0f172a !important;
 }
 
@@ -326,6 +383,11 @@ html.light aside .bg-emerald-500\/15 {
   font-weight: 600 !important;
 }
 
+html.light .app-topbar {
+  background-color: #f1f1f1 !important;
+  border-color: #d7dde4 !important;
+}
+
 html.light aside .border-b,
 html.light aside .border-t,
 html.light aside .border-l {
@@ -347,6 +409,25 @@ html.light .sidebar-scroll::-webkit-scrollbar-thumb {
 
 html.light .app-scroll::-webkit-scrollbar-thumb:hover,
 html.light .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(100, 116, 139, 0.80), rgba(71, 85, 105, 0.50));
+  background-clip: content-box;
+}
+
+html.light .group\/sidebar:hover .sidebar-rail-scroll,
+html.light .group\/sidebar:focus-within .sidebar-rail-scroll {
+  scrollbar-color: rgba(100, 116, 139, 0.50) transparent;
+}
+
+html.light .group\/sidebar:hover .sidebar-rail-scroll::-webkit-scrollbar-thumb,
+html.light .group\/sidebar:focus-within .sidebar-rail-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.60), rgba(100, 116, 139, 0.35));
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+html.light .group\/sidebar:hover .sidebar-rail-scroll::-webkit-scrollbar-thumb:hover,
+html.light .group\/sidebar:focus-within .sidebar-rail-scroll::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, rgba(100, 116, 139, 0.80), rgba(71, 85, 105, 0.50));
   background-clip: content-box;
 }
