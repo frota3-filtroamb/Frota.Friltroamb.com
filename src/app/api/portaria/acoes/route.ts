@@ -1,7 +1,7 @@
 import { currentUser } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { podeAcessar } from '@/lib/roles'
+import { getRole, podeAcessar } from '@/lib/roles'
 
 type Body = {
   tipo?: unknown
@@ -20,6 +20,7 @@ type Movimentacao = {
   saida_em: string | null
   entrada_em: string | null
   tipo_veiculo: string | null
+  gestor_responsavel_email: string | null
 }
 
 type Pedestre = {
@@ -68,6 +69,11 @@ function podeOperarVeiculos(operador: Awaited<ReturnType<typeof currentUser>>) {
     operador &&
     (podeAcessar(operador, 'portaria') || podeAcessar(operador, 'portaria.veiculos'))
   )
+}
+
+function podeAutorizarSaida(operador: Awaited<ReturnType<typeof currentUser>>) {
+  const role = getRole(operador)
+  return role === 'dev' || role === 'editor' || role === 'gestor'
 }
 
 function podeOperarPedestres(operador: Awaited<ReturnType<typeof currentUser>>) {
@@ -155,6 +161,68 @@ export async function POST(request: NextRequest) {
         ? `Saida registrada, mas o historico de acoes nao foi gravado: ${acaoError.message}`
         : deveFinalizarNaSaida ? 'Saida do veiculo externo registrada e finalizada!' : 'Saida do veiculo registrada!',
     })
+  }
+
+  if (tipo === 'veiculo_autorizar_saida') {
+    if (!podeOperarVeiculos(operador) || !podeAutorizarSaida(operador)) {
+      return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 })
+    }
+
+    const { data: movimentacao, error: buscaError } = await supabase
+      .from('movimentacoes')
+      .select('*')
+      .eq('id', id)
+      .single<Movimentacao>()
+
+    if (buscaError) return NextResponse.json({ error: buscaError.message }, { status: 400 })
+
+    if (!isVeiculoExterno(movimentacao.tipo_veiculo)) {
+      return NextResponse.json({ error: 'A autorizacao de saida e exclusiva para veiculo externo.' }, { status: 400 })
+    }
+
+    if (movimentacao.saida_em) {
+      return NextResponse.json({ error: 'Este veiculo externo ja possui saida registrada.' }, { status: 400 })
+    }
+
+    const role = getRole(operador)
+    const emailOperador = responsavelEmail?.toLowerCase() || ''
+    if (
+      role === 'gestor' &&
+      (!emailOperador || movimentacao.gestor_responsavel_email?.toLowerCase() !== emailOperador)
+    ) {
+      return NextResponse.json({ error: 'Esta liberacao esta atribuida a outro gestor.' }, { status: 403 })
+    }
+
+    const { data: autorizacaoExistente, error: autorizacaoError } = await supabase
+      .from('movimentacoes_acoes')
+      .select('id')
+      .eq('movimentacao_id', movimentacao.id)
+      .eq('acao', 'saida_autorizada')
+      .maybeSingle()
+
+    if (autorizacaoError) return NextResponse.json({ error: autorizacaoError.message }, { status: 400 })
+
+    if (!autorizacaoExistente) {
+      const { error: acaoError } = await supabase.from('movimentacoes_acoes').insert({
+        movimentacao_id: movimentacao.id,
+        acao: 'saida_autorizada',
+        data_acao: agora,
+        placa: movimentacao.placa,
+        motorista: movimentacao.motorista,
+        km: movimentacao.km,
+        origem: movimentacao.localizacao,
+        destino: movimentacao.destino,
+        tipo_veiculo: movimentacao.tipo_veiculo || null,
+        status_movimentacao: movimentacao.status,
+        responsavel_nome: responsavelNome,
+        responsavel_email: responsavelEmail,
+        responsavel_id: responsavelId,
+      })
+
+      if (acaoError) return NextResponse.json({ error: acaoError.message }, { status: 400 })
+    }
+
+    return NextResponse.json({ mensagem: 'Saida do veiculo externo autorizada para a portaria.' })
   }
 
   if (tipo === 'veiculo_entrada') {

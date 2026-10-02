@@ -4,7 +4,7 @@ import { useUser, UserButton } from '@clerk/nextjs'
 import { dark } from '@clerk/themes'
 import { getRole, podeAcessar } from '@/lib/roles'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTheme } from '@/components/ThemeProvider'
 import Link from 'next/link'
 
@@ -20,6 +20,14 @@ type IconName =
   | 'usuarios'
   | 'tema'
   | 'chevron'
+
+type Notificacao = {
+  id: string
+  titulo: string
+  descricao: string
+  data: string | null
+  href: string
+}
 
 function SidebarIcon({ nome }: { nome: IconName }) {
   const props = {
@@ -85,7 +93,7 @@ function tituloDaPagina(pathname: string) {
 export default function Sidebar() {
   const pathname = usePathname()
   const { theme, toggleTheme } = useTheme()
-  const { user } = useUser()
+  const { user, isLoaded } = useUser()
   const role = getRole(user)
   const roleLabel = role === 'dev' ? 'Dev' : role === 'gestor' ? 'Gestor' : role === 'editor' ? 'Editor' : role === 'porteiro' ? 'Porteiro' : 'Basico'
   const podeUsuarios = role === 'dev'
@@ -119,12 +127,84 @@ export default function Sidebar() {
   const [relatoriosAberto, setRelatoriosAberto] = useState(false)
   const [cadastrosAberto, setCadastrosAberto] = useState(false)
   const [mobileMenuAberto, setMobileMenuAberto] = useState(false)
+  const [notificacoesAberta, setNotificacoesAberta] = useState(false)
+  const [notificacoes, setNotificacoes] = useState<Notificacao[]>([])
+  const [carregandoNotificacoes, setCarregandoNotificacoes] = useState(false)
+  const notificacoesRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     setPortariaAberta(false)
     setRelatoriosAberto(false)
     setCadastrosAberto(false)
   }, [pathname])
+
+  useEffect(() => {
+    if (!notificacoesAberta) return
+
+    function fecharAoClicarFora(event: MouseEvent) {
+      if (!notificacoesRef.current?.contains(event.target as Node)) {
+        setNotificacoesAberta(false)
+      }
+    }
+
+    function fecharComEsc(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setNotificacoesAberta(false)
+      }
+    }
+
+    document.addEventListener('mousedown', fecharAoClicarFora)
+    document.addEventListener('keydown', fecharComEsc)
+
+    return () => {
+      document.removeEventListener('mousedown', fecharAoClicarFora)
+      document.removeEventListener('keydown', fecharComEsc)
+    }
+  }, [notificacoesAberta])
+
+  async function carregarNotificacoes() {
+    if (!isLoaded || !user) {
+      setNotificacoes([])
+      return
+    }
+
+    setCarregandoNotificacoes(true)
+    try {
+      const resposta = await fetch('/api/notificacoes')
+      const resultado = await resposta.json()
+
+      if (!resposta.ok) throw new Error(resultado.error || 'Erro ao carregar notificacoes.')
+      setNotificacoes(Array.isArray(resultado.notificacoes) ? resultado.notificacoes : [])
+    } catch {
+      setNotificacoes([])
+    } finally {
+      setCarregandoNotificacoes(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!isLoaded || !user) return
+
+    carregarNotificacoes()
+    const interval = setInterval(carregarNotificacoes, 30000)
+    return () => clearInterval(interval)
+  }, [isLoaded, user, pathname])
+
+  useEffect(() => {
+    if (!notificacoesAberta) return
+    carregarNotificacoes()
+  }, [notificacoesAberta])
+
+  function formatarDataNotificacao(data: string | null) {
+    if (!data) return ''
+    return new Intl.DateTimeFormat('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(data)).replace(',', '')
+  }
 
   const ativo = (href: string) => pathname === href
   const desktopRow = 'group/item grid h-10 grid-cols-[36px_1fr] items-center gap-3 rounded-lg px-1.5 text-sm transition-colors duration-200'
@@ -312,15 +392,58 @@ export default function Sidebar() {
           {tituloDaPagina(pathname)}
         </h1>
 
-        <div className="ml-auto flex items-center">
+        <div ref={notificacoesRef} className="relative ml-auto flex items-center">
           <button
             type="button"
             aria-label="Notificações"
             title="Notificações"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+            aria-expanded={notificacoesAberta}
+            onClick={() => setNotificacoesAberta((aberta) => !aberta)}
+            className={`topbar-notification-button relative flex h-9 w-9 items-center justify-center rounded-full transition-colors ${notificacoesAberta ? 'is-open' : ''}`}
           >
             <TopBarIcon />
+            {notificacoes.length > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold leading-none text-white">
+                {notificacoes.length > 9 ? '9+' : notificacoes.length}
+              </span>
+            )}
           </button>
+
+          {notificacoesAberta && (
+            <div className="topbar-notification-panel absolute right-0 top-12 w-[320px] overflow-hidden rounded-2xl border shadow-xl">
+              <div className="flex items-center justify-between border-b px-4 py-3">
+                <h2 className="text-sm font-bold">Notificações</h2>
+                <span className={`h-1.5 w-1.5 rounded-full ${notificacoes.length > 0 ? 'bg-orange-400' : 'bg-emerald-400'}`} aria-hidden="true" />
+              </div>
+
+              {carregandoNotificacoes ? (
+                <div className="flex min-h-[108px] items-center justify-center px-4 py-8">
+                  <p className="text-center text-xs font-medium italic">Carregando alertas...</p>
+                </div>
+              ) : notificacoes.length === 0 ? (
+                <div className="flex min-h-[108px] items-center justify-center px-4 py-8">
+                  <p className="text-center text-xs font-medium italic">Nenhum alerta recente.</p>
+                </div>
+              ) : (
+                <div className="app-scroll max-h-[320px] overflow-y-auto py-1">
+                  {notificacoes.map((notificacao) => (
+                    <Link
+                      key={notificacao.id}
+                      href={notificacao.href}
+                      onClick={() => setNotificacoesAberta(false)}
+                      className="block border-b px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-orange-500/10"
+                    >
+                      <p className="text-sm font-semibold">{notificacao.titulo}</p>
+                      <p className="mt-1 text-xs">{notificacao.descricao}</p>
+                      {notificacao.data && (
+                        <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide">{formatarDataNotificacao(notificacao.data)}</p>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

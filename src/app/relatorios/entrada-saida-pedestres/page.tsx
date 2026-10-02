@@ -377,6 +377,12 @@ export default function EntradaSaidaPedestresPage() {
   )
 
   const colunas = podeEditar ? 7 : 6
+  const registroEditando = editandoId
+    ? historicoVigente.find((registro) => registro.acao_original_id === editandoId) || null
+    : null
+  const registroExcluindo = confirmandoExclusaoId
+    ? historicoVigente.find((registro) => registro.acao_original_id === confirmandoExclusaoId) || null
+    : null
 
   return (
     <RequirePermissao permissao="portaria">
@@ -496,129 +502,6 @@ export default function EntradaSaidaPedestresPage() {
                               </td>
                             )}
                           </tr>
-
-                          {podeEditar && confirmandoExclusaoId === registro.acao_original_id && (
-                            <tr className="bg-red-500/5">
-                              <td colSpan={colunas} className="px-4 py-3">
-                                <div className="ml-auto w-full max-w-xl rounded-xl border border-red-500/20 bg-[#132337] p-3 shadow-2xl">
-                                  <div className="mb-2 flex items-start justify-between gap-3">
-                                    <div>
-                                      <p className="text-sm font-semibold text-red-300">Excluir registro</p>
-                                      <p className="mt-0.5 text-xs text-slate-400">
-                                        {registro.nome || '-'} - {acaoLabel[registro.acao_exibida]}
-                                      </p>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={cancelarExclusao}
-                                      disabled={excluindoId === registro.acao_original_id}
-                                      className="rounded-lg px-2 py-1 text-xs font-semibold text-slate-400 hover:bg-white/5 hover:text-white transition disabled:opacity-50"
-                                    >
-                                      Fechar
-                                    </button>
-                                  </div>
-
-                                  <label className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                                    Motivo da exclusao
-                                    <input
-                                      type="text"
-                                      value={motivoExclusao}
-                                      onChange={(e) => setMotivoExclusao(e.target.value)}
-                                      minLength={12}
-                                      autoFocus
-                                      placeholder="Ex: liberacao lancada por engano."
-                                      className={`w-full min-w-0 rounded-lg border bg-[#0f1c2e] px-3 py-2 text-sm normal-case tracking-normal text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 transition ${motivoExclusaoValido ? 'border-red-500/25 focus:ring-red-400/30' : 'border-red-500/40 focus:ring-red-400/30'}`}
-                                    />
-                                    <span className={motivoExclusaoValido ? 'text-[11px] normal-case tracking-normal text-slate-500' : 'text-[11px] normal-case tracking-normal text-red-300'}>
-                                      Minimo de 12 caracteres. Atual: {motivoExclusao.trim().length}
-                                    </span>
-                                  </label>
-
-                                  <div className="mt-3 flex justify-end gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={cancelarExclusao}
-                                      disabled={excluindoId === registro.acao_original_id}
-                                      className="px-3 py-1.5 rounded-lg border border-white/10 text-xs font-semibold text-slate-300 hover:text-white hover:border-white/20 transition disabled:opacity-50"
-                                    >
-                                      Cancelar
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => excluirRegistro(registro)}
-                                      disabled={excluindoId === registro.acao_original_id || !motivoExclusaoValido}
-                                      className="px-3 py-1.5 rounded-lg bg-red-500 text-xs font-semibold text-white hover:bg-red-400 transition disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                      {excluindoId === registro.acao_original_id ? 'Excluindo...' : 'Confirmar exclusao'}
-                                    </button>
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-
-                          {podeEditar && editandoId === registro.acao_original_id && (
-                            <tr className="bg-[#132337]/70">
-                              <td colSpan={colunas} className="px-4 py-4">
-                                <div className="grid grid-cols-1 gap-2 md:grid-cols-3 xl:grid-cols-6">
-                                  <label className="flex min-w-0 flex-col gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                                    Data/Hora
-                                    <input
-                                      type="datetime-local"
-                                      value={formEdicao.data_acao}
-                                      onChange={(e) => setFormEdicao((atual) => ({ ...atual, data_acao: e.target.value }))}
-                                      className="w-full min-w-0 px-2 py-1.5 bg-[#0f1c2e] border border-emerald-500/20 rounded-lg text-xs normal-case tracking-normal text-white [color-scheme:dark] focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
-                                    />
-                                  </label>
-                                  {(['nome', 'empresa', 'destino'] as const).map((campo) => (
-                                    <label key={campo} className="flex min-w-0 flex-col gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                                      {campo.replace('_', ' ')}
-                                      <input
-                                        type="text"
-                                        value={formEdicao[campo]}
-                                        onChange={(e) => setFormEdicao((atual) => ({ ...atual, [campo]: e.target.value }))}
-                                        className="w-full min-w-0 px-2 py-1.5 bg-[#0f1c2e] border border-emerald-500/20 rounded-lg text-xs normal-case tracking-normal text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
-                                      />
-                                    </label>
-                                  ))}
-                                  <label className="flex min-w-0 flex-col gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500 md:col-span-3 xl:col-span-6">
-                                    Motivo da correcao
-                                    <input
-                                      type="text"
-                                      value={formEdicao.motivo_correcao}
-                                      onChange={(e) => setFormEdicao((atual) => ({ ...atual, motivo_correcao: e.target.value }))}
-                                      minLength={12}
-                                      required
-                                      placeholder="Ex: ajuste de horario, nome ou destino"
-                                      className={`w-full min-w-0 px-3 py-2.5 bg-[#0f1c2e] border rounded-lg text-sm normal-case tracking-normal text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 transition ${motivoCorrecaoValido ? 'border-emerald-500/20 focus:ring-emerald-400/40' : 'border-red-500/30 focus:ring-red-400/30'}`}
-                                    />
-                                    <span className={motivoCorrecaoValido ? 'text-[11px] normal-case tracking-normal text-slate-500' : 'text-[11px] normal-case tracking-normal text-red-300'}>
-                                      Minimo de 12 caracteres. Atual: {formEdicao.motivo_correcao.trim().length}
-                                    </span>
-                                  </label>
-                                </div>
-
-                                <div className="mt-4 flex justify-end gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={cancelarEdicao}
-                                    disabled={salvando}
-                                    className="px-4 py-2 rounded-lg border border-white/10 text-xs font-semibold text-slate-300 hover:text-white hover:border-white/20 transition disabled:opacity-50"
-                                  >
-                                    Cancelar
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={salvarCorrecao}
-                                    disabled={salvando || !motivoCorrecaoValido}
-                                    className="px-4 py-2 rounded-lg bg-emerald-500 text-xs font-semibold text-[#0a1625] hover:bg-emerald-400 transition disabled:cursor-not-allowed disabled:opacity-50"
-                                  >
-                                    {salvando ? 'Salvando...' : 'Salvar correcao'}
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
                         </Fragment>
                       ))
                     )}
@@ -631,6 +514,145 @@ export default function EntradaSaidaPedestresPage() {
               Total de registros: {historicoFiltrado.length}
             </div>
           </section>
+
+          {podeEditar && registroEditando && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+              <div className="report-modal app-scroll max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-emerald-500/20 bg-[#132337] p-5 shadow-2xl">
+                <div className="mb-4 flex items-start justify-between gap-4 border-b border-white/5 pb-4">
+                  <div>
+                    <h2 className="text-base font-semibold text-white">Corrigir registro</h2>
+                    <p className="mt-1 text-xs text-slate-400">
+                      {registroEditando.nome || '-'} - {acaoLabel[registroEditando.acao_exibida]}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={cancelarEdicao}
+                    disabled={salvando}
+                    className="rounded-lg px-3 py-2 text-xs font-semibold text-slate-400 transition hover:bg-white/5 hover:text-white disabled:opacity-50"
+                  >
+                    Fechar
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <label className="flex min-w-0 flex-col gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    Data/Hora
+                    <input
+                      type="datetime-local"
+                      value={formEdicao.data_acao}
+                      onChange={(e) => setFormEdicao((atual) => ({ ...atual, data_acao: e.target.value }))}
+                      className="report-modal-field w-full min-w-0 rounded-lg border border-emerald-500/20 bg-[#0f1c2e] px-3 py-2.5 text-sm normal-case tracking-normal text-white [color-scheme:dark] focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                    />
+                  </label>
+                  {(['nome', 'empresa', 'destino'] as const).map((campo) => (
+                    <label key={campo} className="flex min-w-0 flex-col gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                      {campo.replace('_', ' ')}
+                      <input
+                        type="text"
+                        value={formEdicao[campo]}
+                        onChange={(e) => setFormEdicao((atual) => ({ ...atual, [campo]: e.target.value }))}
+                        className="report-modal-field w-full min-w-0 rounded-lg border border-emerald-500/20 bg-[#0f1c2e] px-3 py-2.5 text-sm normal-case tracking-normal text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                      />
+                    </label>
+                  ))}
+                  <label className="flex min-w-0 flex-col gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500 md:col-span-2">
+                    Motivo da correcao
+                    <input
+                      type="text"
+                      value={formEdicao.motivo_correcao}
+                      onChange={(e) => setFormEdicao((atual) => ({ ...atual, motivo_correcao: e.target.value }))}
+                      minLength={12}
+                      required
+                      autoFocus
+                      placeholder="Ex: ajuste de horario, nome ou destino"
+                      className={`report-modal-field w-full min-w-0 rounded-lg border bg-[#0f1c2e] px-3 py-2.5 text-sm normal-case tracking-normal text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 transition ${motivoCorrecaoValido ? 'border-emerald-500/20 focus:ring-emerald-400/40' : 'border-red-500/30 focus:ring-red-400/30'}`}
+                    />
+                    <span className={motivoCorrecaoValido ? 'text-[11px] normal-case tracking-normal text-slate-500' : 'text-[11px] normal-case tracking-normal text-red-300'}>
+                      Minimo de 12 caracteres. Atual: {formEdicao.motivo_correcao.trim().length}
+                    </span>
+                  </label>
+                </div>
+
+                <div className="mt-5 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={cancelarEdicao}
+                    disabled={salvando}
+                    className="rounded-lg border border-white/10 px-4 py-2 text-xs font-semibold text-slate-300 transition hover:border-white/20 hover:text-white disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={salvarCorrecao}
+                    disabled={salvando || !motivoCorrecaoValido}
+                    className="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-semibold text-[#0a1625] transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {salvando ? 'Salvando...' : 'Salvar correcao'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {podeEditar && registroExcluindo && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+              <div className="report-modal w-full max-w-xl rounded-2xl border border-red-500/20 bg-[#132337] p-5 shadow-2xl">
+                <div className="mb-4 flex items-start justify-between gap-4 border-b border-white/5 pb-4">
+                  <div>
+                    <h2 className="text-base font-semibold text-red-300">Excluir registro</h2>
+                    <p className="mt-1 text-xs text-slate-400">
+                      {registroExcluindo.nome || '-'} - {acaoLabel[registroExcluindo.acao_exibida]}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={cancelarExclusao}
+                    disabled={excluindoId === registroExcluindo.acao_original_id}
+                    className="rounded-lg px-3 py-2 text-xs font-semibold text-slate-400 transition hover:bg-white/5 hover:text-white disabled:opacity-50"
+                  >
+                    Fechar
+                  </button>
+                </div>
+
+                <label className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  Motivo da exclusao
+                  <input
+                    type="text"
+                    value={motivoExclusao}
+                    onChange={(e) => setMotivoExclusao(e.target.value)}
+                    minLength={12}
+                    autoFocus
+                    placeholder="Ex: liberacao lancada por engano."
+                    className={`report-modal-field w-full min-w-0 rounded-lg border bg-[#0f1c2e] px-3 py-2.5 text-sm normal-case tracking-normal text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 transition ${motivoExclusaoValido ? 'border-red-500/25 focus:ring-red-400/30' : 'border-red-500/40 focus:ring-red-400/30'}`}
+                  />
+                  <span className={motivoExclusaoValido ? 'text-[11px] normal-case tracking-normal text-slate-500' : 'text-[11px] normal-case tracking-normal text-red-300'}>
+                    Minimo de 12 caracteres. Atual: {motivoExclusao.trim().length}
+                  </span>
+                </label>
+
+                <div className="mt-5 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={cancelarExclusao}
+                    disabled={excluindoId === registroExcluindo.acao_original_id}
+                    className="rounded-lg border border-white/10 px-4 py-2 text-xs font-semibold text-slate-300 transition hover:border-white/20 hover:text-white disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => excluirRegistro(registroExcluindo)}
+                    disabled={excluindoId === registroExcluindo.acao_original_id || !motivoExclusaoValido}
+                    className="rounded-lg bg-red-500 px-4 py-2 text-xs font-semibold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {excluindoId === registroExcluindo.acao_original_id ? 'Excluindo...' : 'Confirmar exclusao'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </RequirePermissao>

@@ -2,11 +2,12 @@
 
 import RequirePermissao from '@/components/RequirePermissao'
 import { useUser } from '@clerk/nextjs'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Sidebar from '@/components/Sidebar'
-import { podeAcessarDetalhe } from '@/lib/roles'
+import { getRole, podeAcessarDetalhe } from '@/lib/roles'
 import { formatCpf, formatPhone, onlyDigits } from '@/lib/masks'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 type Movimentacao = {
   id: number
@@ -20,6 +21,10 @@ type Movimentacao = {
   saida_em: string | null
   entrada_em: string | null
   tipo_veiculo?: string | null
+  gestor_responsavel_id?: string | null
+  gestor_responsavel_nome?: string | null
+  gestor_responsavel_email?: string | null
+  gestor_responsavel_setor?: string | null
 }
 
 type Pedestre = {
@@ -47,27 +52,43 @@ type Transferencia = {
   transferido_por: string | null
 }
 
+type AcaoMovimentacao = {
+  movimentacao_id: number | null
+  acao: string
+}
+
 export default function PortariaPage() {
   const supabase = createClient()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, isLoaded } = useUser()
 
-  const [abaAtual, setAbaAtual] = useState<'veiculos' | 'pedestres' | 'transferencia'>('veiculos')
+  const [abaAtual, setAbaAtual] = useState<'veiculos' | 'autorizacoes' | 'pedestres' | 'transferencia'>('veiculos')
   const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([])
+  const [acoesMovimentacoes, setAcoesMovimentacoes] = useState<AcaoMovimentacao[]>([])
   const [historico, setHistorico] = useState<Movimentacao[]>([])
   const [pedestres, setPedestres] = useState<Pedestre[]>([])
   const [transferencias, setTransferencias] = useState<Transferencia[]>([])
   const [carregando, setCarregando] = useState(true)
   const [mensagem, setMensagem] = useState('')
   const [busca, setBusca] = useState('')
+  const [acaoEmAndamentoId, setAcaoEmAndamentoId] = useState<string | null>(null)
 
   const podeControleVeiculos = podeAcessarDetalhe(user, 'portaria', 'portaria.veiculos')
   const podeControlePedestres = podeAcessarDetalhe(user, 'portaria', 'portaria.pedestres')
   const podeControleTransferencia = podeAcessarDetalhe(user, 'portaria', 'portaria.transferencia')
-  const abasPermitidas = [
-    podeControleVeiculos ? 'veiculos' : null,
-    podeControlePedestres ? 'pedestres' : null,
-    podeControleTransferencia ? 'transferencia' : null,
-  ].filter(Boolean) as typeof abaAtual[]
+  const roleUsuario = getRole(user)
+  const emailUsuario = user?.primaryEmailAddress?.emailAddress?.toLowerCase() || ''
+  const podeAutorizarSaida = ['dev', 'gestor', 'editor'].includes(roleUsuario)
+  const abasPermitidas = useMemo(
+    () => [
+      podeControleVeiculos ? 'veiculos' : null,
+      podeControleVeiculos && podeAutorizarSaida ? 'autorizacoes' : null,
+      podeControlePedestres ? 'pedestres' : null,
+      podeControleTransferencia ? 'transferencia' : null,
+    ].filter(Boolean) as typeof abaAtual[],
+    [podeControleVeiculos, podeAutorizarSaida, podeControlePedestres, podeControleTransferencia],
+  )
   function ordenarHistoricoVeiculos(registros: Movimentacao[]) {
     const dataEvento = (m: Movimentacao) => {
       if (m.tipo_veiculo === 'interno_saida') return m.saida_em || m.liberado_em
@@ -85,15 +106,17 @@ export default function PortariaPage() {
   async function carregar() {
     setCarregando(true)
     try {
-      const [vAtivos, vFinais, pAtivos, tQuery] = await Promise.all([
+      const [vAtivos, vFinais, pAtivos, tQuery, acoesQuery] = await Promise.all([
         supabase.from('movimentacoes').select('*').in('status', ['aguardando_saida', 'em_rota']).order('liberado_em', { ascending: false }),
         supabase.from('movimentacoes').select('*').eq('status', 'finalizado').order('liberado_em', { ascending: false }).limit(100),
         supabase.from('movimentacoes_pedestres').select('*').in('status', ['aguardando_entrada', 'em_visita']).order('liberado_em', { ascending: false }),
         supabase.from('transferencias').select('*').eq('status', 'aguardando_confirmacao').order('transferido_em', { ascending: false }).limit(100),
+        supabase.from('movimentacoes_acoes').select('movimentacao_id, acao').eq('acao', 'saida_autorizada'),
       ])
 
 
       setMovimentacoes(vAtivos.data || [])
+      setAcoesMovimentacoes(acoesQuery.data || [])
       setHistorico(ordenarHistoricoVeiculos(vFinais.data || []).slice(0, 30))
       setPedestres(pAtivos.data || [])
       setTransferencias(tQuery.data || [])
@@ -116,6 +139,19 @@ export default function PortariaPage() {
     setMensagem('')
   }, [isLoaded, abasPermitidas, abaAtual])
 
+  useEffect(() => {
+    const aba = searchParams.get('aba')
+    if (!isLoaded || (aba !== 'autorizacoes' && aba !== 'veiculos') || !abasPermitidas.includes(aba)) return
+    setAbaAtual(aba)
+    setMensagem('')
+  }, [isLoaded, searchParams, abasPermitidas])
+
+  function selecionarAba(aba: typeof abaAtual) {
+    setAbaAtual(aba)
+    setMensagem('')
+    router.replace('/portaria')
+  }
+
   async function executarPortariaSegura(tipo: string, id: number) {
     const resposta = await fetch('/api/portaria/acoes', {
       method: 'POST',
@@ -135,46 +171,96 @@ export default function PortariaPage() {
     }
 
     setMensagem(typeof resultado.mensagem === 'string' ? resultado.mensagem : 'Acao registrada.')
-    carregar()
+    await carregar()
+  }
+
+  function chaveAcao(tipo: string, id: number) {
+    return `${tipo}:${id}`
   }
 
   async function registrarSaidaVeiculoSegura(movimentacao: Movimentacao) {
+    const chave = chaveAcao('veiculo_saida', movimentacao.id)
+    if (acaoEmAndamentoId) return
+
+    setAcaoEmAndamentoId(chave)
     try {
       await executarPortariaSegura('veiculo_saida', movimentacao.id)
     } catch (error) {
       setMensagem(error instanceof Error ? `Erro: ${error.message}` : 'Erro ao registrar saida.')
+    } finally {
+      setAcaoEmAndamentoId(null)
     }
   }
 
   async function registrarEntradaVeiculoSegura(id: number) {
+    const chave = chaveAcao('veiculo_entrada', id)
+    if (acaoEmAndamentoId) return
+
+    setAcaoEmAndamentoId(chave)
     try {
       await executarPortariaSegura('veiculo_entrada', id)
     } catch (error) {
       setMensagem(error instanceof Error ? `Erro: ${error.message}` : 'Erro ao registrar entrada.')
+    } finally {
+      setAcaoEmAndamentoId(null)
     }
   }
 
   async function registrarEntradaPedestreSegura(id: number) {
+    const chave = chaveAcao('pedestre_entrada', id)
+    if (acaoEmAndamentoId) return
+
+    setAcaoEmAndamentoId(chave)
     try {
       await executarPortariaSegura('pedestre_entrada', id)
     } catch (error) {
       setMensagem(error instanceof Error ? `Erro: ${error.message}` : 'Erro ao registrar entrada de pedestre.')
+    } finally {
+      setAcaoEmAndamentoId(null)
     }
   }
 
   async function registrarSaidaPedestreSegura(id: number) {
+    const chave = chaveAcao('pedestre_saida', id)
+    if (acaoEmAndamentoId) return
+
+    setAcaoEmAndamentoId(chave)
     try {
       await executarPortariaSegura('pedestre_saida', id)
     } catch (error) {
       setMensagem(error instanceof Error ? `Erro: ${error.message}` : 'Erro ao registrar saida de pedestre.')
+    } finally {
+      setAcaoEmAndamentoId(null)
     }
   }
 
   async function confirmarTransferenciaSegura(transferencia: Transferencia) {
+    const chave = chaveAcao('transferencia_confirmar', transferencia.id)
+    if (acaoEmAndamentoId) return
+
+    setAcaoEmAndamentoId(chave)
     try {
       await executarPortariaSegura('transferencia_confirmar', transferencia.id)
     } catch (error) {
       setMensagem(error instanceof Error ? `Erro ao confirmar transferencia: ${error.message}` : 'Erro ao confirmar transferencia.')
+    } finally {
+      setAcaoEmAndamentoId(null)
+    }
+  }
+
+  async function autorizarSaidaVeiculoSegura(movimentacao: Movimentacao) {
+    const chave = chaveAcao('veiculo_autorizar_saida', movimentacao.id)
+    if (acaoEmAndamentoId) return
+
+    setAcaoEmAndamentoId(chave)
+    try {
+      await executarPortariaSegura('veiculo_autorizar_saida', movimentacao.id)
+      setAbaAtual('veiculos')
+      router.replace('/portaria')
+    } catch (error) {
+      setMensagem(error instanceof Error ? `Erro ao autorizar saida: ${error.message}` : 'Erro ao autorizar saida.')
+    } finally {
+      setAcaoEmAndamentoId(null)
     }
   }
 
@@ -204,6 +290,10 @@ export default function PortariaPage() {
     return m.status === 'aguardando_saida' || isVeiculoExterno(m.tipo_veiculo) || veiculoJaEntrouESemSaida
   }
 
+  function temSaidaAutorizada(movimentacaoId: number) {
+    return acoesMovimentacoes.some((acao) => acao.movimentacao_id === movimentacaoId && acao.acao === 'saida_autorizada')
+  }
+
   function dataEntradaVeiculo(m: Movimentacao) {
     if (m.tipo_veiculo === 'interno_saida') return null
     return m.entrada_em
@@ -220,6 +310,13 @@ export default function PortariaPage() {
 
   const textoFiltro = busca.toLowerCase()
   const mFiltradas = movimentacoes.filter((m) => m.placa?.toLowerCase().includes(textoFiltro) || m.motorista?.toLowerCase().includes(textoFiltro) || m.destino?.toLowerCase().includes(textoFiltro))
+  const autorizacoesPendentes = mFiltradas.filter((m) =>
+    isVeiculoExterno(m.tipo_veiculo) &&
+    Boolean(m.entrada_em || m.liberado_em) &&
+    !m.saida_em &&
+    !temSaidaAutorizada(m.id) &&
+    (roleUsuario !== 'gestor' || Boolean(emailUsuario && m.gestor_responsavel_email?.toLowerCase() === emailUsuario))
+  )
   const digitosFiltro = onlyDigits(busca)
   const pFiltrados = pedestres.filter((p) => p.nome?.toLowerCase().includes(textoFiltro) || p.cpf_rg?.includes(textoFiltro) || (digitosFiltro && onlyDigits(p.cpf_rg || '').includes(digitosFiltro)) || p.empresa?.toLowerCase().includes(textoFiltro))
   const transferenciasFiltradas = transferencias.filter((t) => t.placa?.toLowerCase().includes(textoFiltro) || t.base_origem?.toLowerCase().includes(textoFiltro) || t.base_destino?.toLowerCase().includes(textoFiltro) || t.motorista?.toLowerCase().includes(textoFiltro))
@@ -232,7 +329,7 @@ export default function PortariaPage() {
 
         <div className="flex-1 flex flex-col h-screen overflow-hidden">
           <div className="app-scroll flex-1 overflow-y-auto overflow-x-hidden bg-[#0a1625]" style={{ zoom: 0.95 }}>
-            <div key={abaAtual} className="animate-tab p-6 pt-4 flex-1">
+            <div className="portaria-controle-page flex-1 px-4 py-6 md:px-8 xl:px-14">
               {mensagem && <div className={`mb-4 p-4 rounded-xl text-sm border ${mensagem.includes('Erro') ? 'bg-red-500/10 text-red-300 border-red-500/20' : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'}`}>{mensagem}</div>}
               {abasPermitidas.length === 0 && <div className="p-6 rounded-2xl border border-white/10 bg-[#0f1c2e] text-slate-400">Nenhum topico do controle liberado para este usuario.</div>}
 
@@ -241,16 +338,28 @@ export default function PortariaPage() {
                   <div className="flex flex-wrap gap-1.5 lg:flex-nowrap">
                     {podeControleVeiculos && (
                       <button
-                        onClick={() => setAbaAtual('veiculos')}
+                        data-topic-button
+                        onClick={() => selecionarAba('veiculos')}
                         className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap active:translate-y-0 cursor-pointer ${abaAtual === 'veiculos' ? 'bg-emerald-500 text-[#0a1625] shadow-sm' : 'text-slate-400 hover:bg-white/5 hover:text-white'
                           }`}
                       >
                         Veiculos
                       </button>
                     )}
+                    {podeControleVeiculos && podeAutorizarSaida && (
+                      <button
+                        data-topic-button
+                        onClick={() => selecionarAba('autorizacoes')}
+                        className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap active:translate-y-0 cursor-pointer ${abaAtual === 'autorizacoes' ? 'bg-orange-500 text-[#0a1625] shadow-sm' : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                          }`}
+                      >
+                        Autorizações
+                      </button>
+                    )}
                     {podeControlePedestres && (
                       <button
-                        onClick={() => setAbaAtual('pedestres')}
+                        data-topic-button
+                        onClick={() => selecionarAba('pedestres')}
                         className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap active:translate-y-0 cursor-pointer ${abaAtual === 'pedestres' ? 'bg-purple-500 text-white shadow-sm' : 'text-slate-400 hover:bg-white/5 hover:text-white'
                           }`}
                       >
@@ -259,10 +368,8 @@ export default function PortariaPage() {
                     )}
                     {podeControleTransferencia && (
                       <button
-                        onClick={() => {
-                          setAbaAtual('transferencia')
-                          setMensagem('')
-                        }}
+                        data-topic-button
+                        onClick={() => selecionarAba('transferencia')}
                         className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap active:translate-y-0 cursor-pointer ${abaAtual === 'transferencia' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-400 hover:bg-white/5 hover:text-white'
                           }`}
                       >
@@ -274,7 +381,7 @@ export default function PortariaPage() {
                   <div className="hidden h-8 w-px bg-emerald-500/20 lg:block" />
 
                   <div className="relative min-w-[240px] flex-1">
-                    <input type="text" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder={abaAtual === 'veiculos' ? 'Filtrar placa, motorista, destino...' : abaAtual === 'pedestres' ? 'Filtrar nome, cpf, empresa...' : 'Filtrar placa, origem, destino...'} className="w-full pl-10 pr-4 py-2.5 bg-[#0f1c2e] border border-emerald-500/20 rounded-lg text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition" />
+                    <input type="text" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder={abaAtual === 'veiculos' || abaAtual === 'autorizacoes' ? 'Filtrar placa, motorista, destino...' : abaAtual === 'pedestres' ? 'Filtrar nome, cpf, empresa...' : 'Filtrar placa, origem, destino...'} className="w-full pl-10 pr-4 py-2.5 bg-[#0f1c2e] border border-emerald-500/20 rounded-lg text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition" />
                     <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400/70 text-sm">🔍</span>
                   </div>
 
@@ -290,13 +397,15 @@ export default function PortariaPage() {
                 </div>
               )}
 
-              {abasPermitidas.length === 0 ? null : carregando ? (
-                <div className="space-y-6 animate-pulse">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">{[...Array(4)].map((_, i) => <div key={i} className="h-28 rounded-2xl bg-white/5 border border-white/5" />)}</div>
-                  <div className="rounded-2xl border border-white/5 bg-[#0f1c2e] overflow-hidden"><div className="h-12 bg-[#132337]" /><div className="space-y-3 p-5"><div className="h-10 rounded-lg bg-white/5" /><div className="h-10 rounded-lg bg-white/5" /><div className="h-10 rounded-lg bg-white/5" /></div></div>
-                </div>
-              ) : abaAtual === 'veiculos' ? (
-                <>
+              {abasPermitidas.length > 0 && (
+                <div key={abaAtual} className="animate-tab">
+                  {carregando ? (
+                    <div className="space-y-6 animate-pulse">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">{[...Array(4)].map((_, i) => <div key={i} className="h-28 rounded-2xl bg-white/5 border border-white/5" />)}</div>
+                      <div className="rounded-2xl border border-white/5 bg-[#0f1c2e] overflow-hidden"><div className="h-12 bg-[#132337]" /><div className="space-y-3 p-5"><div className="h-10 rounded-lg bg-white/5" /><div className="h-10 rounded-lg bg-white/5" /><div className="h-10 rounded-lg bg-white/5" /></div></div>
+                    </div>
+                  ) : abaAtual === 'veiculos' ? (
+                    <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                     <div className="bg-[#0f1c2e] border border-orange-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Aguardando Saida</p><p className="text-3xl font-bold text-orange-300 mt-1">{vAguardando}</p></div>
                     <div className="bg-[#0f1c2e] border border-blue-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Em Rota</p><p className="text-3xl font-bold text-blue-300 mt-1">{vEmRota}</p></div>
@@ -352,13 +461,25 @@ export default function PortariaPage() {
                                   </span>
                                 </td>
                                 <td className="px-3 py-2.5 text-center whitespace-nowrap">
-                                  {deveMostrarAcaoSaida(m) ? (
-                                    <button onClick={() => registrarSaidaVeiculoSegura(m)} className="bg-orange-500 hover:bg-orange-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-all duration-150 whitespace-nowrap cursor-pointer">
-                                      Registrar Saida
+                                  {isVeiculoExterno(m.tipo_veiculo) && !temSaidaAutorizada(m.id) ? (
+                                    <span className="inline-flex px-2 py-0.5 rounded-full border border-orange-500/20 bg-orange-500/10 text-[11px] font-semibold text-orange-300">
+                                      Aguardando gestor
+                                    </span>
+                                  ) : deveMostrarAcaoSaida(m) ? (
+                                    <button
+                                      onClick={() => registrarSaidaVeiculoSegura(m)}
+                                      disabled={acaoEmAndamentoId === chaveAcao('veiculo_saida', m.id)}
+                                      className="bg-orange-500 hover:bg-orange-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-1.5 py-1 rounded-full transition-all duration-150 whitespace-nowrap cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      {acaoEmAndamentoId === chaveAcao('veiculo_saida', m.id) ? 'Registrando...' : 'Registrar Saida'}
                                     </button>
                                   ) : (
-                                    <button onClick={() => registrarEntradaVeiculoSegura(m.id)} className="bg-emerald-500 hover:bg-emerald-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-all duration-150 whitespace-nowrap cursor-pointer">
-                                      Registrar Entrada
+                                    <button
+                                      onClick={() => registrarEntradaVeiculoSegura(m.id)}
+                                      disabled={acaoEmAndamentoId === chaveAcao('veiculo_entrada', m.id)}
+                                      className="bg-emerald-500 hover:bg-emerald-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-all duration-150 whitespace-nowrap cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      {acaoEmAndamentoId === chaveAcao('veiculo_entrada', m.id) ? 'Registrando...' : 'Registrar Entrada'}
                                     </button>
                                   )}
                                 </td>
@@ -369,9 +490,62 @@ export default function PortariaPage() {
                       </table>
                     </div>
                   </div>
-                </>
-              ) : abaAtual === 'pedestres' ? (
-                <>
+                    </>
+                  ) : abaAtual === 'autorizacoes' ? (
+                    <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    <div className="bg-[#0f1c2e] border border-orange-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Aguardando Gestor</p><p className="text-3xl font-bold text-orange-300 mt-1">{autorizacoesPendentes.length}</p></div>
+                  </div>
+                  <div className="bg-[#0f1c2e] rounded-2xl border border-orange-500/15 shadow-[0_0_30px_rgba(249,115,22,0.05)] overflow-hidden mb-8">
+                    <div className="app-scroll max-h-[52vh] overflow-y-auto overflow-x-auto">
+                      <table className="w-full min-w-[760px] text-xs">
+                        <thead>
+                          <tr className="bg-[#132337] border-b border-orange-500/15 sticky top-0 z-10">
+                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-orange-300 uppercase tracking-wider whitespace-nowrap">Placa</th>
+                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-orange-300 uppercase tracking-wider whitespace-nowrap">Motorista</th>
+                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-orange-300 uppercase tracking-wider whitespace-nowrap">Horario Liberado</th>
+                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-orange-300 uppercase tracking-wider whitespace-nowrap">Destino</th>
+                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-orange-300 uppercase tracking-wider whitespace-nowrap">Gestor</th>
+                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-orange-300 uppercase tracking-wider whitespace-nowrap">Setor</th>
+                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-orange-300 uppercase tracking-wider whitespace-nowrap">Acao</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {autorizacoesPendentes.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} className="px-3 py-8 text-center text-slate-500">Nenhum veiculo externo aguardando autorizacao de saida.</td>
+                            </tr>
+                          ) : (
+                            autorizacoesPendentes.map((m) => (
+                              <tr key={m.id} className="hover:bg-orange-500/5 transition-colors">
+                                <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                                  <span className="font-semibold text-orange-300 whitespace-nowrap tracking-wide text-sm">{m.placa}</span>
+                                </td>
+                                <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{m.motorista || '--'}</td>
+                                <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{formatarData(m.entrada_em || m.liberado_em)}</td>
+                                <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{m.destino || '--'}</td>
+                                <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{m.gestor_responsavel_nome || '--'}</td>
+                                <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{m.gestor_responsavel_setor || '--'}</td>
+                                <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                                  <button
+                                    type="button"
+                                    onClick={() => autorizarSaidaVeiculoSegura(m)}
+                                    disabled={acaoEmAndamentoId === chaveAcao('veiculo_autorizar_saida', m.id)}
+                                    className="bg-orange-500 hover:bg-orange-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-all duration-150 whitespace-nowrap cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    {acaoEmAndamentoId === chaveAcao('veiculo_autorizar_saida', m.id) ? 'Registrando...' : 'Autorizar Saida'}
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                    </>
+                  ) : abaAtual === 'pedestres' ? (
+                    <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                     <div className="bg-[#0f1c2e] border border-orange-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Aguardando Entrada</p><p className="text-3xl font-bold text-orange-300 mt-1">{pAguardando}</p></div>
                     <div className="bg-[#0f1c2e] border border-purple-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Em Visita</p><p className="text-3xl font-bold text-purple-300 mt-1">{pEmVisita}</p></div>
@@ -411,12 +585,20 @@ export default function PortariaPage() {
                                 </td>
                                 <td className="px-2 py-2.5 text-center">
                                   {p.status === 'aguardando_entrada' ? (
-                                    <button onClick={() => registrarEntradaPedestreSegura(p.id)} className="bg-emerald-500 hover:bg-emerald-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-2 py-1 rounded-lg transition-all duration-150 cursor-pointer">
-                                      Entrou
+                                    <button
+                                      onClick={() => registrarEntradaPedestreSegura(p.id)}
+                                      disabled={acaoEmAndamentoId === chaveAcao('pedestre_entrada', p.id)}
+                                      className="bg-emerald-500 hover:bg-emerald-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-2 py-1 rounded-lg transition-all duration-150 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      {acaoEmAndamentoId === chaveAcao('pedestre_entrada', p.id) ? 'Registrando...' : 'Entrou'}
                                     </button>
                                   ) : (
-                                    <button onClick={() => registrarSaidaPedestreSegura(p.id)} className="bg-orange-500 hover:bg-orange-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-2 py-1 rounded-lg transition-all duration-150 cursor-pointer">
-                                      Saiu
+                                    <button
+                                      onClick={() => registrarSaidaPedestreSegura(p.id)}
+                                      disabled={acaoEmAndamentoId === chaveAcao('pedestre_saida', p.id)}
+                                      className="bg-orange-500 hover:bg-orange-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-2 py-1 rounded-lg transition-all duration-150 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      {acaoEmAndamentoId === chaveAcao('pedestre_saida', p.id) ? 'Registrando...' : 'Saiu'}
                                     </button>
                                   )}
                                 </td>
@@ -427,9 +609,9 @@ export default function PortariaPage() {
                       </table>
                     </div>
                   </div>
-                </>
-              ) : (
-                <>
+                    </>
+                  ) : (
+                    <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                     <div className="bg-[#0f1c2e] border border-orange-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Aguardando Confirmacao</p><p className="text-3xl font-bold text-orange-300 mt-1">{transferenciasPendentes.length}</p></div>
                   </div>
@@ -464,8 +646,12 @@ export default function PortariaPage() {
                                 <td className="px-3 py-2.5 text-slate-300 text-[13px] whitespace-nowrap">{formatarData(t.transferido_em)}</td>
                                 <td className="px-3 py-2.5 text-slate-300 text-[13px] whitespace-nowrap">{t.transferido_por || '--”'}</td>
                                 <td className="px-3 py-2.5 whitespace-nowrap">
-                                  <button onClick={() => confirmarTransferenciaSegura(t)} className="bg-emerald-500 hover:bg-emerald-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-all duration-150 whitespace-nowrap cursor-pointer">
-                                    Confirmar
+                                  <button
+                                    onClick={() => confirmarTransferenciaSegura(t)}
+                                    disabled={acaoEmAndamentoId === chaveAcao('transferencia_confirmar', t.id)}
+                                    className="bg-emerald-500 hover:bg-emerald-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-all duration-150 whitespace-nowrap cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    {acaoEmAndamentoId === chaveAcao('transferencia_confirmar', t.id) ? 'Registrando...' : 'Confirmar'}
                                   </button>
                                 </td>
                               </tr>
@@ -475,7 +661,9 @@ export default function PortariaPage() {
                       </table>
                     </div>
                   </div>
-                </>
+                    </>
+                  )}
+                </div>
               )}
             </div>
           </div>

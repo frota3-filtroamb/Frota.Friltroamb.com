@@ -318,8 +318,8 @@ export default function EncomendasPage() {
 
         <div className="flex-1 flex flex-col h-screen overflow-hidden">
           <div className="app-scroll flex-1 overflow-y-auto bg-[#0a1625]" style={{ zoom: 0.95 }}>
-            <main className="animate-tab p-6">
-              <div className="max-w-6xl mx-auto space-y-6">
+            <main className="animate-tab px-4 py-6 md:px-8 xl:px-14">
+              <div className="w-full space-y-6">
                 <div className="flex flex-col gap-2 rounded-xl border border-blue-500/20 bg-[#132337] p-1.5 sm:flex-row sm:items-center">
                   <button
                     type="button"

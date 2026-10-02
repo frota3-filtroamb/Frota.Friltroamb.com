@@ -20,6 +20,13 @@ type Item = {
   nome: string
 }
 
+type GestorAutorizacao = {
+  id: string
+  nome: string
+  email: string
+  setor: string
+}
+
 export default function LiberacaoPage() {
   const supabase = createClient()
   const { user, isLoaded } = useUser()
@@ -28,6 +35,7 @@ export default function LiberacaoPage() {
   const [origens, setOrigens] = useState<Item[]>([])
   const [destinos, setDestinos] = useState<Item[]>([])
   const [motoristas, setMotoristas] = useState<Item[]>([])
+  const [gestores, setGestores] = useState<GestorAutorizacao[]>([])
 
   const [tipoVeiculo, setTipoVeiculo] = useState<'interno' | 'externo' | 'veiculo_interno' | 'transferencia' | 'pedestre'>('interno')
   const [movimentoVeiculoInterno, setMovimentoVeiculoInterno] = useState<'entrada' | 'saida'>('entrada')
@@ -51,6 +59,10 @@ export default function LiberacaoPage() {
   const [buscaDestino, setBuscaDestino] = useState('')
   const [destinoSelecionado, setDestinoSelecionado] = useState('')
   const [mostrarListaDestino, setMostrarListaDestino] = useState(false)
+
+  const [buscaGestor, setBuscaGestor] = useState('')
+  const [gestorSelecionado, setGestorSelecionado] = useState<GestorAutorizacao | null>(null)
+  const [mostrarListaGestor, setMostrarListaGestor] = useState(false)
 
   const [km, setKm] = useState('')
   const [dataHora, setDataHora] = useState('')
@@ -165,16 +177,27 @@ export default function LiberacaoPage() {
   }
 
   async function carregarDados() {
-    const [v, o, d, m] = await Promise.all([
+    const [v, o, d, m, gestoresResposta] = await Promise.all([
       supabase.from('veiculos').select('NR_PLACA, DS_MODELO, DS_MARCA, NR_ANO_MODELO').order('NR_PLACA'),
       supabase.from('origens').select('id, nome').order('nome'),
       supabase.from('destinos').select('id, nome').order('nome'),
       supabase.from('motoristas').select('id, nome').order('nome'),
+      fetch('/api/gestores-autorizacao'),
     ])
     if (v.data) setVeiculos(v.data)
     if (o.data) setOrigens(o.data)
     if (d.data) setDestinos(d.data)
     if (m.data) setMotoristas(m.data)
+
+    try {
+      const resultadoGestores = await gestoresResposta.json()
+      if (!gestoresResposta.ok) {
+        throw new Error(resultadoGestores.error || 'Erro ao carregar gestores.')
+      }
+      setGestores(Array.isArray(resultadoGestores.gestores) ? resultadoGestores.gestores : [])
+    } catch (error) {
+      setMensagem(error instanceof Error ? `Erro ao carregar gestores: ${error.message}` : 'Erro ao carregar gestores.')
+    }
   }
 
   useEffect(() => {
@@ -198,6 +221,7 @@ export default function LiberacaoPage() {
         setMostrarListaDestino(false)
         setMostrarListaBaseOrigem(false)
         setMostrarListaBaseDestino(false)
+        setMostrarListaGestor(false)
         setIndicePlacaAtivo(-1)
       }
     }
@@ -377,6 +401,10 @@ export default function LiberacaoPage() {
       setMensagem('Preencha o KM')
       return
     }
+    if (tipoVeiculo === 'externo' && !gestorSelecionado) {
+      setMensagem('Selecione o gestor responsavel pela autorizacao de saida')
+      return
+    }
     if (!dataHora) {
       setMensagem('Preencha a data/hora')
       return
@@ -397,6 +425,7 @@ export default function LiberacaoPage() {
         origem: origemSelecionada || buscaOrigem || null,
         destino: destinoSelecionado,
         data: dataHora,
+        gestor_responsavel_id: tipoVeiculo === 'externo' ? gestorSelecionado?.id : null,
       })
       setMensagem(mensagemSucesso)
     } catch (error) {
@@ -413,6 +442,8 @@ export default function LiberacaoPage() {
     setBuscaMotorista('')
     setDestinoSelecionado('')
     setBuscaDestino('')
+    setGestorSelecionado(null)
+    setBuscaGestor('')
     setKm('')
     setDataHora('')
   }
@@ -549,6 +580,103 @@ export default function LiberacaoPage() {
     </div>
   )
 
+  const DestinoDropdown = () => (
+    <div data-dropdown className="relative">
+      <div className="flex items-center justify-between mb-1.5">
+        <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Destino</label>
+      </div>
+      <input
+        type="text"
+        value={buscaDestino}
+        onChange={(e) => {
+          setBuscaDestino(e.target.value)
+          setDestinoSelecionado('')
+          setMostrarListaDestino(true)
+        }}
+        onFocus={() => setMostrarListaDestino(true)}
+        placeholder="Buscar destino..."
+        className="w-full px-4 py-2.5 bg-[#132337] border border-emerald-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition"
+      />
+      {mostrarListaDestino && !destinoSelecionado && (
+        <div className="app-scroll absolute z-20 w-full mt-1.5 bg-[#132337] border border-emerald-500/25 rounded-xl shadow-2xl max-h-40 overflow-auto">
+          {destinos
+            .filter((d) => d.nome.toLowerCase().includes(buscaDestino.toLowerCase()))
+            .map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => {
+                  setDestinoSelecionado(d.nome)
+                  setBuscaDestino(d.nome)
+                  setMostrarListaDestino(false)
+                }}
+                className="w-full text-left px-4 py-2.5 hover:bg-emerald-500/10 text-sm text-slate-200 border-b border-white/5 last:border-0"
+              >
+                {d.nome}
+              </button>
+            ))}
+        </div>
+      )}
+    </div>
+  )
+
+  const GestorDropdown = () => {
+    const gestoresFiltrados = gestores.filter((gestor) => {
+      const texto = `${gestor.nome} ${gestor.email} ${gestor.setor}`.toLowerCase()
+      return texto.includes(buscaGestor.toLowerCase())
+    })
+
+    return (
+      <div data-dropdown className="relative">
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Gestor responsavel</label>
+        </div>
+        <input
+          type="text"
+          value={buscaGestor}
+          onChange={(e) => {
+            setBuscaGestor(e.target.value)
+            setGestorSelecionado(null)
+            setMostrarListaGestor(true)
+          }}
+          onFocus={() => setMostrarListaGestor(true)}
+          placeholder="Buscar gestor por nome, email ou setor..."
+          className="w-full px-4 py-2.5 bg-[#132337] border border-orange-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-400/40 transition"
+        />
+        {gestorSelecionado && (
+          <div className="mt-2 px-3 py-2 bg-orange-500/10 border border-orange-500/20 rounded-xl text-sm text-orange-300">
+            {gestorSelecionado.nome} - {gestorSelecionado.setor}
+          </div>
+        )}
+        {mostrarListaGestor && !gestorSelecionado && (
+          <div className="app-scroll absolute z-20 w-full mt-1.5 bg-[#132337] border border-orange-500/25 rounded-xl shadow-2xl max-h-48 overflow-auto">
+            {gestoresFiltrados.length === 0 ? (
+              <div className="px-4 py-3 text-sm text-slate-400">
+                {gestores.length === 0 ? 'Nenhum gestor ativo cadastrado.' : 'Nenhum gestor encontrado.'}
+              </div>
+            ) : (
+              gestoresFiltrados.map((gestor) => (
+                <button
+                  key={gestor.id}
+                  type="button"
+                  onClick={() => {
+                    setGestorSelecionado(gestor)
+                    setBuscaGestor(`${gestor.nome} - ${gestor.setor}`)
+                    setMostrarListaGestor(false)
+                  }}
+                  className="w-full text-left px-4 py-2.5 hover:bg-orange-500/10 text-sm text-slate-200 border-b border-white/5 last:border-0"
+                >
+                  <div className="font-semibold text-orange-300">{gestor.nome} - {gestor.setor}</div>
+                  <div className="text-xs text-slate-400">{gestor.email}</div>
+                </button>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const IdentificadorLiberacao = (destaque: 'emerald' | 'purple' | 'blue' | 'sky' = 'emerald') => {
     const estilos = {
       emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300',
@@ -577,8 +705,8 @@ export default function LiberacaoPage() {
         <div className="flex-1 flex flex-col h-screen overflow-hidden">
           {/* Main content compactado */}
           <div className="app-scroll flex-1 overflow-y-auto bg-[#0a1625]" style={{ zoom: 0.95 }}>
-            <main className="p-6">
-              <div className="max-w-6xl mx-auto">
+            <main className="liberacao-page px-4 py-6 md:px-8 xl:px-14">
+              <div className="w-full">
                 <div className="app-scroll mb-4 flex gap-1.5 overflow-x-auto rounded-xl border border-emerald-500/20 bg-[#132337] p-1.5">
                   {podeVeiculoEmpresa && (
                     <button
@@ -661,8 +789,8 @@ export default function LiberacaoPage() {
                     {tipoVeiculo === 'pedestre' ? (
                       /* ======= FORMULÃRIO DE PEDESTRE ======= */
                       <div className="space-y-5">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-4xl">
-                          <div>
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                          <div className="xl:order-1">
                             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                               Nome Completo *
                             </label>
@@ -674,7 +802,20 @@ export default function LiberacaoPage() {
                               className="w-full px-4 py-2.5 bg-[#132337] border border-purple-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-400/40 transition"
                             />
                           </div>
-                          <div>
+                          <div className="xl:order-2">
+                            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                              Empresa / Representacao
+                            </label>
+                            <input
+                              type="text"
+                              value={empresaPedestre}
+                              onChange={(e) => setEmpresaPedestre(e.target.value)}
+                              placeholder="Ex: Empresa Parceira LTDA"
+                              className="w-full px-4 py-2.5 bg-[#132337] border border-purple-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-400/40 transition"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 xl:order-3">
+                            <div>
                             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                               CPF
                             </label>
@@ -688,10 +829,7 @@ export default function LiberacaoPage() {
                               className="w-full px-4 py-2.5 bg-[#132337] border border-purple-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-400/40 transition"
                             />
                           </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-4xl">
-                          <div>
+                            <div>
                             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                               Telefone
                             </label>
@@ -705,22 +843,9 @@ export default function LiberacaoPage() {
                               className="w-full px-4 py-2.5 bg-[#132337] border border-purple-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-400/40 transition"
                             />
                           </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                              Empresa / Representacao
-                            </label>
-                            <input
-                              type="text"
-                              value={empresaPedestre}
-                              onChange={(e) => setEmpresaPedestre(e.target.value)}
-                              placeholder="Ex: Empresa Parceira LTDA"
-                              className="w-full px-4 py-2.5 bg-[#132337] border border-purple-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-400/40 transition"
-                            />
                           </div>
-                        </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-4xl">
-                          <div data-dropdown className="relative">
+                          <div data-dropdown className="relative xl:order-5">
                             <div className="flex items-center justify-between mb-1.5">
                               <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Destino / Setor *</label>
                             </div>
@@ -758,7 +883,7 @@ export default function LiberacaoPage() {
                             )}
                           </div>
 
-                          <div>
+                          <div className="xl:order-4">
                             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                               Data e hora
                             </label>
@@ -769,10 +894,12 @@ export default function LiberacaoPage() {
                               className="w-full px-4 py-2.5 bg-[#132337] border border-purple-500/20 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-400/40 transition"
                             />
                           </div>
-                          {IdentificadorLiberacao('purple')}
+                          <div className="xl:order-6">
+                            {IdentificadorLiberacao('purple')}
+                          </div>
                         </div>
 
-                        <div className="pt-2 max-w-4xl">
+                        <div className="pt-2">
                           <button
                             type="submit"
                             disabled={carregando}
@@ -783,7 +910,7 @@ export default function LiberacaoPage() {
                         </div>
 
                         {mensagem && (
-                          <div className={`p-3 rounded-xl text-sm max-w-4xl ${mensagem.includes('sucesso')
+                          <div className={`p-3 rounded-xl text-sm ${mensagem.includes('sucesso')
                             ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
                             : 'bg-red-500/10 text-red-300 border border-red-500/20'
                             }`}>
@@ -795,7 +922,7 @@ export default function LiberacaoPage() {
                     ) : tipoVeiculo === 'transferencia' ? (
                       /* ======= FORMULÃRIO DE TRANSFERÃŠNCIA ======= */
                       <div className="space-y-5">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-4xl">
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                           <div data-dropdown className="relative">
                             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                               Veiculo
@@ -930,7 +1057,7 @@ export default function LiberacaoPage() {
                           {IdentificadorLiberacao('blue')}
                         </div>
 
-                        <div className="pt-2 max-w-4xl">
+                        <div className="pt-2">
                           <button
                             type="submit"
                             disabled={carregando}
@@ -941,7 +1068,7 @@ export default function LiberacaoPage() {
                         </div>
 
                         {mensagem && (
-                          <div className={`p-3 rounded-xl text-sm max-w-4xl ${mensagem.includes('sucesso')
+                          <div className={`p-3 rounded-xl text-sm ${mensagem.includes('sucesso')
                             ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
                             : 'bg-red-500/10 text-red-300 border border-red-500/20'
                             }`}>
@@ -952,26 +1079,27 @@ export default function LiberacaoPage() {
                     ) : (
                       /* ======= FORMULÃRIO DE LIBERAÃ‡ÃƒO ======= */
                       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                        <div className="space-y-4">
-                          {tipoVeiculo === 'veiculo_interno' && (
-                            <div className="grid grid-cols-2 gap-3">
+                        {tipoVeiculo === 'veiculo_interno' && (
+                          <div className="xl:col-span-2">
+                            <div className="grid w-full grid-cols-2 gap-3 rounded-xl border border-sky-500/15 bg-[#132337]/60 p-1.5">
                               <button
                                 type="button"
                                 onClick={() => { setMovimentoVeiculoInterno('entrada'); setMensagem('') }}
-                                className={`py-2.5 rounded-xl text-sm font-semibold border transition ${movimentoVeiculoInterno === 'entrada' ? 'bg-sky-500 text-white border-sky-400 shadow-[0_0_18px_rgba(14,165,233,0.25)]' : 'bg-[#132337] text-slate-400 border-white/10 hover:text-white hover:border-sky-500/30'}`}
+                                className={`py-2.5 rounded-lg text-sm font-semibold transition ${movimentoVeiculoInterno === 'entrada' ? 'bg-sky-500 text-white shadow-[0_0_18px_rgba(14,165,233,0.25)]' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
                               >
                                 Entrada
                               </button>
                               <button
                                 type="button"
                                 onClick={() => { setMovimentoVeiculoInterno('saida'); setMensagem('') }}
-                                className={`py-2.5 rounded-xl text-sm font-semibold border transition ${movimentoVeiculoInterno === 'saida' ? 'bg-orange-500 text-[#0a1625] border-orange-400 shadow-[0_0_18px_rgba(249,115,22,0.22)]' : 'bg-[#132337] text-slate-400 border-white/10 hover:text-white hover:border-orange-500/30'}`}
+                                className={`py-2.5 rounded-lg text-sm font-semibold transition ${movimentoVeiculoInterno === 'saida' ? 'bg-orange-500 text-[#0a1625] shadow-[0_0_18px_rgba(249,115,22,0.22)]' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
                               >
                                 Saida
                               </button>
                             </div>
-                          )}
-
+                          </div>
+                        )}
+                        <div className="space-y-4">
                           {(tipoVeiculo === 'interno' || tipoVeiculo === 'veiculo_interno') ? (
                             <div data-dropdown className="relative">
                               <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Veiculo</label>
@@ -991,7 +1119,7 @@ export default function LiberacaoPage() {
                               />
                               {veiculoSelecionado && (
                                 <div className="mt-2 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-sm text-emerald-300">
-                                  {formatPlateDisplay(veiculoSelecionado.NR_PLACA)} *” {veiculoSelecionado.DS_MODELO}
+                                  {formatPlateDisplay(veiculoSelecionado.NR_PLACA)} • {veiculoSelecionado.DS_MODELO}
                                 </div>
                               )}
                               {mostrarListaPlaca && !veiculoSelecionado && buscaPlaca.length >= 1 && (
@@ -1005,7 +1133,7 @@ export default function LiberacaoPage() {
                                         className={`w-full text-left px-4 py-2.5 border-b border-white/5 last:border-0 ${indicePlacaAtivo === i ? 'bg-emerald-500/15' : 'hover:bg-emerald-500/10'}`}
                                       >
                                         <div className="font-semibold text-emerald-300">{formatPlateDisplay(v.NR_PLACA)}</div>
-                                        <div className="text-xs text-slate-400">{v.DS_MODELO}{v.DS_MARCA ? ` â€¢ ${v.DS_MARCA}` : ''}</div>
+                                        <div className="text-xs text-slate-400">{v.DS_MODELO}{v.DS_MARCA ? ` • ${v.DS_MARCA}` : ''}</div>
                                       </button>
                                     ))
                                   ) : (
@@ -1071,7 +1199,7 @@ export default function LiberacaoPage() {
                             </div>
                           </div>
 
-                          {OrigemDropdown()}
+                          {tipoVeiculo === 'externo' ? DestinoDropdown() : tipoVeiculo === 'veiculo_interno' ? null : OrigemDropdown()}
                         </div>
 
                         <div className="space-y-4">
@@ -1085,66 +1213,28 @@ export default function LiberacaoPage() {
                             IdentificadorLiberacao()
                           )}
 
-                          {tipoVeiculo !== 'veiculo_interno' && (
-                            <div data-dropdown className="relative">
-                              <div className="flex items-center justify-between mb-1.5">
-                                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Destino</label>
-                              </div>
-                              <input
-                                type="text"
-                                value={buscaDestino}
-                                onChange={(e) => {
-                                  setBuscaDestino(e.target.value)
-                                  setDestinoSelecionado('')
-                                  setMostrarListaDestino(true)
-                                }}
-                                onFocus={() => setMostrarListaDestino(true)}
-                                placeholder="Buscar destino..."
-                                className="w-full px-4 py-2.5 bg-[#132337] border border-emerald-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition"
-                              />
-                              {mostrarListaDestino && !destinoSelecionado && (
-                                <div className="app-scroll absolute z-20 w-full mt-1.5 bg-[#132337] border border-emerald-500/25 rounded-xl shadow-2xl max-h-40 overflow-auto">
-                                  {destinos
-                                    .filter((d) => d.nome.toLowerCase().includes(buscaDestino.toLowerCase()))
-                                    .map((d) => (
-                                      <button
-                                        key={d.id}
-                                        type="button"
-                                        onClick={() => {
-                                          setDestinoSelecionado(d.nome)
-                                          setBuscaDestino(d.nome)
-                                          setMostrarListaDestino(false)
-                                        }}
-                                        className="w-full text-left px-4 py-2.5 hover:bg-emerald-500/10 text-sm text-slate-200 border-b border-white/5 last:border-0"
-                                      >
-                                        {d.nome}
-                                      </button>
-                                    ))}
-                                </div>
-                              )}
+                          {tipoVeiculo === 'externo' && GestorDropdown()}
+
+                          {tipoVeiculo !== 'veiculo_interno' && tipoVeiculo !== 'externo' && DestinoDropdown()}
+
+                          {tipoVeiculo !== 'interno' && tipoVeiculo !== 'externo' && tipoVeiculo !== 'veiculo_interno' && (
+                            <div className="pt-2">
+                              <button
+                                type="submit"
+                                disabled={carregando}
+                                className={`w-full font-semibold py-3 rounded-xl transition ${tipoVeiculo === 'veiculo_interno'
+                                  ? 'bg-sky-500 hover:bg-sky-400 text-white shadow-[0_0_20px_rgba(14,165,233,0.25)]'
+                                  : 'bg-orange-500 hover:bg-orange-400 text-[#0a1625] shadow-[0_0_20px_rgba(249,115,22,0.25)]'
+                                  } disabled:opacity-40`}
+                              >
+                                {carregando
+                                  ? tipoVeiculo === 'veiculo_interno' ? 'Registrando...' : 'Liberando...'
+                                  : tipoVeiculo === 'veiculo_interno'
+                                    ? `Registrar ${movimentoVeiculoInterno === 'entrada' ? 'Entrada' : 'Saida'} de Veiculo Interno`
+                                    : 'Liberar Veiculo Externo'}
+                              </button>
                             </div>
                           )}
-
-                          <div className="pt-2">
-                            <button
-                              type="submit"
-                              disabled={carregando}
-                              className={`w-full font-semibold py-3 rounded-xl transition ${tipoVeiculo === 'veiculo_interno'
-                                ? 'bg-sky-500 hover:bg-sky-400 text-white shadow-[0_0_20px_rgba(14,165,233,0.25)]'
-                                : tipoVeiculo === 'interno'
-                                  ? 'bg-emerald-500 hover:bg-emerald-400 text-[#0a1625] shadow-[0_0_20px_rgba(16,185,129,0.25)]'
-                                  : 'bg-orange-500 hover:bg-orange-400 text-[#0a1625] shadow-[0_0_20px_rgba(249,115,22,0.25)]'
-                                } disabled:opacity-40`}
-                            >
-                              {carregando
-                                ? tipoVeiculo === 'veiculo_interno' ? 'Registrando...' : 'Liberando...'
-                                : tipoVeiculo === 'veiculo_interno'
-                                  ? `Registrar ${movimentoVeiculoInterno === 'entrada' ? 'Entrada' : 'Saida'} de Veiculo Interno`
-                                  : tipoVeiculo === 'interno'
-                                    ? 'Liberar Veiculo da Empresa'
-                                    : 'Liberar Veiculo Externo'}
-                            </button>
-                          </div>
 
                           {mensagem && (
                             <div className={`p-3 rounded-xl text-sm ${mensagem.includes('sucesso')
@@ -1155,6 +1245,29 @@ export default function LiberacaoPage() {
                             </div>
                           )}
                         </div>
+
+                        {(tipoVeiculo === 'interno' || tipoVeiculo === 'externo' || tipoVeiculo === 'veiculo_interno') && (
+                          <div className="xl:col-span-2 pt-2">
+                            <button
+                              type="submit"
+                              disabled={carregando}
+                              className={`w-full font-semibold py-3 rounded-xl transition disabled:opacity-40 ${tipoVeiculo === 'interno'
+                                ? 'bg-emerald-500 hover:bg-emerald-400 text-[#0a1625] shadow-[0_0_20px_rgba(16,185,129,0.25)]'
+                                : tipoVeiculo === 'veiculo_interno'
+                                  ? 'bg-sky-500 hover:bg-sky-400 text-white shadow-[0_0_20px_rgba(14,165,233,0.25)]'
+                                  : 'bg-orange-500 hover:bg-orange-400 text-[#0a1625] shadow-[0_0_20px_rgba(249,115,22,0.25)]'
+                                }`}
+                            >
+                              {carregando
+                                ? tipoVeiculo === 'veiculo_interno' ? 'Registrando...' : 'Liberando...'
+                                : tipoVeiculo === 'interno'
+                                  ? 'Liberar Veiculo da Empresa'
+                                  : tipoVeiculo === 'veiculo_interno'
+                                    ? `Registrar ${movimentoVeiculoInterno === 'entrada' ? 'Entrada' : 'Saida'} de Veiculo Interno`
+                                    : 'Liberar Veiculo Externo'}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </form>

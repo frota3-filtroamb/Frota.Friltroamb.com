@@ -38,7 +38,7 @@ export default function TransferenciaPage() {
   }, [])
 
   function formatarData(data: string | null) {
-    if (!data) return 'â€”'
+    if (!data) return '--'
     return new Date(data).toLocaleString('pt-BR')
   }
 
@@ -82,7 +82,6 @@ export default function TransferenciaPage() {
                 <div className="hidden h-8 flex-1 border-l border-emerald-500/20 sm:block" />
               </div>
 
-              {/* Header da Tabela */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
                   <h2 className="text-lg font-semibold text-white tracking-tight">
@@ -100,11 +99,10 @@ export default function TransferenciaPage() {
                     placeholder="Pesquisar placa, base, motorista..."
                     className="w-full sm:w-80 pl-10 pr-4 py-2.5 bg-[#132337] border border-emerald-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition shadow-sm"
                   />
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400/70 text-sm">ðŸ”</span>
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400/70 text-sm">?</span>
                 </div>
               </div>
 
-              {/* Tabela Profissional */}
               <div className="bg-[#0f1c2e] rounded-2xl border border-emerald-500/15 shadow-[0_0_30px_rgba(16,185,129,0.05)] overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm">
@@ -123,7 +121,7 @@ export default function TransferenciaPage() {
                         <tr>
                           <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                             <div className="flex flex-col items-center justify-center space-y-3">
-                              <span className="text-3xl">ðŸ“­</span>
+                              <span className="text-3xl">--</span>
                               <p>Nenhuma transferencia encontrada com os filtros atuais.</p>
                             </div>
                           </td>
@@ -155,7 +153,7 @@ export default function TransferenciaPage() {
                               {formatarData(t.transferido_em)}
                             </td>
                             <td className="px-6 py-4 text-slate-500 text-xs">
-                              {t.transferido_por || 'â€”'}
+                              {t.transferido_por || '--'}
                             </td>
                           </tr>
                         ))

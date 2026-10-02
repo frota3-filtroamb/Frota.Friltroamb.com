@@ -23,6 +23,7 @@
 # misc
 .DS_Store
 *.pem
+.push-victor/
 
 # debug
 npm-debug.log*
