@@ -2,7 +2,7 @@
 
 import RequirePermissao from '@/components/RequirePermissao'
 import { useUser } from '@clerk/nextjs'
-import { KeyboardEvent, useEffect, useMemo, useState } from 'react'
+import { KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Sidebar from '@/components/Sidebar'
 import { podeAcessarDetalhe } from '@/lib/roles'
@@ -28,7 +28,7 @@ type GestorAutorizacao = {
 }
 
 export default function LiberacaoPage() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const { user, isLoaded } = useUser()
 
   const [veiculos, setVeiculos] = useState<Veiculo[]>([])
@@ -93,13 +93,13 @@ export default function LiberacaoPage() {
     user?.primaryEmailAddress?.emailAddress ||
     'Usuario nao identificado'
 
-  const tiposPermitidos = [
+  const tiposPermitidos = useMemo(() => [
     podeVeiculoEmpresa ? 'interno' : null,
     podeVeiculoExterno ? 'externo' : null,
     podePedestre ? 'pedestre' : null,
     podeTransferencia ? 'transferencia' : null,
     podeVeiculoInterno ? 'veiculo_interno' : null,
-  ].filter(Boolean) as typeof tipoVeiculo[]
+  ].filter(Boolean) as typeof tipoVeiculo[], [podeVeiculoEmpresa, podeVeiculoExterno, podePedestre, podeTransferencia, podeVeiculoInterno])
 
   const placaExternaNormalizada = formatPlate(placaExterna)
   const placaExternaPertenceEmpresa =
@@ -176,7 +176,7 @@ export default function LiberacaoPage() {
     return typeof resultado.mensagem === 'string' ? resultado.mensagem : 'Registro criado com sucesso.'
   }
 
-  async function carregarDados() {
+  const carregarDados = useCallback(async function carregarDados() {
     const [v, o, d, m, gestoresResposta] = await Promise.all([
       supabase.from('veiculos').select('NR_PLACA, DS_MODELO, DS_MARCA, NR_ANO_MODELO').order('NR_PLACA'),
       supabase.from('origens').select('id, nome').order('nome'),
@@ -198,11 +198,11 @@ export default function LiberacaoPage() {
     } catch (error) {
       setMensagem(error instanceof Error ? `Erro ao carregar gestores: ${error.message}` : 'Erro ao carregar gestores.')
     }
-  }
+  }, [supabase])
 
   useEffect(() => {
     carregarDados()
-  }, [])
+  }, [carregarDados])
 
   useEffect(() => {
     if (!isLoaded || tiposPermitidos.length === 0 || tiposPermitidos.includes(tipoVeiculo)) return

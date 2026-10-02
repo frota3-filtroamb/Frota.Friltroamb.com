@@ -3,7 +3,7 @@
 import RequirePermissao from '@/components/RequirePermissao'
 import Sidebar from '@/components/Sidebar'
 import { createClient } from '@/lib/supabase/client'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 type Aba = 'estoque' | 'movimentos' | 'compras'
 type TipoMovimento = 'entrada' | 'saida'
@@ -75,7 +75,7 @@ function formatarData(data: string | null) {
 }
 
 export default function AlmoxarifadoPage() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   const [aba, setAba] = useState<Aba>('estoque')
   const [itens, setItens] = useState<EstoqueItem[]>([])
@@ -104,7 +104,7 @@ export default function AlmoxarifadoPage() {
   const [quantidadeOrdem, setQuantidadeOrdem] = useState('')
   const [observacaoOrdem, setObservacaoOrdem] = useState('')
 
-  async function carregar() {
+  const carregar = useCallback(async function carregar() {
     setCarregando(true)
     try {
       const [itensQuery, movimentosQuery, ordensQuery] = await Promise.all([
@@ -133,11 +133,11 @@ export default function AlmoxarifadoPage() {
     } finally {
       setCarregando(false)
     }
-  }
+  }, [supabase])
 
   useEffect(() => {
     carregar()
-  }, [])
+  }, [carregar])
 
   const itensFiltrados = useMemo(() => {
     const texto = busca.toLowerCase()

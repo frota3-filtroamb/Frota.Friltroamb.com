@@ -1,7 +1,7 @@
 'use client'
 
 import RequirePermissao from '@/components/RequirePermissao'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Sidebar from '@/components/Sidebar'
 import Link from 'next/link'
@@ -18,12 +18,12 @@ type Transferencia = {
 }
 
 export default function TransferenciaPage() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   const [lista, setLista] = useState<Transferencia[]>([])
   const [busca, setBusca] = useState('')
 
-  async function carregarDados() {
+  const carregarDados = useCallback(async function carregarDados() {
     const { data } = await supabase
       .from('transferencias')
       .select('*')
@@ -31,11 +31,11 @@ export default function TransferenciaPage() {
       .limit(100)
 
     if (data) setLista(data)
-  }
+  }, [supabase])
 
   useEffect(() => {
     carregarDados()
-  }, [])
+  }, [carregarDados])
 
   function formatarData(data: string | null) {
     if (!data) return '--'

@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { SignIn } from '@clerk/nextjs'
 import { dark } from '@clerk/themes'
+import Image from 'next/image'
 
 export default function Page() {
   useEffect(() => {
@@ -15,9 +16,12 @@ export default function Page() {
       data-auth-page="true"
       className="relative flex h-dvh items-center justify-center overflow-hidden bg-[#0a1625] p-3"
     >
-      <img
+      <Image
         src="/images/banner-frota.jpg"
         alt="Filtroamb"
+        fill
+        priority
+        sizes="100vw"
         className="absolute inset-0 w-full h-full object-cover"
       />
       <div className="absolute inset-0 bg-[#0a1625]/80 backdrop-blur-[2px]" />
@@ -26,10 +30,13 @@ export default function Page() {
       <div className="relative z-10 w-full max-w-md">
         {/* Logo */}
         <div className="mb-2 flex justify-center">
-          <img
+          <Image
             src="/images/logo-filtroamb-dark1.png"
             alt="Filtroamb"
-            className="h-15 w-auto object-contain drop-shadow-lg"
+            width={190}
+            height={60}
+            priority
+            className="h-[60px] w-auto object-contain drop-shadow-lg"
           />
         </div>
 

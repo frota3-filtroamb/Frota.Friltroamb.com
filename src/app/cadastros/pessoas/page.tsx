@@ -4,7 +4,7 @@ import RequirePermissao from '@/components/RequirePermissao'
 import Sidebar from '@/components/Sidebar'
 import { createClient } from '@/lib/supabase/client'
 import { formatCpf, formatPhone, onlyDigits } from '@/lib/masks'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 type Pessoa = {
   id: number | string
@@ -86,7 +86,7 @@ function formatarData(data: string | null | undefined) {
 }
 
 export default function PessoasPage() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const [pessoas, setPessoas] = useState<Pessoa[]>([])
   const [busca, setBusca] = useState('')
   const [cadastro, setCadastro] = useState<CadastroPessoa>(cadastroInicial)
@@ -94,7 +94,7 @@ export default function PessoasPage() {
   const [salvando, setSalvando] = useState(false)
   const [mensagem, setMensagem] = useState('')
 
-  async function carregar() {
+  const carregar = useCallback(async function carregar() {
     setCarregando(true)
     setMensagem('')
 
@@ -111,11 +111,11 @@ export default function PessoasPage() {
     } finally {
       setCarregando(false)
     }
-  }
+  }, [supabase])
 
   useEffect(() => {
     carregar()
-  }, [])
+  }, [carregar])
 
   async function cadastrarPessoa(e: React.FormEvent) {
     e.preventDefault()
@@ -390,6 +390,7 @@ export default function PessoasPage() {
                       <div className="relative flex items-center justify-center border-b border-white/5 p-4 lg:border-b-0 lg:border-r">
                         <div className="relative h-24 w-24 overflow-hidden rounded-xl border border-white/10 bg-[#132337]">
                           {pessoa.foto_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
                             <img src={pessoa.foto_url} alt={pessoa.nome || 'Pessoa'} className="h-full w-full object-cover" />
                           ) : (
                             <div className="flex h-full w-full items-center justify-center">

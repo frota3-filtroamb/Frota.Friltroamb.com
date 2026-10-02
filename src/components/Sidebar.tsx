@@ -4,9 +4,10 @@ import { useUser, UserButton } from '@clerk/nextjs'
 import { dark } from '@clerk/themes'
 import { getRole, podeAcessar } from '@/lib/roles'
 import { usePathname } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTheme } from '@/components/ThemeProvider'
 import Link from 'next/link'
+import Image from 'next/image'
 
 type IconName =
   | 'inicio'
@@ -87,7 +88,7 @@ function tituloDaPagina(pathname: string) {
     '/relatorios/transferencias': 'Relatórios/Transferências',
   }
 
-  return titulos[pathname] || 'Filtroamb'
+  return (titulos[pathname] || 'Filtroamb').replace('/', ': ')
 }
 
 export default function Sidebar() {
@@ -162,7 +163,7 @@ export default function Sidebar() {
     }
   }, [notificacoesAberta])
 
-  async function carregarNotificacoes() {
+  const carregarNotificacoes = useCallback(async function carregarNotificacoes() {
     if (!isLoaded || !user) {
       setNotificacoes([])
       return
@@ -180,7 +181,7 @@ export default function Sidebar() {
     } finally {
       setCarregandoNotificacoes(false)
     }
-  }
+  }, [isLoaded, user])
 
   useEffect(() => {
     if (!isLoaded || !user) return
@@ -188,12 +189,12 @@ export default function Sidebar() {
     carregarNotificacoes()
     const interval = setInterval(carregarNotificacoes, 30000)
     return () => clearInterval(interval)
-  }, [isLoaded, user, pathname])
+  }, [carregarNotificacoes, isLoaded, pathname, user])
 
   useEffect(() => {
     if (!notificacoesAberta) return
     carregarNotificacoes()
-  }, [notificacoesAberta])
+  }, [carregarNotificacoes, notificacoesAberta])
 
   function formatarDataNotificacao(data: string | null) {
     if (!data) return ''
@@ -228,9 +229,11 @@ export default function Sidebar() {
       <header className="lg:hidden sticky top-0 z-50 bg-[#0b1f33] text-white border-b border-white/10">
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <Link href="/" className="flex min-w-0 items-center gap-3" onClick={() => setMobileMenuAberto(false)}>
-            <img
+            <Image
               src="/images/favicon.png"
               alt="Filtroamb"
+              width={36}
+              height={36}
               className="h-9 w-auto object-contain"
             />
             <div className="min-w-0">
@@ -454,9 +457,11 @@ export default function Sidebar() {
           className="grid h-[72px] grid-cols-[53px_1fr] items-center transition-colors duration-200 hover:bg-emerald-500/5"
         >
           <span className="flex h-[72px] w-[53px] items-center justify-center">
-            <img
+            <Image
               src="/images/favicon.png"
               alt="Filtroamb"
+              width={36}
+              height={36}
               className="h-9 w-9 object-contain"
             />
           </span>

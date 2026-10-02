@@ -5,7 +5,7 @@ import Sidebar from '@/components/Sidebar'
 import { createClient } from '@/lib/supabase/client'
 import { getRole } from '@/lib/roles'
 import { useUser } from '@clerk/nextjs'
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 
 type AcaoBase = 'liberacao' | 'confirmacao'
 type AcaoBanco = AcaoBase | 'correcao'
@@ -64,7 +64,7 @@ const acaoLabel: Record<AcaoBase, string> = {
 }
 
 export default function TransferenciasPage() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const { user } = useUser()
   const podeEditar = ['dev', 'editor'].includes(getRole(user))
 
@@ -79,7 +79,7 @@ export default function TransferenciasPage() {
   const [salvando, setSalvando] = useState(false)
   const motivoCorrecaoValido = formEdicao.motivo_correcao.trim().length >= 12
 
-  async function carregar() {
+  const carregar = useCallback(async function carregar() {
     setCarregando(true)
     setMensagem('')
 
@@ -97,11 +97,11 @@ export default function TransferenciasPage() {
     } finally {
       setCarregando(false)
     }
-  }
+  }, [supabase])
 
   useEffect(() => {
     carregar()
-  }, [])
+  }, [carregar])
 
   const historicoVigente = useMemo(() => {
     const porId = new Map(historico.map((registro) => [registro.id, registro]))

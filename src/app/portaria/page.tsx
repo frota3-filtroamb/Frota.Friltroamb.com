@@ -2,7 +2,7 @@
 
 import RequirePermissao from '@/components/RequirePermissao'
 import { useUser } from '@clerk/nextjs'
-import { Suspense, useEffect, useMemo, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Sidebar from '@/components/Sidebar'
 import { getRole, podeAcessarDetalhe } from '@/lib/roles'
@@ -58,7 +58,7 @@ type AcaoMovimentacao = {
 }
 
 function PortariaContent() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, isLoaded } = useUser()
@@ -89,7 +89,7 @@ function PortariaContent() {
     ].filter(Boolean) as typeof abaAtual[],
     [podeControleVeiculos, podeAutorizarSaida, podeControlePedestres, podeControleTransferencia],
   )
-  function ordenarHistoricoVeiculos(registros: Movimentacao[]) {
+  const ordenarHistoricoVeiculos = useCallback(function ordenarHistoricoVeiculos(registros: Movimentacao[]) {
     const dataEvento = (m: Movimentacao) => {
       if (m.tipo_veiculo === 'interno_saida') return m.saida_em || m.liberado_em
       if (m.tipo_veiculo === 'interno_entrada') return m.entrada_em || m.liberado_em
@@ -101,9 +101,9 @@ function PortariaContent() {
       const dataB = new Date(dataEvento(b) || 0).getTime()
       return dataB - dataA
     })
-  }
+  }, [])
 
-  async function carregar() {
+  const carregar = useCallback(async function carregar() {
     setCarregando(true)
     try {
       const [vAtivos, vFinais, pAtivos, tQuery, acoesQuery] = await Promise.all([
@@ -125,13 +125,13 @@ function PortariaContent() {
     } finally {
       setCarregando(false)
     }
-  }
+  }, [ordenarHistoricoVeiculos, supabase])
 
   useEffect(() => {
     carregar()
     const interval = setInterval(carregar, 30000)
     return () => clearInterval(interval)
-  }, [])
+  }, [carregar])
 
   useEffect(() => {
     if (!isLoaded || abasPermitidas.length === 0 || abasPermitidas.includes(abaAtual)) return
@@ -378,8 +378,6 @@ function PortariaContent() {
                     )}
                   </div>
 
-                  <div className="hidden h-8 w-px bg-emerald-500/20 lg:block" />
-
                   <div className="relative min-w-[240px] flex-1">
                     <input type="text" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder={abaAtual === 'veiculos' || abaAtual === 'autorizacoes' ? 'Filtrar placa, motorista, destino...' : abaAtual === 'pedestres' ? 'Filtrar nome, cpf, empresa...' : 'Filtrar placa, origem, destino...'} className="w-full pl-10 pr-4 py-2.5 bg-[#0f1c2e] border border-emerald-500/20 rounded-lg text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition" />
                     <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400/70 text-sm">🔍</span>
@@ -406,261 +404,261 @@ function PortariaContent() {
                     </div>
                   ) : abaAtual === 'veiculos' ? (
                     <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                    <div className="bg-[#0f1c2e] border border-orange-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Aguardando Saida</p><p className="text-3xl font-bold text-orange-300 mt-1">{vAguardando}</p></div>
-                    <div className="bg-[#0f1c2e] border border-blue-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Em Rota</p><p className="text-3xl font-bold text-blue-300 mt-1">{vEmRota}</p></div>
-                    <div className="bg-[#0f1c2e] border border-emerald-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Retornos Hoje</p><p className="text-3xl font-bold text-emerald-300 mt-1">{vRetornosHoje}</p></div>
-                    <div className="bg-[#0f1c2e] border border-emerald-500/15 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Total em Aberto</p><p className="text-3xl font-bold text-white mt-1">{vAguardando + vEmRota}</p></div>
-                  </div>
-                  <div className="bg-[#0f1c2e] rounded-2xl border border-emerald-500/15 shadow-[0_0_30px_rgba(16,185,129,0.05)] overflow-hidden mb-8">
-                    <div className="app-scroll max-h-[52vh] overflow-y-auto overflow-x-hidden">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="bg-[#132337] border-b border-emerald-500/15 sticky top-0 z-10">
-                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Placa</th>
-                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Motorista</th>
-                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Destino</th>
-                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">KM</th>
-                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Liberacao</th>
-                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Saida</th>
-                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Status</th>
-                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Acao</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                          {mFiltradas.length === 0 ? (
-                            <tr>
-                              <td colSpan={8} className="px-3 py-8 text-center text-slate-500">Nenhum veiculo em andamento.</td>
-                            </tr>
-                          ) : (
-                            mFiltradas.map((m) => (
-                              <tr key={m.id} className="hover:bg-emerald-500/5 transition-colors">
-                                <td className="pl-3 py-2.5 text-center text-white whitespace-nowrap w40">
-                                  <div className="flex items-center justify-center gap-2 whitespace-nowrap flex-nowrap align-middle">
-                                    <span className="font-semibold text-emerald-300 whitespace-nowrap tracking-wide text-sm">{m.placa}</span>
-                                    {isVeiculoInterno(m.tipo_veiculo) && (
-                                      <span className="inline-flex shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-blue-500/15 text-blue-300 border border-blue-500/25 whitespace-nowrap">
-                                        Interno
-                                      </span>
-                                    )}
-                                    {m.tipo_veiculo === 'externo' && (
-                                      <span className="inline-flex shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-orange-500/15 text-orange-300 border border-orange-500/25 whitespace-nowrap">
-                                        Externo
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{m.motorista || '--'}</td>
-                                <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{m.destino || '--'}</td>
-                                <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{m.km ? m.km.toLocaleString('pt-BR') : '--'}</td>
-                                <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{formatarData(m.liberado_em)}</td>
-                                <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{formatarData(m.saida_em)}</td>
-                                <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">
-                                  <span className={`inline-flex px-2 py-0.5 rounded-full text-[12px] font-medium whitespace-nowrap ${m.status === 'aguardando_saida' ? 'bg-orange-500/15 text-orange-300 border border-orange-500/20' : 'bg-blue-500/15 text-blue-300 border border-blue-500/20'}`}>
-                                    {m.status === 'aguardando_saida' ? 'Aguardando Saida' : 'Em Rota'}
-                                  </span>
-                                </td>
-                                <td className="px-3 py-2.5 text-center whitespace-nowrap">
-                                  {isVeiculoExterno(m.tipo_veiculo) && !temSaidaAutorizada(m.id) ? (
-                                    <span className="inline-flex px-2 py-0.5 rounded-full border border-orange-500/20 bg-orange-500/10 text-[11px] font-semibold text-orange-300">
-                                      Aguardando gestor
-                                    </span>
-                                  ) : deveMostrarAcaoSaida(m) ? (
-                                    <button
-                                      onClick={() => registrarSaidaVeiculoSegura(m)}
-                                      disabled={acaoEmAndamentoId === chaveAcao('veiculo_saida', m.id)}
-                                      className="bg-orange-500 hover:bg-orange-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-1.5 py-1 rounded-full transition-all duration-150 whitespace-nowrap cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                      {acaoEmAndamentoId === chaveAcao('veiculo_saida', m.id) ? 'Registrando...' : 'Registrar Saida'}
-                                    </button>
-                                  ) : (
-                                    <button
-                                      onClick={() => registrarEntradaVeiculoSegura(m.id)}
-                                      disabled={acaoEmAndamentoId === chaveAcao('veiculo_entrada', m.id)}
-                                      className="bg-emerald-500 hover:bg-emerald-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-all duration-150 whitespace-nowrap cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                      {acaoEmAndamentoId === chaveAcao('veiculo_entrada', m.id) ? 'Registrando...' : 'Registrar Entrada'}
-                                    </button>
-                                  )}
-                                </td>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                        <div className="bg-[#0f1c2e] border border-orange-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Aguardando Saida</p><p className="text-3xl font-bold text-orange-300 mt-1">{vAguardando}</p></div>
+                        <div className="bg-[#0f1c2e] border border-blue-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Em Rota</p><p className="text-3xl font-bold text-blue-300 mt-1">{vEmRota}</p></div>
+                        <div className="bg-[#0f1c2e] border border-emerald-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Retornos Hoje</p><p className="text-3xl font-bold text-emerald-300 mt-1">{vRetornosHoje}</p></div>
+                        <div className="bg-[#0f1c2e] border border-emerald-500/15 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Total em Aberto</p><p className="text-3xl font-bold text-white mt-1">{vAguardando + vEmRota}</p></div>
+                      </div>
+                      <div className="bg-[#0f1c2e] rounded-2xl border border-emerald-500/15 shadow-[0_0_30px_rgba(16,185,129,0.05)] overflow-hidden mb-8">
+                        <div className="app-scroll max-h-[52vh] overflow-y-auto overflow-x-hidden">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="bg-[#132337] border-b border-emerald-500/15 sticky top-0 z-10">
+                                <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Placa</th>
+                                <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Motorista</th>
+                                <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Destino</th>
+                                <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">KM</th>
+                                <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Liberacao</th>
+                                <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Saida</th>
+                                <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Status</th>
+                                <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Acao</th>
                               </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {mFiltradas.length === 0 ? (
+                                <tr>
+                                  <td colSpan={8} className="px-3 py-8 text-center text-slate-500">Nenhum veiculo em andamento.</td>
+                                </tr>
+                              ) : (
+                                mFiltradas.map((m) => (
+                                  <tr key={m.id} className="hover:bg-emerald-500/5 transition-colors">
+                                    <td className="pl-3 py-2.5 text-center text-white whitespace-nowrap w40">
+                                      <div className="flex items-center justify-center gap-2 whitespace-nowrap flex-nowrap align-middle">
+                                        <span className="font-semibold text-emerald-300 whitespace-nowrap tracking-wide text-sm">{m.placa}</span>
+                                        {isVeiculoInterno(m.tipo_veiculo) && (
+                                          <span className="inline-flex shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-blue-500/15 text-blue-300 border border-blue-500/25 whitespace-nowrap">
+                                            Interno
+                                          </span>
+                                        )}
+                                        {m.tipo_veiculo === 'externo' && (
+                                          <span className="inline-flex shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-orange-500/15 text-orange-300 border border-orange-500/25 whitespace-nowrap">
+                                            Externo
+                                          </span>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{m.motorista || '--'}</td>
+                                    <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{m.destino || '--'}</td>
+                                    <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{m.km ? m.km.toLocaleString('pt-BR') : '--'}</td>
+                                    <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{formatarData(m.liberado_em)}</td>
+                                    <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{formatarData(m.saida_em)}</td>
+                                    <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">
+                                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[12px] font-medium whitespace-nowrap ${m.status === 'aguardando_saida' ? 'bg-orange-500/15 text-orange-300 border border-orange-500/20' : 'bg-blue-500/15 text-blue-300 border border-blue-500/20'}`}>
+                                        {m.status === 'aguardando_saida' ? 'Aguardando Saida' : 'Em Rota'}
+                                      </span>
+                                    </td>
+                                    <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                                      {isVeiculoExterno(m.tipo_veiculo) && !temSaidaAutorizada(m.id) ? (
+                                        <span className="inline-flex px-2 py-0.5 rounded-full border border-orange-500/20 bg-orange-500/10 text-[11px] font-semibold text-orange-300">
+                                          Aguardando gestor
+                                        </span>
+                                      ) : deveMostrarAcaoSaida(m) ? (
+                                        <button
+                                          onClick={() => registrarSaidaVeiculoSegura(m)}
+                                          disabled={acaoEmAndamentoId === chaveAcao('veiculo_saida', m.id)}
+                                          className="bg-orange-500 hover:bg-orange-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-1.5 py-1 rounded-full transition-all duration-150 whitespace-nowrap cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                          {acaoEmAndamentoId === chaveAcao('veiculo_saida', m.id) ? 'Registrando...' : 'Registrar Saida'}
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => registrarEntradaVeiculoSegura(m.id)}
+                                          disabled={acaoEmAndamentoId === chaveAcao('veiculo_entrada', m.id)}
+                                          className="bg-emerald-500 hover:bg-emerald-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-all duration-150 whitespace-nowrap cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                          {acaoEmAndamentoId === chaveAcao('veiculo_entrada', m.id) ? 'Registrando...' : 'Registrar Entrada'}
+                                        </button>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
                     </>
                   ) : abaAtual === 'autorizacoes' ? (
                     <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                    <div className="bg-[#0f1c2e] border border-orange-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Aguardando Gestor</p><p className="text-3xl font-bold text-orange-300 mt-1">{autorizacoesPendentes.length}</p></div>
-                  </div>
-                  <div className="bg-[#0f1c2e] rounded-2xl border border-orange-500/15 shadow-[0_0_30px_rgba(249,115,22,0.05)] overflow-hidden mb-8">
-                    <div className="app-scroll max-h-[52vh] overflow-y-auto overflow-x-auto">
-                      <table className="w-full min-w-[760px] text-xs">
-                        <thead>
-                          <tr className="bg-[#132337] border-b border-orange-500/15 sticky top-0 z-10">
-                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-orange-300 uppercase tracking-wider whitespace-nowrap">Placa</th>
-                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-orange-300 uppercase tracking-wider whitespace-nowrap">Motorista</th>
-                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-orange-300 uppercase tracking-wider whitespace-nowrap">Horario Liberado</th>
-                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-orange-300 uppercase tracking-wider whitespace-nowrap">Destino</th>
-                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-orange-300 uppercase tracking-wider whitespace-nowrap">Gestor</th>
-                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-orange-300 uppercase tracking-wider whitespace-nowrap">Setor</th>
-                            <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-orange-300 uppercase tracking-wider whitespace-nowrap">Acao</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                          {autorizacoesPendentes.length === 0 ? (
-                            <tr>
-                              <td colSpan={7} className="px-3 py-8 text-center text-slate-500">Nenhum veiculo externo aguardando autorizacao de saida.</td>
-                            </tr>
-                          ) : (
-                            autorizacoesPendentes.map((m) => (
-                              <tr key={m.id} className="hover:bg-orange-500/5 transition-colors">
-                                <td className="px-3 py-2.5 text-center whitespace-nowrap">
-                                  <span className="font-semibold text-orange-300 whitespace-nowrap tracking-wide text-sm">{m.placa}</span>
-                                </td>
-                                <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{m.motorista || '--'}</td>
-                                <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{formatarData(m.entrada_em || m.liberado_em)}</td>
-                                <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{m.destino || '--'}</td>
-                                <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{m.gestor_responsavel_nome || '--'}</td>
-                                <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{m.gestor_responsavel_setor || '--'}</td>
-                                <td className="px-3 py-2.5 text-center whitespace-nowrap">
-                                  <button
-                                    type="button"
-                                    onClick={() => autorizarSaidaVeiculoSegura(m)}
-                                    disabled={acaoEmAndamentoId === chaveAcao('veiculo_autorizar_saida', m.id)}
-                                    className="bg-orange-500 hover:bg-orange-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-all duration-150 whitespace-nowrap cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                                  >
-                                    {acaoEmAndamentoId === chaveAcao('veiculo_autorizar_saida', m.id) ? 'Registrando...' : 'Autorizar Saida'}
-                                  </button>
-                                </td>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                        <div className="bg-[#0f1c2e] border border-orange-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Aguardando Gestor</p><p className="text-3xl font-bold text-orange-300 mt-1">{autorizacoesPendentes.length}</p></div>
+                      </div>
+                      <div className="bg-[#0f1c2e] rounded-2xl border border-orange-500/15 shadow-[0_0_30px_rgba(249,115,22,0.05)] overflow-hidden mb-8">
+                        <div className="app-scroll max-h-[52vh] overflow-y-auto overflow-x-auto">
+                          <table className="w-full min-w-[760px] text-xs">
+                            <thead>
+                              <tr className="bg-[#132337] border-b border-orange-500/15 sticky top-0 z-10">
+                                <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-orange-300 uppercase tracking-wider whitespace-nowrap">Placa</th>
+                                <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-orange-300 uppercase tracking-wider whitespace-nowrap">Motorista</th>
+                                <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-orange-300 uppercase tracking-wider whitespace-nowrap">Horario Liberado</th>
+                                <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-orange-300 uppercase tracking-wider whitespace-nowrap">Destino</th>
+                                <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-orange-300 uppercase tracking-wider whitespace-nowrap">Gestor</th>
+                                <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-orange-300 uppercase tracking-wider whitespace-nowrap">Setor</th>
+                                <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-orange-300 uppercase tracking-wider whitespace-nowrap">Acao</th>
                               </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {autorizacoesPendentes.length === 0 ? (
+                                <tr>
+                                  <td colSpan={7} className="px-3 py-8 text-center text-slate-500">Nenhum veiculo externo aguardando autorizacao de saida.</td>
+                                </tr>
+                              ) : (
+                                autorizacoesPendentes.map((m) => (
+                                  <tr key={m.id} className="hover:bg-orange-500/5 transition-colors">
+                                    <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                                      <span className="font-semibold text-orange-300 whitespace-nowrap tracking-wide text-sm">{m.placa}</span>
+                                    </td>
+                                    <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{m.motorista || '--'}</td>
+                                    <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{formatarData(m.entrada_em || m.liberado_em)}</td>
+                                    <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{m.destino || '--'}</td>
+                                    <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{m.gestor_responsavel_nome || '--'}</td>
+                                    <td className="px-3 py-2.5 text-center text-[13px] font-semibold text-white whitespace-nowrap">{m.gestor_responsavel_setor || '--'}</td>
+                                    <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                                      <button
+                                        type="button"
+                                        onClick={() => autorizarSaidaVeiculoSegura(m)}
+                                        disabled={acaoEmAndamentoId === chaveAcao('veiculo_autorizar_saida', m.id)}
+                                        className="bg-orange-500 hover:bg-orange-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-all duration-150 whitespace-nowrap cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                                      >
+                                        {acaoEmAndamentoId === chaveAcao('veiculo_autorizar_saida', m.id) ? 'Registrando...' : 'Autorizar Saida'}
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
                     </>
                   ) : abaAtual === 'pedestres' ? (
                     <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                    <div className="bg-[#0f1c2e] border border-orange-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Aguardando Entrada</p><p className="text-3xl font-bold text-orange-300 mt-1">{pAguardando}</p></div>
-                    <div className="bg-[#0f1c2e] border border-purple-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Em Visita</p><p className="text-3xl font-bold text-purple-300 mt-1">{pEmVisita}</p></div>
-                    <div className="bg-[#0f1c2e] border border-emerald-500/15 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Total em Aberto</p><p className="text-3xl font-bold text-white mt-1">{pAguardando + pEmVisita}</p></div>
-                  </div>
-                  <div className="bg-[#0f1c2e] rounded-2xl border border-purple-500/15 shadow-[0_0_30px_rgba(168,85,247,0.05)] overflow-hidden mb-8">
-                    <div className="app-scroll max-h-[52vh] overflow-y-auto overflow-x-hidden">
-                      <table className="w-full table-fixed text-xs">
-                        <thead>
-                          <tr className="bg-[#132337] border-b border-purple-500/15 sticky top-0 z-10">
-                            <th className="w-[14%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Nome</th>
-                            <th className="w-[13%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Empresa</th>
-                            <th className="w-[13%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">CPF</th>
-                            <th className="w-[13%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Telefone</th>
-                            <th className="w-[13%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Destino</th>
-                            <th className="w-[15%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Liberacao</th>
-                            <th className="w-[11%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Status</th>
-                            <th className="w-[8%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Acao</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                          {pFiltrados.length === 0 ? (
-                            <tr><td colSpan={8} className="px-3 py-8 text-center text-slate-500">Nenhum pedestre em andamento.</td></tr>
-                          ) : (
-                            pFiltrados.map((p) => (
-                              <tr key={p.id} className="hover:bg-purple-500/5 transition-colors">
-                                <td className="px-2 py-2.5 text-center font-semibold text-purple-300 text-[14px] truncate">{p.nome}</td>
-                                <td className="px-2 py-2.5 text-center text-slate-300 text-[14px] truncate">{p.empresa || 'Sem empresa'}</td>
-                                <td className="px-2 py-2.5 text-center text-slate-300 text-[14px] truncate">{p.cpf_rg ? formatCpf(p.cpf_rg) : '--'}</td>
-                                <td className="px-2 py-2.5 text-center text-slate-300 text-[14px] truncate">{p.telefone ? formatPhone(p.telefone) : '--'}</td>
-                                <td className="px-2 py-2.5 text-center text-slate-300 text-[14px] truncate">{p.destino || '--'}</td>
-                                <td className="px-2 py-2.5 text-center text-slate-300 text-[14px] truncate">{formatarData(p.liberado_em)}</td>
-                                <td className="px-2 py-2.5 text-center">
-                                  <span className={`inline-flex max-w-full px-2 py-0.5 rounded-full text-[9px] font-medium truncate ${p.status === 'aguardando_entrada' ? 'bg-orange-500/15 text-orange-300 border border-orange-500/20' : 'bg-purple-500/15 text-purple-300 border border-purple-500/20'}`}>
-                                    {p.status === 'aguardando_entrada' ? 'Aguardando Entrada' : 'Em Visita'}
-                                  </span>
-                                </td>
-                                <td className="px-2 py-2.5 text-center">
-                                  {p.status === 'aguardando_entrada' ? (
-                                    <button
-                                      onClick={() => registrarEntradaPedestreSegura(p.id)}
-                                      disabled={acaoEmAndamentoId === chaveAcao('pedestre_entrada', p.id)}
-                                      className="bg-emerald-500 hover:bg-emerald-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-2 py-1 rounded-lg transition-all duration-150 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                      {acaoEmAndamentoId === chaveAcao('pedestre_entrada', p.id) ? 'Registrando...' : 'Entrou'}
-                                    </button>
-                                  ) : (
-                                    <button
-                                      onClick={() => registrarSaidaPedestreSegura(p.id)}
-                                      disabled={acaoEmAndamentoId === chaveAcao('pedestre_saida', p.id)}
-                                      className="bg-orange-500 hover:bg-orange-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-2 py-1 rounded-lg transition-all duration-150 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                      {acaoEmAndamentoId === chaveAcao('pedestre_saida', p.id) ? 'Registrando...' : 'Saiu'}
-                                    </button>
-                                  )}
-                                </td>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                        <div className="bg-[#0f1c2e] border border-orange-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Aguardando Entrada</p><p className="text-3xl font-bold text-orange-300 mt-1">{pAguardando}</p></div>
+                        <div className="bg-[#0f1c2e] border border-purple-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Em Visita</p><p className="text-3xl font-bold text-purple-300 mt-1">{pEmVisita}</p></div>
+                        <div className="bg-[#0f1c2e] border border-emerald-500/15 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Total em Aberto</p><p className="text-3xl font-bold text-white mt-1">{pAguardando + pEmVisita}</p></div>
+                      </div>
+                      <div className="bg-[#0f1c2e] rounded-2xl border border-purple-500/15 shadow-[0_0_30px_rgba(168,85,247,0.05)] overflow-hidden mb-8">
+                        <div className="app-scroll max-h-[52vh] overflow-y-auto overflow-x-hidden">
+                          <table className="w-full table-fixed text-xs">
+                            <thead>
+                              <tr className="bg-[#132337] border-b border-purple-500/15 sticky top-0 z-10">
+                                <th className="w-[14%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Nome</th>
+                                <th className="w-[13%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Empresa</th>
+                                <th className="w-[13%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">CPF</th>
+                                <th className="w-[13%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Telefone</th>
+                                <th className="w-[13%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Destino</th>
+                                <th className="w-[15%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Liberacao</th>
+                                <th className="w-[11%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Status</th>
+                                <th className="w-[8%] px-2 py-2.5 text-center text-[12px] font-semibold text-purple-400/90 uppercase tracking-wider">Acao</th>
                               </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {pFiltrados.length === 0 ? (
+                                <tr><td colSpan={8} className="px-3 py-8 text-center text-slate-500">Nenhum pedestre em andamento.</td></tr>
+                              ) : (
+                                pFiltrados.map((p) => (
+                                  <tr key={p.id} className="hover:bg-purple-500/5 transition-colors">
+                                    <td className="px-2 py-2.5 text-center font-semibold text-purple-300 text-[14px] truncate">{p.nome}</td>
+                                    <td className="px-2 py-2.5 text-center text-slate-300 text-[14px] truncate">{p.empresa || 'Sem empresa'}</td>
+                                    <td className="px-2 py-2.5 text-center text-slate-300 text-[14px] truncate">{p.cpf_rg ? formatCpf(p.cpf_rg) : '--'}</td>
+                                    <td className="px-2 py-2.5 text-center text-slate-300 text-[14px] truncate">{p.telefone ? formatPhone(p.telefone) : '--'}</td>
+                                    <td className="px-2 py-2.5 text-center text-slate-300 text-[14px] truncate">{p.destino || '--'}</td>
+                                    <td className="px-2 py-2.5 text-center text-slate-300 text-[14px] truncate">{formatarData(p.liberado_em)}</td>
+                                    <td className="px-2 py-2.5 text-center">
+                                      <span className={`inline-flex max-w-full px-2 py-0.5 rounded-full text-[9px] font-medium truncate ${p.status === 'aguardando_entrada' ? 'bg-orange-500/15 text-orange-300 border border-orange-500/20' : 'bg-purple-500/15 text-purple-300 border border-purple-500/20'}`}>
+                                        {p.status === 'aguardando_entrada' ? 'Aguardando Entrada' : 'Em Visita'}
+                                      </span>
+                                    </td>
+                                    <td className="px-2 py-2.5 text-center">
+                                      {p.status === 'aguardando_entrada' ? (
+                                        <button
+                                          onClick={() => registrarEntradaPedestreSegura(p.id)}
+                                          disabled={acaoEmAndamentoId === chaveAcao('pedestre_entrada', p.id)}
+                                          className="bg-emerald-500 hover:bg-emerald-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-2 py-1 rounded-lg transition-all duration-150 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                          {acaoEmAndamentoId === chaveAcao('pedestre_entrada', p.id) ? 'Registrando...' : 'Entrou'}
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => registrarSaidaPedestreSegura(p.id)}
+                                          disabled={acaoEmAndamentoId === chaveAcao('pedestre_saida', p.id)}
+                                          className="bg-orange-500 hover:bg-orange-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-2 py-1 rounded-lg transition-all duration-150 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                          {acaoEmAndamentoId === chaveAcao('pedestre_saida', p.id) ? 'Registrando...' : 'Saiu'}
+                                        </button>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
                     </>
                   ) : (
                     <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                    <div className="bg-[#0f1c2e] border border-orange-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Aguardando Confirmacao</p><p className="text-3xl font-bold text-orange-300 mt-1">{transferenciasPendentes.length}</p></div>
-                  </div>
-                  <div className="bg-[#0f1c2e] rounded-2xl border border-emerald-500/15 shadow-[0_0_30px_rgba(16,185,129,0.05)] overflow-hidden">
-                    <div className="app-scroll max-h-[52vh] overflow-y-auto overflow-x-hidden">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="bg-[#132337] border-b border-emerald-500/15 sticky top-0 z-10">
-                            <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Veiculo</th>
-                            <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Origem</th>
-                            <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Destino</th>
-                            <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Motorista</th>
-                            <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Data / Hora</th>
-                            <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Responsavel</th>
-                            <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Acao</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                          {transferenciasPendentes.length === 0 ? (
-                            <tr><td colSpan={7} className="px-3 py-8 text-center text-slate-500">Nenhuma transferencia aguardando confirmacao.</td></tr>
-                          ) : (
-                            transferenciasPendentes.map((t) => (
-                              <tr key={t.id} className="hover:bg-emerald-500/5 transition-colors">
-                                <td className="px-3 py-2.5 whitespace-nowrap">
-                                  <div className="font-semibold text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md inline-block whitespace-nowrap text-[13px]">
-                                    {t.placa}
-                                  </div>
-                                </td>
-                                <td className="px-3 py-2.5 text-slate-300 text-[13px] whitespace-nowrap">{t.base_origem}</td>
-                                <td className="px-3 py-2.5 text-slate-300 text-[13px] whitespace-nowrap">{t.base_destino}</td>
-                                <td className="px-3 py-2.5 text-slate-300 text-[13px] whitespace-nowrap">{t.motorista || <span className="text-slate-600 font-normal">Nao informado</span>}</td>
-                                <td className="px-3 py-2.5 text-slate-300 text-[13px] whitespace-nowrap">{formatarData(t.transferido_em)}</td>
-                                <td className="px-3 py-2.5 text-slate-300 text-[13px] whitespace-nowrap">{t.transferido_por || '--”'}</td>
-                                <td className="px-3 py-2.5 whitespace-nowrap">
-                                  <button
-                                    onClick={() => confirmarTransferenciaSegura(t)}
-                                    disabled={acaoEmAndamentoId === chaveAcao('transferencia_confirmar', t.id)}
-                                    className="bg-emerald-500 hover:bg-emerald-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-all duration-150 whitespace-nowrap cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                                  >
-                                    {acaoEmAndamentoId === chaveAcao('transferencia_confirmar', t.id) ? 'Registrando...' : 'Confirmar'}
-                                  </button>
-                                </td>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                        <div className="bg-[#0f1c2e] border border-orange-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Aguardando Confirmacao</p><p className="text-3xl font-bold text-orange-300 mt-1">{transferenciasPendentes.length}</p></div>
+                      </div>
+                      <div className="bg-[#0f1c2e] rounded-2xl border border-emerald-500/15 shadow-[0_0_30px_rgba(16,185,129,0.05)] overflow-hidden">
+                        <div className="app-scroll max-h-[52vh] overflow-y-auto overflow-x-hidden">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="bg-[#132337] border-b border-emerald-500/15 sticky top-0 z-10">
+                                <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Veiculo</th>
+                                <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Origem</th>
+                                <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Destino</th>
+                                <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Motorista</th>
+                                <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Data / Hora</th>
+                                <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Responsavel</th>
+                                <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Acao</th>
                               </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {transferenciasPendentes.length === 0 ? (
+                                <tr><td colSpan={7} className="px-3 py-8 text-center text-slate-500">Nenhuma transferencia aguardando confirmacao.</td></tr>
+                              ) : (
+                                transferenciasPendentes.map((t) => (
+                                  <tr key={t.id} className="hover:bg-emerald-500/5 transition-colors">
+                                    <td className="px-3 py-2.5 whitespace-nowrap">
+                                      <div className="font-semibold text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md inline-block whitespace-nowrap text-[13px]">
+                                        {t.placa}
+                                      </div>
+                                    </td>
+                                    <td className="px-3 py-2.5 text-slate-300 text-[13px] whitespace-nowrap">{t.base_origem}</td>
+                                    <td className="px-3 py-2.5 text-slate-300 text-[13px] whitespace-nowrap">{t.base_destino}</td>
+                                    <td className="px-3 py-2.5 text-slate-300 text-[13px] whitespace-nowrap">{t.motorista || <span className="text-slate-600 font-normal">Nao informado</span>}</td>
+                                    <td className="px-3 py-2.5 text-slate-300 text-[13px] whitespace-nowrap">{formatarData(t.transferido_em)}</td>
+                                    <td className="px-3 py-2.5 text-slate-300 text-[13px] whitespace-nowrap">{t.transferido_por || '--”'}</td>
+                                    <td className="px-3 py-2.5 whitespace-nowrap">
+                                      <button
+                                        onClick={() => confirmarTransferenciaSegura(t)}
+                                        disabled={acaoEmAndamentoId === chaveAcao('transferencia_confirmar', t.id)}
+                                        className="bg-emerald-500 hover:bg-emerald-400 hover:brightness-110 active:brightness-95 text-[#0a1625] text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-all duration-150 whitespace-nowrap cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                                      >
+                                        {acaoEmAndamentoId === chaveAcao('transferencia_confirmar', t.id) ? 'Registrando...' : 'Confirmar'}
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
                     </>
                   )}
                 </div>

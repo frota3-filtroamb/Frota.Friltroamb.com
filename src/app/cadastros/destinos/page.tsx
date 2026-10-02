@@ -3,7 +3,7 @@
 import RequirePermissao from '@/components/RequirePermissao'
 import Sidebar from '@/components/Sidebar'
 import { createClient } from '@/lib/supabase/client'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 type Destino = {
   id: number | string
@@ -17,7 +17,7 @@ function normalizarDestino(valor: string) {
 }
 
 export default function DestinosPage() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const [destinos, setDestinos] = useState<Destino[]>([])
   const [busca, setBusca] = useState('')
   const [nome, setNome] = useState('')
@@ -27,7 +27,7 @@ export default function DestinosPage() {
   const [salvando, setSalvando] = useState(false)
   const [mensagem, setMensagem] = useState('')
 
-  async function carregar() {
+  const carregar = useCallback(async function carregar() {
     setCarregando(true)
     setMensagem('')
 
@@ -44,11 +44,11 @@ export default function DestinosPage() {
     } finally {
       setCarregando(false)
     }
-  }
+  }, [supabase])
 
   useEffect(() => {
     carregar()
-  }, [])
+  }, [carregar])
 
   async function cadastrarDestino(e: React.FormEvent) {
     e.preventDefault()

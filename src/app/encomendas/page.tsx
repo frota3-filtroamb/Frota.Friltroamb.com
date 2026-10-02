@@ -1,7 +1,7 @@
 'use client'
 
 import RequirePermissao from '@/components/RequirePermissao'
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Sidebar from '@/components/Sidebar'
 
@@ -20,7 +20,7 @@ type Encomenda = {
 }
 
 export default function EncomendasPage() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   const [abaAtual, setAbaAtual] = useState<AbaEncomenda>('portaria')
   const [previstas, setPrevistas] = useState<Encomenda[]>([])
@@ -41,7 +41,7 @@ export default function EncomendasPage() {
   const [confirmandoRetiradaId, setConfirmandoRetiradaId] = useState<number | null>(null)
   const [retiradoPor, setRetiradoPor] = useState('')
 
-  async function carregar() {
+  const carregar = useCallback(async function carregar() {
     setCarregando(true)
     try {
       const [avisos, pendentes, finais] = await Promise.all([
@@ -58,11 +58,11 @@ export default function EncomendasPage() {
     } finally {
       setCarregando(false)
     }
-  }
+  }, [supabase])
 
   useEffect(() => {
     carregar()
-  }, [])
+  }, [carregar])
 
   function limparFormulario() {
     setItem('')
