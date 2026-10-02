@@ -2,7 +2,7 @@
 
 import RequirePermissao from '@/components/RequirePermissao'
 import { useUser } from '@clerk/nextjs'
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Sidebar from '@/components/Sidebar'
 import { getRole, podeAcessarDetalhe } from '@/lib/roles'
@@ -57,7 +57,7 @@ type AcaoMovimentacao = {
   acao: string
 }
 
-export default function PortariaPage() {
+function PortariaContent() {
   const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -670,5 +670,13 @@ export default function PortariaPage() {
         </div>
       </div>
     </RequirePermissao>
+  )
+}
+
+export default function PortariaPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0a1625]" />}>
+      <PortariaContent />
+    </Suspense>
   )
 }
