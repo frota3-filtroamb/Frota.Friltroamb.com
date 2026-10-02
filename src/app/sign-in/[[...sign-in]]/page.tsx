@@ -57,9 +57,6 @@ export default function Page() {
               formFieldLabel: 'text-slate-300 font-medium text-xs',
               formFieldInput:
                 'h-9 bg-[#132337] border border-emerald-400/20 text-white rounded-xl focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition-colors',
-              otpCodeFieldInputs: 'flex flex-row items-center justify-center gap-1.5',
-              otpCodeFieldInput:
-                'h-9 w-8 min-w-8 px-0 text-center text-sm font-semibold bg-[#132337] border border-emerald-400/20 text-white rounded-lg focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400',
               footerActionText: 'text-slate-400 text-sm',
               footerActionLink: 'text-emerald-400 hover:text-emerald-300 font-semibold transition-colors',
               formButtonPrimary:
