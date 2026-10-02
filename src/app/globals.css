@@ -917,21 +917,51 @@ html.light [data-auth-page] label {
 
 [data-auth-page] .cl-otpCodeFieldInput,
 [data-auth-page] [class*="otpCodeFieldInput"] {
+  align-items: center !important;
   display: inline-flex !important;
-  font-size: 0.875rem !important;
-  font-weight: 600 !important;
-  height: 2.25rem !important;
-  line-height: 2.25rem !important;
-  min-width: 2rem !important;
+  font-size: 0.95rem !important;
+  font-weight: 700 !important;
+  height: 2.4rem !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+  min-height: 2.4rem !important;
+  min-width: 2.4rem !important;
+  overflow: hidden !important;
   padding: 0 !important;
+  position: relative !important;
   text-align: center !important;
-  width: 2rem !important;
+  transform: none !important;
+  width: 2.4rem !important;
+}
+
+[data-auth-page] .cl-otpCodeFieldInput *,
+[data-auth-page] [class*="otpCodeFieldInput"] * {
+  font-size: 0.95rem !important;
+  line-height: 1 !important;
+  transform: none !important;
+}
+
+[data-auth-page] .cl-otpCodeFieldInput:focus,
+[data-auth-page] [class*="otpCodeFieldInput"]:focus,
+[data-auth-page] [class*="otpCodeFieldInput"][class*="selected"],
+[data-auth-page] [class*="otpCodeFieldInput"][class*="focused"],
+[data-auth-page] [class*="otpCodeFieldInput"][data-active="true"] {
+  outline: 2px solid rgba(52, 211, 153, 0.45) !important;
+  outline-offset: 2px !important;
+  transform: none !important;
 }
 
 [data-auth-page] input[name="code"],
 [data-auth-page] input[inputmode="numeric"][autocomplete="one-time-code"] {
-  letter-spacing: 0.25rem !important;
+  caret-color: #34d399 !important;
+  font-size: 0.95rem !important;
+  font-weight: 700 !important;
+  height: 2.4rem !important;
+  letter-spacing: 0 !important;
+  line-height: 1 !important;
+  padding: 0 !important;
   text-align: center !important;
+  transform: none !important;
 }
 
 /* ==========================================================================
