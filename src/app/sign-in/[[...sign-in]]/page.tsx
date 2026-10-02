@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { SignIn } from '@clerk/nextjs'
 import { dark } from '@clerk/themes'
+import Image from 'next/image'
 
 export default function Page() {
   useEffect(() => {
@@ -13,11 +14,14 @@ export default function Page() {
   return (
     <div
       data-auth-page="true"
-      className="min-h-screen relative flex items-center justify-center p-6 bg-[#0a1625]"
+      className="relative flex h-dvh items-center justify-center overflow-hidden bg-[#0a1625] p-3"
     >
-      <img
+      <Image
         src="/images/banner-frota.jpg"
         alt="Filtroamb"
+        fill
+        priority
+        sizes="100vw"
         className="absolute inset-0 w-full h-full object-cover"
       />
       <div className="absolute inset-0 bg-[#0a1625]/80 backdrop-blur-[2px]" />
@@ -25,17 +29,15 @@ export default function Page() {
       {/* Conteúdo */}
       <div className="relative z-10 w-full max-w-md">
         {/* Logo */}
-        <div className="flex justify-center mb-5">
-          <img
-            src="/images/logo-filtroamb-light.png"
+        <div className="mb-2 flex justify-center">
+          <Image
+            src="/images/logo-filtroamb-dark1.png"
             alt="Filtroamb"
-            className="h-12 w-auto object-contain drop-shadow-lg"
+            width={190}
+            height={60}
+            priority
+            className="h-[60px] w-auto object-contain drop-shadow-lg"
           />
-        </div>
-
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-white drop-shadow">Gestão de Frota</h1>
-          <p className="text-sm text-emerald-400 mt-1 font-medium">Sistema interno Filtroamb</p>
         </div>
 
         <SignIn
@@ -57,18 +59,15 @@ export default function Page() {
             elements: {
               rootBox: 'mx-auto w-full',
               card: 'bg-[#0f1c2e]/95 border border-emerald-400/20 shadow-2xl backdrop-blur-sm rounded-2xl',
-              headerTitle: 'text-white font-bold text-xl',
-              headerSubtitle: 'text-slate-400 text-sm',
+              headerTitle: 'text-white font-bold text-lg',
+              headerSubtitle: 'hidden',
               formFieldLabel: 'text-slate-300 font-medium text-xs',
               formFieldInput:
-                'bg-[#132337] border border-emerald-400/20 text-white rounded-xl focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition-colors',
-              otpCodeFieldInputs: 'flex flex-row items-center justify-center gap-2',
-              otpCodeFieldInput:
-                'h-12 w-10 min-w-10 px-0 text-center text-lg font-semibold bg-[#132337] border border-emerald-400/20 text-white rounded-xl focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400',
+                'h-9 bg-[#132337] border border-emerald-400/20 text-white rounded-xl focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition-colors',
               footerActionText: 'text-slate-400 text-sm',
               footerActionLink: 'text-emerald-400 hover:text-emerald-300 font-semibold transition-colors',
               formButtonPrimary:
-                'bg-emerald-500 hover:bg-emerald-400 text-[#0a1625] font-semibold rounded-xl shadow-lg shadow-emerald-500/20 transition-all duration-200',
+                'h-9 bg-emerald-500 hover:bg-emerald-400 text-[#0a1625] font-semibold rounded-xl shadow-lg shadow-emerald-500/20 transition-all duration-200',
               identityPreviewText: 'text-white font-medium',
               identityPreviewEditButton: 'text-emerald-400 hover:text-emerald-300',
               socialButtonsBlockButton:
@@ -83,8 +82,8 @@ export default function Page() {
           }}
         />
 
-        <p className="text-center text-xs text-slate-400 mt-6 leading-relaxed">
-          Acesso restrito a colaboradores autorizados. Se você não é um colaborador, por favor, entre em contato com o administrador do sistema.
+        <p className="auth-footnote mt-2 text-center text-xs leading-snug text-slate-400">
+          Acesso restrito a colaboradores autorizados.
         </p>
       </div>
     </div>

@@ -1,10 +1,8 @@
 import { clerkClient, currentUser } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { PERMISSOES, type Permissao } from '@/lib/roles'
+import { PERMISSOES, getPermissoes, getRole, type Permissao, type Role } from '@/lib/roles'
 
-const ROLES = ['dev', 'gestor', 'porteiro'] as const
-
-type Role = (typeof ROLES)[number]
+const ROLES: Role[] = ['dev', 'gestor', 'editor', 'porteiro', 'basico']
 
 type Body = {
   role?: unknown
@@ -21,7 +19,7 @@ function limparPermissoes(valor: unknown): Permissao[] {
 }
 
 function limparRole(valor: unknown): Role {
-  return ROLES.includes(valor as Role) ? (valor as Role) : 'gestor'
+  return ROLES.includes(valor as Role) ? (valor as Role) : 'basico'
 }
 
 export async function PATCH(
@@ -48,8 +46,8 @@ export async function PATCH(
       id: atualizado.id,
       nome: atualizado.fullName || [atualizado.firstName, atualizado.lastName].filter(Boolean).join(' ') || 'Sem nome',
       email: atualizado.primaryEmailAddress?.emailAddress || atualizado.emailAddresses[0]?.emailAddress || '',
-      role: typeof atualizado.publicMetadata.role === 'string' ? atualizado.publicMetadata.role : 'gestor',
-      permissoes: limparPermissoes(atualizado.publicMetadata.permissoes),
+      role: getRole({ publicMetadata: atualizado.publicMetadata }),
+      permissoes: getPermissoes({ publicMetadata: atualizado.publicMetadata }),
     },
   })
 }

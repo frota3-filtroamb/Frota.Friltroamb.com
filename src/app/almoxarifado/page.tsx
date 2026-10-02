@@ -3,8 +3,7 @@
 import RequirePermissao from '@/components/RequirePermissao'
 import Sidebar from '@/components/Sidebar'
 import { createClient } from '@/lib/supabase/client'
-import { useUser } from '@clerk/nextjs'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 type Aba = 'estoque' | 'movimentos' | 'compras'
 type TipoMovimento = 'entrada' | 'saida'
@@ -76,8 +75,7 @@ function formatarData(data: string | null) {
 }
 
 export default function AlmoxarifadoPage() {
-  const supabase = createClient()
-  const { user } = useUser()
+  const supabase = useMemo(() => createClient(), [])
 
   const [aba, setAba] = useState<Aba>('estoque')
   const [itens, setItens] = useState<EstoqueItem[]>([])
@@ -106,9 +104,7 @@ export default function AlmoxarifadoPage() {
   const [quantidadeOrdem, setQuantidadeOrdem] = useState('')
   const [observacaoOrdem, setObservacaoOrdem] = useState('')
 
-  const usuarioAtual = user?.fullName || user?.primaryEmailAddress?.emailAddress || 'Sistema'
-
-  async function carregar() {
+  const carregar = useCallback(async function carregar() {
     setCarregando(true)
     try {
       const [itensQuery, movimentosQuery, ordensQuery] = await Promise.all([
@@ -137,11 +133,11 @@ export default function AlmoxarifadoPage() {
     } finally {
       setCarregando(false)
     }
-  }
+  }, [supabase])
 
   useEffect(() => {
     carregar()
-  }, [])
+  }, [carregar])
 
   const itensFiltrados = useMemo(() => {
     const texto = busca.toLowerCase()
@@ -174,6 +170,21 @@ export default function AlmoxarifadoPage() {
   const totalItens = itens.length
   const ordensAbertas = ordens.filter((ordem) => ordem.status === 'aberta').length
 
+  async function executarAlmoxarifado(dados: Record<string, unknown>) {
+    const resposta = await fetch('/api/almoxarifado', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados),
+    })
+    const resultado = await resposta.json()
+
+    if (!resposta.ok) {
+      throw new Error(resultado.error || 'Erro ao executar acao do almoxarifado.')
+    }
+
+    return resultado as { mensagem?: string; quantidade?: number }
+  }
+
   async function criarItem(e: React.FormEvent) {
     e.preventDefault()
     const quantidade = Number(quantidadeInicial || 0)
@@ -191,38 +202,24 @@ export default function AlmoxarifadoPage() {
     setSalvando(true)
     setMensagem('')
 
-    const { data, error } = await supabase
-      .from('estoque_itens')
-      .insert({
-        codigo: codigo.trim() || null,
-        nome: nome.trim(),
-        unidade: unidade.trim() || 'UN',
+    try {
+      const resultado = await executarAlmoxarifado({
+        acao: 'criar_item',
+        codigo,
+        nome,
+        unidade,
         quantidade,
         estoque_minimo: minimo,
-        localizacao: localizacao.trim() || null,
+        localizacao,
       })
-      .select()
-      .single()
-
-    if (!error && quantidade > 0 && data) {
-      await supabase.from('estoque_movimentos').insert({
-        item_id: data.id,
-        tipo: 'entrada',
-        quantidade,
-        origem: 'manual',
-        observacao: 'Saldo inicial',
-        criado_por: usuarioAtual,
-      })
-    }
-
-    setSalvando(false)
-
-    if (error) {
-      setMensagem('Erro ao cadastrar item: ' + error.message)
+      setMensagem(resultado.mensagem || 'Item cadastrado com sucesso.')
+    } catch (error) {
+      setMensagem(error instanceof Error ? 'Erro ao cadastrar item: ' + error.message : 'Erro ao cadastrar item.')
       return
+    } finally {
+      setSalvando(false)
     }
 
-    setMensagem('Item cadastrado com sucesso.')
     setCodigo('')
     setNome('')
     setUnidade('UN')
@@ -242,60 +239,27 @@ export default function AlmoxarifadoPage() {
       return
     }
 
-    const { data: itemAtual, error: buscaError } = await supabase
-      .from('estoque_itens')
-      .select('*')
-      .eq('id', itemSelecionado.id)
-      .single()
-
-    if (buscaError || !itemAtual) {
-      setMensagem('Erro ao buscar saldo atual: ' + (buscaError?.message || 'item nao encontrado.'))
-      return
-    }
-
-    const item = itemAtual as EstoqueItem
-    const saldoAtual = numero(item.quantidade)
-    const novoSaldo = tipoMovimento === 'entrada' ? saldoAtual + quantidade : saldoAtual - quantidade
-
-    if (novoSaldo < 0) {
-      setMensagem(`Saida maior que o saldo atual (${formatarNumero(item.quantidade)} ${item.unidade || 'UN'}).`)
-      return
-    }
-
     setSalvando(true)
     setMensagem('')
 
-    const { data: itemAtualizado, error: itemError } = await supabase
-      .from('estoque_itens')
-      .update({ quantidade: novoSaldo })
-      .eq('id', item.id)
-      .select('id, quantidade')
-      .single()
-
-    if (itemError || !itemAtualizado) {
+    try {
+      const resultado = await executarAlmoxarifado({
+        acao: 'registrar_movimento',
+        item_id: itemSelecionado.id,
+        tipo: tipoMovimento,
+        quantidade,
+        observacao: observacaoMovimento,
+      })
+      if (typeof resultado.quantidade === 'number') {
+        setItens((atuais) => atuais.map((registro) => (registro.id === itemSelecionado.id ? { ...registro, quantidade: resultado.quantidade as number } : registro)))
+      }
+      setMensagem(resultado.mensagem || 'Movimento registrado com sucesso.')
+    } catch (error) {
+      setMensagem(error instanceof Error ? error.message : 'Erro ao registrar movimento.')
+      return
+    } finally {
       setSalvando(false)
-      setMensagem('Erro ao atualizar saldo: ' + (itemError?.message || 'item nao atualizado.'))
-      return
     }
-
-    const { error: movError } = await supabase.from('estoque_movimentos').insert({
-      item_id: item.id,
-      tipo: tipoMovimento,
-      quantidade,
-      origem: 'manual',
-      observacao: observacaoMovimento.trim() || null,
-      criado_por: usuarioAtual,
-    })
-
-    setSalvando(false)
-
-    if (movError) {
-      setMensagem('Saldo atualizado, mas erro ao registrar historico: ' + movError.message)
-      return
-    }
-
-    setItens((atuais) => atuais.map((registro) => (registro.id === item.id ? { ...registro, quantidade: novoSaldo } : registro)))
-    setMensagem('Movimento registrado com sucesso.')
     setItemMovimentoId('')
     setQuantidadeMovimento('')
     setObservacaoMovimento('')
@@ -315,39 +279,22 @@ export default function AlmoxarifadoPage() {
     setSalvando(true)
     setMensagem('')
 
-    const { data: ordem, error } = await supabase
-      .from('ordens_compra')
-      .insert({
-        numero: numeroOrdem.trim() || null,
-        fornecedor: fornecedor.trim() || null,
-        comprador: usuarioAtual,
-        observacao: observacaoOrdem.trim() || null,
-        status: 'aberta',
+    try {
+      const resultado = await executarAlmoxarifado({
+        acao: 'criar_ordem',
+        numero: numeroOrdem,
+        fornecedor,
+        item_id: item.id,
+        quantidade,
+        observacao: observacaoOrdem,
       })
-      .select()
-      .single()
-
-    if (error || !ordem) {
+      setMensagem(resultado.mensagem || 'Ordem de compra criada com sucesso.')
+    } catch (error) {
+      setMensagem(error instanceof Error ? error.message : 'Erro ao criar ordem.')
+      return
+    } finally {
       setSalvando(false)
-      setMensagem('Erro ao criar ordem: ' + (error?.message || 'ordem nao retornada.'))
-      return
     }
-
-    const { error: itemError } = await supabase.from('ordens_compra_itens').insert({
-      ordem_id: ordem.id,
-      item_id: item.id,
-      quantidade,
-      quantidade_recebida: 0,
-    })
-
-    setSalvando(false)
-
-    if (itemError) {
-      setMensagem('Ordem criada, mas erro ao incluir item: ' + itemError.message)
-      return
-    }
-
-    setMensagem('Ordem de compra criada com sucesso.')
     setNumeroOrdem('')
     setFornecedor('')
     setItemOrdemId('')
@@ -357,100 +304,32 @@ export default function AlmoxarifadoPage() {
   }
 
   async function receberOrdem(ordem: OrdemCompra) {
-    const itemOrdem = ordem.ordens_compra_itens?.[0]
-    if (!itemOrdem) {
-      setMensagem('Ordem sem item para recebimento.')
-      return
-    }
-
-    const item = itens.find((registro) => registro.id === itemOrdem.item_id)
-    if (!item) {
-      setMensagem('Item da ordem nao foi encontrado no estoque.')
-      return
-    }
-
-    const quantidadeTotal = numero(itemOrdem.quantidade)
-    const quantidadeRecebida = numero(itemOrdem.quantidade_recebida)
-    const quantidadePendente = quantidadeTotal - quantidadeRecebida
-
-    if (quantidadePendente <= 0) {
-      setMensagem('Esta ordem ja foi recebida.')
-      return
-    }
-
     setSalvando(true)
     setMensagem('')
 
-    const novoSaldo = numero(item.quantidade) + quantidadePendente
-    const recebidoEm = new Date().toISOString()
-
-    const { error: estoqueError } = await supabase.from('estoque_itens').update({ quantidade: novoSaldo }).eq('id', item.id)
-    if (estoqueError) {
-      setSalvando(false)
-      setMensagem('Erro ao atualizar estoque: ' + estoqueError.message)
-      return
-    }
-
-    const { error: ordemItemError } = await supabase
-      .from('ordens_compra_itens')
-      .update({ quantidade_recebida: quantidadeTotal })
-      .eq('id', itemOrdem.id)
-
-    if (ordemItemError) {
-      setSalvando(false)
-      setMensagem('Estoque atualizado, mas erro ao atualizar item da OC: ' + ordemItemError.message)
-      return
-    }
-
-    const { error: ordemError } = await supabase
-      .from('ordens_compra')
-      .update({ status: 'recebida', recebida_em: recebidoEm })
-      .eq('id', ordem.id)
-
-    if (!ordemError) {
-      await supabase.from('estoque_movimentos').insert({
-        item_id: item.id,
-        tipo: 'entrada',
-        quantidade: quantidadePendente,
-        origem: 'ordem_compra',
-        referencia_id: ordem.id,
-        observacao: `Recebimento da OC ${ordem.numero || ordem.id}`,
-        criado_por: usuarioAtual,
+    try {
+      const resultado = await executarAlmoxarifado({
+        acao: 'receber_ordem',
+        ordem_id: ordem.id,
       })
+      setMensagem(resultado.mensagem || 'Ordem recebida e estoque atualizado.')
+      carregar()
+    } catch (error) {
+      setMensagem(error instanceof Error ? error.message : 'Erro ao receber ordem.')
+    } finally {
+      setSalvando(false)
     }
-
-    setSalvando(false)
-
-    if (ordemError) {
-      setMensagem('Erro ao finalizar ordem: ' + ordemError.message)
-      return
-    }
-
-    setMensagem('Ordem recebida e estoque atualizado.')
-    carregar()
   }
-
   return (
     <RequirePermissao permissao="almoxarifado">
       <div className="min-h-screen flex bg-[#0a1625]">
         <Sidebar />
 
-        <div className="flex-1 ml-64 flex flex-col h-screen overflow-hidden">
-          <div className="relative h-28 md:h-36 shrink-0 overflow-hidden">
-            <img src="/images/banner-frota3.jpg" alt="Filtroamb" className="w-full h-full object-cover object-center" />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#0a1625]/90 via-[#0a1625]/55 to-[#0a1625]/15" />
-            <div data-banner className="absolute inset-0 flex items-end pb-4 px-8">
-              <div>
-                <h1 className="text-xl font-bold text-white tracking-tight">Almoxarifado</h1>
-                <p className="text-sm text-cyan-300 mt-0.5">Controle de estoque, entradas, saidas e compras</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto bg-[#0a1625]" style={{ zoom: 0.95 }}>
+        <div className="flex-1 flex flex-col h-screen overflow-hidden">
+          <div className="app-scroll flex-1 overflow-y-auto bg-[#0a1625]" style={{ zoom: 0.95 }}>
             <main className="p-6">
               <div className="max-w-7xl mx-auto space-y-5">
-                <div className="flex flex-wrap gap-3 bg-[#132337] border border-cyan-500/20 rounded-xl p-1.5 w-fit">
+                <div className="flex flex-col gap-2 rounded-xl border border-cyan-500/20 bg-[#132337] p-1.5 lg:flex-row lg:items-center">
                   {[
                     { id: 'estoque' as Aba, label: 'Estoque' },
                     { id: 'movimentos' as Aba, label: 'Movimentacoes' },
@@ -463,12 +342,27 @@ export default function AlmoxarifadoPage() {
                         setAba(item.id)
                         setMensagem('')
                       }}
-                      className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap hover:-translate-y-0.5 active:translate-y-0 hover:shadow-md cursor-pointer ${aba === item.id ? 'bg-cyan-500 text-[#0a1625] shadow-sm' : 'text-slate-400 hover:text-white'
+                      className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap active:translate-y-0 cursor-pointer ${aba === item.id ? 'bg-cyan-500 text-[#0a1625] shadow-sm' : 'text-slate-400 hover:bg-white/5 hover:text-white'
                         }`}
                     >
                       {item.label}
                     </button>
                   ))}
+
+                  <div className="hidden h-8 w-px bg-cyan-500/20 lg:block" />
+
+                  <input
+                    value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
+                    placeholder={
+                      aba === 'estoque'
+                        ? 'Buscar item...'
+                        : aba === 'movimentos'
+                          ? 'Buscar movimento...'
+                          : 'Buscar OC...'
+                    }
+                    className="min-w-[240px] flex-1 rounded-lg border border-cyan-500/20 bg-[#0f1c2e] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                  />
                 </div>
 
                 {mensagem && (
@@ -535,14 +429,13 @@ export default function AlmoxarifadoPage() {
                     </section>
 
                     <section className="bg-[#0f1c2e] border border-cyan-500/15 rounded-2xl overflow-hidden">
-                      <div className="px-5 py-4 border-b border-white/5 bg-[#132337]/60 flex items-center justify-between gap-3">
+                      <div className="px-5 py-4 border-b border-white/5 bg-[#132337]/60">
                         <div>
                           <h2 className="text-base font-semibold text-white">Estoque Atual</h2>
                           <p className="text-xs text-slate-500 mt-0.5">Saldos por item</p>
                         </div>
-                        <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar item..." className="w-72 px-4 py-2 bg-[#0a1625] border border-cyan-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/40" />
                       </div>
-                      <div className="max-h-[58vh] overflow-auto">
+                      <div className="app-scroll max-h-[58vh] overflow-auto">
                         <table className="min-w-full text-sm">
                           <thead>
                             <tr className="bg-[#132337] border-b border-cyan-500/15 sticky top-0 z-10">
@@ -620,11 +513,10 @@ export default function AlmoxarifadoPage() {
                     </section>
 
                     <section className="bg-[#0f1c2e] border border-cyan-500/15 rounded-2xl overflow-hidden">
-                      <div className="px-5 py-4 border-b border-white/5 bg-[#132337]/60 flex items-center justify-between gap-3">
+                      <div className="px-5 py-4 border-b border-white/5 bg-[#132337]/60">
                         <h2 className="text-base font-semibold text-white">Historico de Movimentos</h2>
-                        <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar movimento..." className="w-72 px-4 py-2 bg-[#0a1625] border border-cyan-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/40" />
                       </div>
-                      <div className="max-h-[58vh] overflow-auto">
+                      <div className="app-scroll max-h-[58vh] overflow-auto">
                         <table className="min-w-full text-sm">
                           <thead>
                             <tr className="bg-[#132337] border-b border-cyan-500/15 sticky top-0 z-10">
@@ -701,11 +593,10 @@ export default function AlmoxarifadoPage() {
                     </section>
 
                     <section className="bg-[#0f1c2e] border border-cyan-500/15 rounded-2xl overflow-hidden">
-                      <div className="px-5 py-4 border-b border-white/5 bg-[#132337]/60 flex items-center justify-between gap-3">
+                      <div className="px-5 py-4 border-b border-white/5 bg-[#132337]/60">
                         <h2 className="text-base font-semibold text-white">Ordens de Compra</h2>
-                        <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar OC..." className="w-72 px-4 py-2 bg-[#0a1625] border border-cyan-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/40" />
                       </div>
-                      <div className="max-h-[58vh] overflow-auto">
+                      <div className="app-scroll max-h-[58vh] overflow-auto">
                         <table className="min-w-full text-sm">
                           <thead>
                             <tr className="bg-[#132337] border-b border-cyan-500/15 sticky top-0 z-10">

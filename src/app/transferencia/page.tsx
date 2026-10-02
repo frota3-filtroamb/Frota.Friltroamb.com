@@ -1,7 +1,7 @@
 'use client'
 
 import RequirePermissao from '@/components/RequirePermissao'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Sidebar from '@/components/Sidebar'
 import Link from 'next/link'
@@ -18,12 +18,12 @@ type Transferencia = {
 }
 
 export default function TransferenciaPage() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   const [lista, setLista] = useState<Transferencia[]>([])
   const [busca, setBusca] = useState('')
 
-  async function carregarDados() {
+  const carregarDados = useCallback(async function carregarDados() {
     const { data } = await supabase
       .from('transferencias')
       .select('*')
@@ -31,14 +31,14 @@ export default function TransferenciaPage() {
       .limit(100)
 
     if (data) setLista(data)
-  }
+  }, [supabase])
 
   useEffect(() => {
     carregarDados()
-  }, [])
+  }, [carregarDados])
 
   function formatarData(data: string | null) {
-    if (!data) return '—'
+    if (!data) return '--'
     return new Date(data).toLocaleString('pt-BR')
   }
 
@@ -57,58 +57,38 @@ export default function TransferenciaPage() {
       <div className="min-h-screen flex bg-[#0a1625]">
         <Sidebar />
 
-        <div className="flex-1 ml-64 flex flex-col h-screen overflow-hidden">
-          {/* Banner */}
-          <div className="relative h-44 shrink-0 overflow-hidden">
-            <img
-              src="/images/banner-frota3.jpg"
-              alt="Filtroamb"
-              className="w-full h-full object-cover object-center"
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#0a1625]/90 via-[#0a1625]/55 to-transparent" />
-            <div data-banner className="absolute inset-0 flex items-end pb-5 px-8">
-              <div>
-                <h1 className="text-2xl font-bold text-white tracking-tight drop-shadow">
-                  Histórico de Transferências
-                </h1>
-                <p className="text-sm text-emerald-300 mt-1 drop-shadow">
-                  Consulte as movimentações de bases da frota
-                </p>
-              </div>
-            </div>
-          </div>
-
+        <div className="flex-1 flex flex-col h-screen overflow-hidden">
           <main className="flex-1 p-8 overflow-y-auto">
             <div className="max-w-6xl mx-auto">
-              <div className="flex flex-wrap gap-3 bg-[#132337] border border-emerald-500/20 rounded-xl p-1.5 w-fit mb-6">
+              <div className="mb-6 flex flex-col gap-2 rounded-xl border border-emerald-500/20 bg-[#132337] p-1.5 sm:flex-row sm:items-center">
                 <Link
                   href="/portaria"
-                  className="px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap hover:-translate-y-0.5 active:translate-y-0 hover:shadow-md cursor-pointer text-slate-400 hover:text-white"
+                  className="px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap active:translate-y-0 cursor-pointer text-slate-400 hover:bg-white/5 hover:text-white"
                 >
                   Controle
                 </Link>
                 <Link
                   href="/portaria"
-                  className="px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap hover:-translate-y-0.5 active:translate-y-0 hover:shadow-md cursor-pointer text-slate-400 hover:text-white"
+                  className="px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap active:translate-y-0 cursor-pointer text-slate-400 hover:bg-white/5 hover:text-white"
                 >
                   Pedestres / Visitantes
                 </Link>
                 <button
                   type="button"
-                  className="px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap hover:-translate-y-0.5 active:translate-y-0 hover:shadow-md cursor-pointer bg-blue-500 text-white shadow-sm"
+                  className="px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap active:translate-y-0 cursor-pointer bg-blue-500 text-white shadow-sm"
                 >
-                  Transferência
+                  Transferencia
                 </button>
+                <div className="hidden h-8 flex-1 border-l border-emerald-500/20 sm:block" />
               </div>
 
-              {/* Header da Tabela */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
                   <h2 className="text-lg font-semibold text-white tracking-tight">
-                    Transferências Registradas
+                    Transferencias Registradas
                   </h2>
                   <p className="text-sm text-slate-400 mt-0.5">
-                    Mostrando os últimos registros de movimentação
+                    Mostrando os ultimos registros de movimentacao
                   </p>
                 </div>
                 <div className="relative">
@@ -119,22 +99,21 @@ export default function TransferenciaPage() {
                     placeholder="Pesquisar placa, base, motorista..."
                     className="w-full sm:w-80 pl-10 pr-4 py-2.5 bg-[#132337] border border-emerald-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition shadow-sm"
                   />
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400/70 text-sm">🔍</span>
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400/70 text-sm">?</span>
                 </div>
               </div>
 
-              {/* Tabela Profissional */}
               <div className="bg-[#0f1c2e] rounded-2xl border border-emerald-500/15 shadow-[0_0_30px_rgba(16,185,129,0.05)] overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm">
                     <thead>
                       <tr className="bg-[#132337] border-b border-emerald-500/15">
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Veículo</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Veiculo</th>
                         <th className="px-6 py-4 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Origem</th>
                         <th className="px-6 py-4 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Destino</th>
                         <th className="px-6 py-4 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Motorista</th>
                         <th className="px-6 py-4 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Data / Hora</th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Responsável</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-emerald-400/90 uppercase tracking-wider whitespace-nowrap">Responsavel</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
@@ -142,8 +121,8 @@ export default function TransferenciaPage() {
                         <tr>
                           <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                             <div className="flex flex-col items-center justify-center space-y-3">
-                              <span className="text-3xl">📭</span>
-                              <p>Nenhuma transferência encontrada com os filtros atuais.</p>
+                              <span className="text-3xl">--</span>
+                              <p>Nenhuma transferencia encontrada com os filtros atuais.</p>
                             </div>
                           </td>
                         </tr>
@@ -168,13 +147,13 @@ export default function TransferenciaPage() {
                               </div>
                             </td>
                             <td className="px-6 py-4 text-slate-400 font-medium">
-                              {t.motorista || <span className="text-slate-600 font-normal">Não informado</span>}
+                              {t.motorista || <span className="text-slate-600 font-normal">Nao informado</span>}
                             </td>
                             <td className="px-6 py-4 text-slate-400 text-xs">
                               {formatarData(t.transferido_em)}
                             </td>
                             <td className="px-6 py-4 text-slate-500 text-xs">
-                              {t.transferido_por || '—'}
+                              {t.transferido_por || '--'}
                             </td>
                           </tr>
                         ))

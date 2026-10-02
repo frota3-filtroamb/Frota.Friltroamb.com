@@ -2,10 +2,8 @@
 
 import Sidebar from '@/components/Sidebar'
 import { useUser } from '@clerk/nextjs'
-import { useEffect, useState } from 'react'
-import type { Permissao } from '@/lib/roles'
-
-type Role = 'dev' | 'gestor' | 'porteiro'
+import { useEffect, useMemo, useState } from 'react'
+import type { Permissao, Role } from '@/lib/roles'
 
 type Usuario = {
   id: string
@@ -15,11 +13,12 @@ type Usuario = {
   permissoes: Permissao[]
 }
 
-const ABAS: { id: Permissao; label: string; filhos?: { id: Permissao; label: string }[] }[] = [
-  { id: 'veiculos', label: 'Veiculos' },
+const ABAS: { id: Permissao; label: string; descricao: string; filhos?: { id: Permissao; label: string }[] }[] = [
+  { id: 'veiculos', label: 'Veiculos', descricao: 'Consulta da frota cadastrada' },
   {
     id: 'portaria',
     label: 'Controle',
+    descricao: 'Baixas e acompanhamento da portaria',
     filhos: [
       { id: 'portaria.veiculos', label: 'Veiculos' },
       { id: 'portaria.pedestres', label: 'Pedestres' },
@@ -29,6 +28,7 @@ const ABAS: { id: Permissao; label: string; filhos?: { id: Permissao; label: str
   {
     id: 'liberacao',
     label: 'Liberacao',
+    descricao: 'Criacao de liberacoes e autorizacoes',
     filhos: [
       { id: 'liberacao.veiculo_empresa', label: 'Veiculo Empresa' },
       { id: 'liberacao.veiculo_externo', label: 'Veiculo Externo' },
@@ -37,20 +37,60 @@ const ABAS: { id: Permissao; label: string; filhos?: { id: Permissao; label: str
       { id: 'liberacao.veiculo_interno', label: 'Veiculo Interno' },
     ],
   },
-  { id: 'transferencia', label: 'Transferencia' },
-  { id: 'encomendas', label: 'Encomendas' },
-  { id: 'almoxarifado', label: 'Almoxarifado' },
+  { id: 'transferencia', label: 'Transferencia', descricao: 'Consulta antiga de transferencias' },
+  { id: 'encomendas', label: 'Encomendas', descricao: 'Controle de recebimento e retirada' },
+  { id: 'almoxarifado', label: 'Almoxarifado', descricao: 'Estoque, compras e movimentacoes' },
+  {
+    id: 'cadastros',
+    label: 'Cadastros',
+    descricao: 'Pessoas, destinos e bases de apoio',
+    filhos: [
+      { id: 'cadastros.pessoas', label: 'Pessoas' },
+      { id: 'cadastros.destinos', label: 'Destinos' },
+    ],
+  },
 ]
 
-const ROLES: { id: Role; label: string }[] = [
-  { id: 'dev', label: 'Dev' },
-  { id: 'gestor', label: 'Gestor' },
-  { id: 'porteiro', label: 'Porteiro' },
+const ROLES: { id: Role; label: string; descricao: string }[] = [
+  { id: 'dev', label: 'Dev', descricao: 'Acesso tecnico completo' },
+  { id: 'gestor', label: 'Gestor', descricao: 'Gestao operacional completa' },
+  { id: 'editor', label: 'Editor', descricao: 'Pode editar registros liberados' },
+  { id: 'porteiro', label: 'Porteiro', descricao: 'Foco na portaria e baixas' },
+  { id: 'basico', label: 'Basico', descricao: 'Consulta inicial do sistema' },
 ]
+
+const ROLE_LABEL: Record<Role, string> = {
+  dev: 'Dev',
+  gestor: 'Gestor',
+  editor: 'Editor',
+  porteiro: 'Porteiro',
+  basico: 'Basico',
+}
+
+function contarPermissoesVisiveis(usuario: Usuario) {
+  return ABAS.reduce((total, aba) => {
+    const principal = usuario.permissoes.includes(aba.id) ? 1 : 0
+    const filhos = aba.filhos?.filter((filho) => usuario.permissoes.includes(filho.id)).length || 0
+    return total + principal + filhos
+  }, 0)
+}
+
+function iniciais(nome: string, email: string) {
+  const texto = nome || email || 'Usuario'
+  return texto
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((parte) => parte[0])
+    .join('')
+    .toUpperCase()
+}
 
 export default function UsuariosPage() {
   const { user, isLoaded } = useUser()
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
+  const [busca, setBusca] = useState('')
+  const [filtroRole, setFiltroRole] = useState<'todos' | Role>('todos')
   const [carregando, setCarregando] = useState(true)
   const [salvandoId, setSalvandoId] = useState<string | null>(null)
   const [mensagem, setMensagem] = useState('')
@@ -79,6 +119,34 @@ export default function UsuariosPage() {
 
     carregarUsuarios()
   }, [isLoaded, podeGerenciar])
+
+  const usuariosFiltrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase()
+
+    return usuarios.filter((usuario) => {
+      const bateBusca =
+        !termo ||
+        usuario.nome.toLowerCase().includes(termo) ||
+        usuario.email.toLowerCase().includes(termo) ||
+        usuario.id.toLowerCase().includes(termo)
+      const bateRole = filtroRole === 'todos' || usuario.role === filtroRole
+      return bateBusca && bateRole
+    })
+  }, [usuarios, busca, filtroRole])
+
+  const resumo = useMemo(() => {
+    const porRole = ROLES.reduce<Record<Role, number>>((acc, role) => {
+      acc[role.id] = usuarios.filter((usuario) => usuario.role === role.id).length
+      return acc
+    }, { dev: 0, gestor: 0, editor: 0, porteiro: 0, basico: 0 })
+
+    return {
+      total: usuarios.length,
+      exibidos: usuariosFiltrados.length,
+      porRole,
+      permissoes: usuarios.reduce((total, usuario) => total + contarPermissoesVisiveis(usuario), 0),
+    }
+  }, [usuarios, usuariosFiltrados.length])
 
   function alterarRole(usuarioId: string, role: Role) {
     setUsuarios((atuais) => atuais.map((usuario) => (usuario.id === usuarioId ? { ...usuario, role } : usuario)))
@@ -149,7 +217,7 @@ export default function UsuariosPage() {
       if (!resposta.ok) throw new Error(dados.error || 'Erro ao salvar usuario.')
 
       setUsuarios((atuais) => atuais.map((item) => (item.id === usuario.id ? dados.usuario : item)))
-      setMensagem('Permissoes atualizadas.')
+      setMensagem(`Permissoes de ${dados.usuario?.nome || usuario.nome} atualizadas.`)
     } catch (error) {
       setMensagem(error instanceof Error ? error.message : 'Erro ao salvar usuario.')
     } finally {
@@ -161,7 +229,7 @@ export default function UsuariosPage() {
     return (
       <div className="min-h-screen flex bg-[#0a1625]">
         <Sidebar />
-        <div className="flex-1 ml-64 flex items-center justify-center text-slate-400">Carregando usuarios...</div>
+        <div className="flex-1 flex items-center justify-center text-slate-400">Carregando usuarios...</div>
       </div>
     )
   }
@@ -170,7 +238,7 @@ export default function UsuariosPage() {
     return (
       <div className="min-h-screen flex bg-[#0a1625]">
         <Sidebar />
-        <div className="flex-1 ml-64 flex items-center justify-center text-slate-400">Acesso negado.</div>
+        <div className="flex-1 flex items-center justify-center text-slate-400">Acesso negado.</div>
       </div>
     )
   }
@@ -179,118 +247,191 @@ export default function UsuariosPage() {
     <div className="min-h-screen flex bg-[#0a1625]">
       <Sidebar />
 
-      <main className="flex-1 ml-64 min-h-screen overflow-y-auto bg-[#0a1625]">
-        <div className="relative h-28 md:h-36 shrink-0 overflow-hidden">
-          <img src="/images/banner-frota3.jpg" alt="Filtroamb" className="w-full h-full object-cover object-center" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0a1625]/85 via-[#0a1625]/50 to-[#0a1625]/20" />
-          <div className="absolute inset-0 flex items-end pb-6 px-8">
-            <div>
-              <h1 className="text-2xl font-bold text-white tracking-tight drop-shadow">Usuarios</h1>
-              <p className="text-sm text-emerald-300 mt-1 drop-shadow">Liberacao de acesso por usuario</p>
+      <main className="app-scroll flex-1 min-h-screen overflow-y-auto bg-[#0a1625]">
+        <section className="px-4 py-6 md:px-8 xl:px-14">
+          <div className="mb-5 rounded-xl border border-emerald-500/20 bg-[#132337] p-1.5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+              <div className="px-4 py-2.5">
+                <h1 className="text-base font-semibold text-white">Usuarios</h1>
+                <p className="text-xs text-slate-500">{resumo.exibidos} de {resumo.total} usuarios</p>
+              </div>
+
+              <div className="hidden h-8 w-px bg-emerald-500/20 lg:block" />
+
+              <input
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Buscar por nome, email ou id..."
+                className="min-w-[240px] flex-1 rounded-lg border border-emerald-500/20 bg-[#0f1c2e] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+              />
+
+              <select
+                value={filtroRole}
+                onChange={(e) => setFiltroRole(e.target.value as 'todos' | Role)}
+                className="rounded-lg border border-emerald-500/20 bg-[#0f1c2e] px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+              >
+                <option value="todos">Todos os perfis</option>
+                {ROLES.map((role) => (
+                  <option key={role.id} value={role.id}>{role.label}</option>
+                ))}
+              </select>
             </div>
           </div>
-        </div>
 
-        <div className="p-6 space-y-4">
           {mensagem && (
-            <div className={`p-4 rounded-xl text-sm border ${mensagem.includes('Erro') || mensagem.includes('negado') ? 'bg-red-500/10 text-red-300 border-red-500/20' : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'}`}>
+            <div className={`mb-5 rounded-xl border px-4 py-3 text-sm font-semibold ${mensagem.includes('Erro') || mensagem.includes('negado') ? 'border-red-500/20 bg-red-500/10 text-red-300' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'}`}>
               {mensagem}
             </div>
           )}
 
-          {usuarios.length === 0 ? (
-            <div className="rounded-2xl border border-white/10 bg-[#0f1c2e] px-5 py-10 text-center text-slate-500">Nenhum usuario encontrado.</div>
+          <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="rounded-xl border border-emerald-500/15 bg-[#0f1c2e] p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Total</p>
+              <p className="mt-2 text-2xl font-bold text-white">{resumo.total}</p>
+            </div>
+            <div className="rounded-xl border border-emerald-500/15 bg-[#0f1c2e] p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Gestores</p>
+              <p className="mt-2 text-2xl font-bold text-emerald-300">{resumo.porRole.gestor}</p>
+            </div>
+            <div className="rounded-xl border border-emerald-500/15 bg-[#0f1c2e] p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Portaria</p>
+              <p className="mt-2 text-2xl font-bold text-sky-300">{resumo.porRole.porteiro}</p>
+            </div>
+            <div className="rounded-xl border border-emerald-500/15 bg-[#0f1c2e] p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Permissoes</p>
+              <p className="mt-2 text-2xl font-bold text-white">{resumo.permissoes}</p>
+            </div>
+          </div>
+
+          {usuariosFiltrados.length === 0 ? (
+            <div className="rounded-2xl border border-white/10 bg-[#0f1c2e] px-5 py-10 text-center">
+              <h2 className="text-sm font-semibold text-white">Nenhum usuario encontrado</h2>
+              <p className="mt-1 text-sm text-slate-500">Ajuste a busca ou o filtro de perfil para visualizar outros usuarios.</p>
+            </div>
           ) : (
             <div className="space-y-4">
-              {usuarios.map((usuario) => (
-                <section key={usuario.id} className="rounded-2xl border border-emerald-500/15 bg-[#0f1c2e] shadow-[0_0_30px_rgba(16,185,129,0.05)] overflow-hidden">
-                  <div className="flex flex-col gap-4 border-b border-white/5 bg-[#132337]/60 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="min-w-0">
-                      <h2 className="truncate text-base font-semibold text-white">{usuario.nome}</h2>
-                      <p className="mt-1 truncate text-xs text-slate-500">{usuario.email || usuario.id}</p>
-                    </div>
+              {usuariosFiltrados.map((usuario) => {
+                const permissoesAtivas = contarPermissoesVisiveis(usuario)
+                const roleAtual = ROLES.find((role) => role.id === usuario.role)
 
-                    <div className="flex flex-wrap items-center gap-3">
-                      <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                        Perfil
-                        <select
-                          value={usuario.role}
-                          onChange={(event) => alterarRole(usuario.id, event.target.value as Role)}
-                          className="bg-[#0f1c2e] border border-white/10 rounded-lg px-3 py-2 text-sm normal-case tracking-normal text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
-                        >
-                          {ROLES.map((role) => (
-                            <option key={role.id} value={role.id}>{role.label}</option>
-                          ))}
-                        </select>
-                      </label>
+                return (
+                  <section key={usuario.id} className="overflow-hidden rounded-2xl border border-emerald-500/15 bg-[#0f1c2e] shadow-[0_18px_45px_rgba(0,0,0,0.16)]">
+                    <div className="flex flex-col gap-4 border-b border-white/5 bg-[#132337]/70 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-500/25 bg-emerald-500/10 text-sm font-bold text-emerald-300">
+                          {iniciais(usuario.nome, usuario.email)}
+                        </div>
 
-                      <button
-                        type="button"
-                        onClick={() => salvar(usuario)}
-                        disabled={salvandoId === usuario.id}
-                        className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 disabled:cursor-not-allowed text-[#0a1625] text-xs font-semibold px-4 py-2 rounded-lg transition"
-                      >
-                        {salvandoId === usuario.id ? 'Salvando...' : 'Salvar'}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="p-5">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <h3 className="text-xs font-semibold uppercase tracking-wider text-emerald-400/90">Permissoes</h3>
-                      <span className="text-xs text-slate-500">{usuario.permissoes.length} ativas</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                      {ABAS.map((aba) => {
-                        const ativa = usuario.permissoes.includes(aba.id)
-                        return (
-                          <div key={aba.id} className="border-t border-white/10 pt-3">
-                            <div className="flex items-center justify-between gap-3">
-                              <button
-                                type="button"
-                                onClick={() => alternarPermissao(usuario.id, aba.id)}
-                                className={`min-w-28 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${ativa
-                                    ? 'bg-emerald-500 text-[#0a1625] border-emerald-400 shadow-sm'
-                                    : 'bg-[#132337] text-slate-400 border-white/10 hover:text-white hover:border-white/20'
-                                  }`}
-                              >
-                                {aba.label}
-                              </button>
-                            </div>
-
-                            {aba.filhos && (
-                              <div className="mt-2 grid grid-cols-2 gap-2">
-                                {aba.filhos.map((filho) => {
-                                  const temDetalheConfigurado = aba.filhos?.some((item) => usuario.permissoes.includes(item.id))
-                                  const filhoAtivo = temDetalheConfigurado ? usuario.permissoes.includes(filho.id) : ativa
-                                  return (
-                                    <button
-                                      key={filho.id}
-                                      type="button"
-                                      onClick={() => alternarSubPermissao(usuario.id, aba.id, filho.id)}
-                                      disabled={!ativa && !filhoAtivo}
-                                      className={`px-2.5 py-1.5 rounded-md text-[11px] font-semibold border transition-all disabled:cursor-not-allowed ${filhoAtivo
-                                          ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
-                                          : 'bg-[#0a1625] text-slate-500 border-white/10 hover:text-white hover:border-white/20 disabled:opacity-45'
-                                        }`}
-                                    >
-                                      {filho.label}
-                                    </button>
-                                  )
-                                })}
-                              </div>
-                            )}
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h2 className="truncate text-sm font-semibold text-white md:text-base">{usuario.nome || 'Usuario sem nome'}</h2>
+                            <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
+                              {ROLE_LABEL[usuario.role]}
+                            </span>
                           </div>
-                        )
-                      })}
+                          <p className="mt-1 truncate text-xs text-slate-500">{usuario.email || usuario.id}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                          Perfil
+                          <select
+                            value={usuario.role}
+                            onChange={(event) => alterarRole(usuario.id, event.target.value as Role)}
+                            className="min-w-32 rounded-lg border border-white/10 bg-[#0f1c2e] px-3 py-2 text-sm normal-case tracking-normal text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                          >
+                            {ROLES.map((role) => (
+                              <option key={role.id} value={role.id}>{role.label}</option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <button
+                          type="button"
+                          onClick={() => salvar(usuario)}
+                          disabled={salvandoId === usuario.id}
+                          className="rounded-lg bg-emerald-500 px-5 py-2 text-sm font-semibold text-[#0a1625] transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {salvandoId === usuario.id ? 'Salvando...' : 'Salvar'}
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                </section>
-              ))}
+
+                    <div className="grid gap-4 p-4 xl:grid-cols-[260px_1fr]">
+                      <aside className="rounded-xl border border-white/10 bg-[#0a1625]/55 p-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Resumo do acesso</p>
+                        <p className="mt-3 text-sm font-semibold text-white">{permissoesAtivas} permissao(oes) ativa(s)</p>
+                        <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                          {roleAtual?.descricao || 'Perfil personalizado.'}
+                        </p>
+                      </aside>
+
+                      <div>
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-emerald-400/90">Permissoes do sistema</h3>
+                          <span className="text-xs text-slate-500">Clique para liberar ou remover acesso</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                          {ABAS.map((aba) => {
+                            const ativa = usuario.permissoes.includes(aba.id)
+
+                            return (
+                              <div key={aba.id} className={`rounded-xl border p-3 transition ${ativa ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-white/10 bg-[#132337]/45'}`}>
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className={`text-sm font-semibold ${ativa ? 'text-emerald-200' : 'text-slate-300'}`}>{aba.label}</p>
+                                    <p className="mt-1 text-xs leading-snug text-slate-500">{aba.descricao}</p>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => alternarPermissao(usuario.id, aba.id)}
+                                    className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-semibold transition ${ativa
+                                      ? 'border-emerald-400 bg-emerald-500 text-[#0a1625]'
+                                      : 'border-white/10 bg-[#0a1625] text-slate-400 hover:border-emerald-500/30 hover:text-white'
+                                      }`}
+                                  >
+                                    {ativa ? 'Ativo' : 'Liberar'}
+                                  </button>
+                                </div>
+
+                                {aba.filhos && (
+                                  <div className="mt-3 grid grid-cols-2 gap-2">
+                                    {aba.filhos.map((filho) => {
+                                      const temDetalheConfigurado = aba.filhos?.some((item) => usuario.permissoes.includes(item.id))
+                                      const filhoAtivo = temDetalheConfigurado ? usuario.permissoes.includes(filho.id) : ativa
+
+                                      return (
+                                        <button
+                                          key={filho.id}
+                                          type="button"
+                                          onClick={() => alternarSubPermissao(usuario.id, aba.id, filho.id)}
+                                          disabled={!ativa && !filhoAtivo}
+                                          className={`rounded-lg border px-2.5 py-2 text-[11px] font-semibold transition disabled:cursor-not-allowed ${filhoAtivo
+                                            ? 'border-sky-500/40 bg-sky-500/20 text-sky-200'
+                                            : 'border-white/10 bg-[#0a1625] text-slate-500 hover:border-white/20 hover:text-white disabled:opacity-45'
+                                            }`}
+                                        >
+                                          {filho.label}
+                                        </button>
+                                      )
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                )
+              })}
             </div>
           )}
-        </div>
+        </section>
       </main>
     </div>
   )

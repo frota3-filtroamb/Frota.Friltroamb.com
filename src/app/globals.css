@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   Tokens e Base
+   ========================================================================== */
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -19,12 +23,6 @@
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
 * {
   box-sizing: border-box;
 }
@@ -35,9 +33,77 @@ body {
   overflow-x: hidden;
 }
 
-/* ================================================================
-   Impede que a placa quebre em 2 linhas em qualquer resolução/zoom
-   ================================================================ */
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+  transition-duration: 180ms;
+  transition-property: background-color, border-color, box-shadow, color, filter, transform;
+  transition-timing-function: ease-out;
+}
+
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+button:not(:disabled):hover,
+[role="button"]:not([aria-disabled="true"]):hover {
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.16);
+  transform: translateY(-2px);
+}
+
+button:not(:disabled):active,
+[role="button"]:not([aria-disabled="true"]):active {
+  box-shadow: none;
+  transform: translateY(0);
+}
+
+[data-dropdown] button:not(:disabled):hover,
+[data-dropdown] button:not(:disabled):active {
+  box-shadow: none;
+  transform: none;
+}
+
+/* Tela de login/cadastro compacta em 100% de zoom. */
+[data-auth-page="true"] .cl-card {
+  padding: 1rem !important;
+}
+
+[data-auth-page="true"] .cl-header {
+  gap: 0.25rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+[data-auth-page="true"] .cl-headerSubtitle {
+  display: none !important;
+}
+
+[data-auth-page="true"] .cl-main,
+[data-auth-page="true"] .cl-form,
+[data-auth-page="true"] .cl-formField,
+[data-auth-page="true"] .cl-socialButtons,
+[data-auth-page="true"] .cl-dividerRow,
+[data-auth-page="true"] .cl-footer {
+  gap: 0.5rem !important;
+}
+
+[data-auth-page="true"] .cl-footer {
+  padding-top: 0.5rem !important;
+}
+
+@media (max-height: 720px) {
+  [data-auth-page="true"] .auth-footnote {
+    display: none;
+  }
+}
+
+/* Mantem placas e textos curtos de tabela em uma linha. */
 [data-placa],
 .placa-badge,
 th:has(.placa),
@@ -46,23 +112,167 @@ td:has(.placa),
   white-space: nowrap !important;
 }
 
-/* ================================================================
-   BLOCO 1: MODO ESCURO (DARK MODE)
-   Valores padrão quando o tema escuro está ativo
-   ================================================================ */
+.liberacao-page button:not(:disabled) {
+  transition-duration: 180ms;
+  transition-property: background-color, border-color, box-shadow, color, filter, transform;
+  transition-timing-function: ease-out;
+}
 
-/* 1.1 Fundo Geral da Aplicação */
+.liberacao-page button:not(:disabled):hover {
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
+  transform: translateY(-2px);
+}
+
+.liberacao-page button:not(:disabled):active {
+  box-shadow: none;
+  transform: translateY(0);
+}
+
+.liberacao-page [data-dropdown] button:not(:disabled):hover {
+  box-shadow: none;
+  transform: none;
+}
+
+.portaria-controle-page [data-topic-button]:not(:disabled) {
+  transition-duration: 180ms;
+  transition-property: background-color, border-color, box-shadow, color, filter, transform;
+  transition-timing-function: ease-out;
+}
+
+.portaria-controle-page [data-topic-button]:not(:disabled):hover {
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
+  transform: translateY(-2px);
+}
+
+.portaria-controle-page [data-topic-button]:not(:disabled):active {
+  box-shadow: none;
+  transform: translateY(0);
+}
+
+.app-scroll,
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(52, 211, 153, 0.45) transparent;
+}
+
+.app-scroll::-webkit-scrollbar,
+.sidebar-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.app-scroll::-webkit-scrollbar-track,
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-scroll::-webkit-scrollbar-thumb,
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.45), rgba(16, 185, 129, 0.25));
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+.app-scroll::-webkit-scrollbar-thumb:hover,
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.75), rgba(16, 185, 129, 0.45));
+  background-clip: content-box;
+}
+
+.sidebar-rail-scroll {
+  scrollbar-width: none;
+}
+
+.sidebar-rail-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.group\/sidebar:hover .sidebar-rail-scroll,
+.group\/sidebar:focus-within .sidebar-rail-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(52, 211, 153, 0.45) transparent;
+}
+
+.group\/sidebar:hover .sidebar-rail-scroll::-webkit-scrollbar,
+.group\/sidebar:focus-within .sidebar-rail-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.group\/sidebar:hover .sidebar-rail-scroll::-webkit-scrollbar-track,
+.group\/sidebar:focus-within .sidebar-rail-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.group\/sidebar:hover .sidebar-rail-scroll::-webkit-scrollbar-thumb,
+.group\/sidebar:focus-within .sidebar-rail-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.45), rgba(16, 185, 129, 0.25));
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+.group\/sidebar:hover .sidebar-rail-scroll::-webkit-scrollbar-thumb:hover,
+.group\/sidebar:focus-within .sidebar-rail-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.75), rgba(16, 185, 129, 0.45));
+  background-clip: content-box;
+}
+
+@media (min-width: 1024px) {
+  aside.group\/sidebar~.flex-1 {
+    padding-top: 3.5rem;
+  }
+}
+
+/* ==========================================================================
+   Tema Escuro
+   ========================================================================== */
+
 html:not(.light) body,
 html:not(.light) .bg-\[\#0a1625\] {
   background-color: #0a1625 !important;
   color: #f8fafcd5 !important;
 }
 
-/* 1.2 Sidebar e Navegação */
 html:not(.light) aside,
 html:not(.light) .bg-\[\#0b1f33\] {
   background-color: #151431 !important;
   border-color: rgba(173, 153, 153, 0.05) !important;
+}
+
+html:not(.light) .bg-\[\#0f1c2e\] {
+  background-color: #0f1c2e !important;
+  border-color: rgba(16, 185, 129, 0.15) !important;
+}
+
+html:not(.light) .bg-\[\#132337\] {
+  background-color: #132337 !important;
+}
+
+html:not(.light) .bg-\[\#132337\]\/60 {
+  background-color: rgba(19, 35, 55, 0.6) !important;
+}
+
+html:not(.light) .text-white {
+  color: #ffffffd5 !important;
+}
+
+html:not(.light) .text-slate-300 {
+  color: #cbe1d8 !important;
+}
+
+html:not(.light) .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+html:not(.light) .text-slate-500 {
+  color: #64748b !important;
+}
+
+html:not(.light) .text-slate-600 {
+  color: #475569 !important;
 }
 
 html:not(.light) aside .text-white {
@@ -87,48 +297,55 @@ html:not(.light) aside button:hover {
   color: #ffffff !important;
 }
 
-html:not(.light) aside .bg-emerald-500\/15 {
-  background-color: rgba(16, 185, 129, 0.15) !important;
-  color: #6ee7b7 !important;
+html:not(.light) .app-topbar {
+  background-color: #151431 !important;
+  border-color: rgba(16, 185, 129, 0.14) !important;
+  color: #f8fafc !important;
 }
 
-/* 1.3 Cards e Containers Principais */
-html:not(.light) .bg-\[\#0f1c2e\] {
-  background-color: #0f1c2e !important;
-  border-color: rgba(16, 185, 129, 0.15) !important;
+html:not(.light) .app-topbar button:hover {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  color: #f8fafc !important;
 }
 
-/* 1.4 Cabeçalhos de Tabelas e Barras de Pesquisa */
-html:not(.light) .bg-\[\#132337\] {
-  background-color: #132337 !important;
-}
-
-html:not(.light) .bg-\[\#132337\]\/60 {
-  background-color: rgba(19, 35, 55, 0.6) !important;
-}
-
-/* 1.5 Textos Gerais e Títulos */
-html:not(.light) .text-white {
-  color: #ffffffd5 !important;
-}
-
-html:not(.light) .text-slate-300 {
-  color: #cbe1d8 !important;
-}
-
-html:not(.light) .text-slate-400 {
+html:not(.light) .topbar-notification-button {
   color: #94a3b8 !important;
 }
 
-html:not(.light) .text-slate-500 {
-  color: #64748b !important;
+html:not(.light) .topbar-notification-button:hover,
+html:not(.light) .topbar-notification-button.is-open {
+  background-color: rgba(249, 115, 22, 0.12) !important;
+  color: #fb923c !important;
 }
 
-html:not(.light) .text-slate-600 {
-  color: #475569 !important;
+html:not(.light) .topbar-notification-panel {
+  background-color: #111827 !important;
+  border-color: rgba(148, 163, 184, 0.18) !important;
+  color: #f8fafc !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.38) !important;
 }
 
-/* 1.6 Placas e Cores de Destaque */
+html:not(.light) .topbar-notification-panel > div:first-child {
+  border-color: rgba(148, 163, 184, 0.14) !important;
+}
+
+html:not(.light) .topbar-notification-panel a {
+  border-color: rgba(148, 163, 184, 0.12) !important;
+  color: #f8fafc !important;
+}
+
+html:not(.light) .topbar-notification-panel a p:not(:first-child) {
+  color: #94a3b8 !important;
+}
+
+html:not(.light) .topbar-notification-panel p {
+  color: #94a3b8 !important;
+}
+
+html:not(.light) .topbar-notification-panel a p:first-child {
+  color: #f8fafc !important;
+}
+
 html:not(.light) .text-emerald-300 {
   color: #6ee7b7 !important;
 }
@@ -161,10 +378,15 @@ html:not(.light) .text-cyan-300 {
   color: #67e8f9 !important;
 }
 
-/* 1.7 Badges e Indicadores de Status */
 html:not(.light) .bg-emerald-500\/10 {
   background-color: rgba(16, 185, 129, 0.10) !important;
   border-color: rgba(16, 185, 129, 0.20) !important;
+  color: #6ee7b7 !important;
+}
+
+html:not(.light) aside .bg-emerald-500\/15,
+html:not(.light) .bg-emerald-500\/15 {
+  background-color: rgba(16, 185, 129, 0.15) !important;
   color: #6ee7b7 !important;
 }
 
@@ -186,13 +408,12 @@ html:not(.light) .bg-purple-500\/15 {
   color: #d8b4fe !important;
 }
 
-/* 1.8 Inputs e Formulários */
 html:not(.light) input,
 html:not(.light) select,
 html:not(.light) textarea {
   background-color: #132337 !important;
-  color: #ffffff !important;
   border: 1px solid rgba(16, 185, 129, 0.20) !important;
+  color: #ffffff !important;
 }
 
 html:not(.light) input::placeholder,
@@ -200,7 +421,6 @@ html:not(.light) textarea::placeholder {
   color: #64748b !important;
 }
 
-/* 1.9 Botões de Ação */
 html:not(.light) .bg-emerald-500 {
   background-color: #10b981 !important;
   color: #0a1625 !important;
@@ -219,7 +439,6 @@ html:not(.light) .hover\:bg-orange-400:hover {
   background-color: #fb923c !important;
 }
 
-/* 1.10 Bordas e Divisores */
 html:not(.light) .divide-white\/5>*+* {
   border-color: rgba(14, 11, 160, 0.05) !important;
 }
@@ -228,82 +447,188 @@ html:not(.light) .hover\:bg-emerald-500\/5:hover {
   background-color: rgba(16, 185, 129, 0.05) !important;
 }
 
+/* ==========================================================================
+   Tema Claro
+   ========================================================================== */
 
-/* ================================================================
-   BLOCO 2: MODO CLARO (LIGHT MODE)
-   ================================================================ */
-
-/* 2.1 Fundo Geral da Aplicação */
 html.light body,
 html.light .bg-\[\#0a1625\] {
   background-color: #b4b3b300 !important;
-  /* Fundo suave slate-50 */
   color: #0f172a !important;
-  /* Texto base escuro slate-900 */
 }
 
-/* 2.2 Sidebar e Navegação */
-html.light aside,
-html.light .bg-\[\#0b1f33\] {
-  background-color: #68686821 !important;
-  /* Sidebar branca e limpa */
-  border-right: 1px solid #e2e8f0 !important;
+html.light aside {
+  background-color: #ececec !important;
+  border-right: 0 !important;
   color: #0f172a !important;
 }
 
 html.light aside .text-white {
   color: #0f172a !important;
-  /* Nome do sistema e perfil */
 }
 
 html.light aside .text-slate-300,
 html.light aside .text-slate-400 {
   color: #334155 !important;
-  /* Links do menu */
 }
 
 html.light aside .text-slate-500 {
-  color: #64748b !important;
-  /* Título das seções (ex: MENU) */
+  color: #000000 !important;
 }
 
 html.light aside a:hover,
 html.light aside button:hover {
   background-color: #f1f5f9 !important;
-  /* Efeito hover nos links */
   color: #059669 !important;
 }
 
 html.light aside .bg-emerald-500\/15 {
   background-color: #ecfdf5 !important;
-  /* Fundo do item de menu ativo */
-  color: #059669 !important;
-  /* Cor do texto do menu ativo */
   border: 1px solid #a7f3d0 !important;
+  color: #059669 !important;
   font-weight: 600 !important;
+}
+
+html.light .app-topbar {
+  background-color: #f1f1f1 !important;
+  border-color: #d7dde4 !important;
+}
+
+html.light .topbar-notification-button {
+  color: #64748b !important;
+}
+
+html.light .topbar-notification-button:hover,
+html.light .topbar-notification-button.is-open {
+  background-color: #fff7ed !important;
+  color: #f97316 !important;
+}
+
+html.light .topbar-notification-panel {
+  background-color: #ffffff !important;
+  border-color: #e5e7eb !important;
+  color: #0f172a !important;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.14) !important;
+}
+
+html.light .topbar-notification-panel > div:first-child {
+  border-color: #f1f5f9 !important;
+}
+
+html.light .topbar-notification-panel a {
+  border-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+html.light .topbar-notification-panel a p:not(:first-child) {
+  color: #64748b !important;
+}
+
+html.light .topbar-notification-panel p {
+  color: #9ca3af !important;
+}
+
+html.light .topbar-notification-panel a p:first-child {
+  color: #0f172a !important;
+}
+
+html.light .report-modal,
+html.light .report-modal.bg-\[\#132337\] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18) !important;
+}
+
+html.light .report-modal .border-b {
+  border-color: #e2e8f0 !important;
+}
+
+html.light .report-modal h2 {
+  color: #0f172a !important;
+}
+
+html.light .report-modal label {
+  color: #475569 !important;
+}
+
+html.light .report-modal p,
+html.light .report-modal .text-slate-400,
+html.light .report-modal .text-slate-500 {
+  color: #64748b !important;
+}
+
+html.light .report-modal .text-red-300 {
+  color: #dc2626 !important;
+}
+
+html.light .report-modal .text-emerald-300 {
+  color: #059669 !important;
+}
+
+html.light .report-modal-field {
+  background-color: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html.light .report-modal-field::placeholder {
+  color: #94a3b8 !important;
 }
 
 html.light aside .border-b,
 html.light aside .border-t,
 html.light aside .border-l {
   border-color: #e2e8f0 !important;
-  /* Divisores internos da sidebar */
 }
 
-/* 2.3 Cards e Containers Principais */
+html.light .app-scroll,
+html.light .sidebar-scroll {
+  scrollbar-color: rgba(100, 116, 139, 0.50) transparent;
+}
+
+html.light .app-scroll::-webkit-scrollbar-thumb,
+html.light .sidebar-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.60), rgba(100, 116, 139, 0.35));
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+html.light .app-scroll::-webkit-scrollbar-thumb:hover,
+html.light .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(100, 116, 139, 0.80), rgba(71, 85, 105, 0.50));
+  background-clip: content-box;
+}
+
+html.light .group\/sidebar:hover .sidebar-rail-scroll,
+html.light .group\/sidebar:focus-within .sidebar-rail-scroll {
+  scrollbar-color: rgba(100, 116, 139, 0.50) transparent;
+}
+
+html.light .group\/sidebar:hover .sidebar-rail-scroll::-webkit-scrollbar-thumb,
+html.light .group\/sidebar:focus-within .sidebar-rail-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.60), rgba(100, 116, 139, 0.35));
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+html.light .group\/sidebar:hover .sidebar-rail-scroll::-webkit-scrollbar-thumb:hover,
+html.light .group\/sidebar:focus-within .sidebar-rail-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(100, 116, 139, 0.80), rgba(71, 85, 105, 0.50));
+  background-clip: content-box;
+}
+
 html.light .bg-\[\#0f1c2e\] {
   background-color: #ffffff !important;
-  /* Fundo dos cards em branco puro */
   border-color: #e2e8f0 !important;
-  /* Borda suave e elegante */
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05) !important;
 }
 
-/* 2.4 Cabeçalhos de Tabelas e Barras de Pesquisa */
 html.light .bg-\[\#132337\] {
   background-color: #9288882c !important;
-  /* Fundo do cabeçalho da tabela e filtros */
-  border-color: #5a515128 !important;
+  border-color: #df090928 !important;
 }
 
 html.light .bg-\[\#132337\]\/60 {
@@ -311,90 +636,39 @@ html.light .bg-\[\#132337\]\/60 {
   border-color: #e2e8f0 !important;
 }
 
-
-/* =======================================================
-   CORREÇÃO DO CABEÇALHO FIXO (MODO ESCURO E CLARO)
-   =======================================================*/
-
-/* Cabeçalho Fixo no Modo Escuro */
-html:not(.light) table thead th {
-  position: sticky;
-  top: 0;
-  background-color: #0f1c2e !important;
-  z-index: 10;
-  border-bottom: 1px solid rgba(16, 185, 129, 0.2) !important;
-}
-
-/* Cabeçalho*/
-html.light table thead th {
-  position: sticky;
-  top: 0;
+html.light .veiculos-header {
   background-color: #ffffff !important;
-  /* Cor opaca idêntica aos cards do modo claro */
-  z-index: 10;
-  border-bottom: 1px solid #e2e8f0 !important;
+  border-color: rgba(118, 120, 122, 0.55) !important;
 }
 
-
-table th,
-table td {
-  text-align: center !important;
-  vertical-align: middle !important;
+html.light .veiculos-header .text-white {
+  color: #0f0f0f !important;
 }
 
-table td>div {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  margin: 0 auto !important;
+html.light .veiculos-header .text-slate-400 {
+  color: #242527 !important;
 }
 
-
-
-html.light th {
-  color: #160175 !important;
-  /* Títulos das colunas em esmeralda elegante */
-}
-
-/* 2.5 Textos Gerais e Títulos */
 html.light .text-white {
-  color: #0f172a !important;
-  /* Títulos e valores em destaque (slate-900) */
+  color: #44474bfa !important;
 }
 
 html.light .text-slate-300 {
   color: #334155 !important;
-  /* Textos principais da tabela */
 }
 
 html.light .text-slate-400 {
   color: #475569 !important;
-  /* Textos secundários (ex: modelo, ano) */
 }
 
 html.light .text-slate-500 {
   color: #64748b !important;
-  /* Horários e datas */
 }
 
 html.light .text-slate-600 {
   color: #94a3b8 !important;
-  /* Textos desabilitados ou neutros */
 }
 
-/* Textos sobre o Banner*/
-html.light [data-banner] h1,
-html.light [data-banner] h2,
-html.light [data-banner] p {
-  color: #ffffff !important;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6) !important;
-}
-
-html.light [data-banner] .text-emerald-300 {
-  color: #6ee7b7 !important;
-}
-
-/* 2.6 Placas e Cores de Destaque */
 html.light .text-emerald-300,
 html.light .text-emerald-400 {
   color: #0f037a !important;
@@ -403,36 +677,30 @@ html.light .text-emerald-400 {
 
 html.light .text-orange-300 {
   color: #c2410c !important;
-  /* Laranja escuro para status aguardando */
   font-weight: 600;
 }
 
 html.light .text-blue-300 {
   color: #1d4ed8 !important;
-  /* Azul escuro para status em rota / interno */
   font-weight: 600;
 }
 
 html.light .text-purple-300,
 html.light .text-purple-400 {
   color: #7e22ce !important;
-  /* Roxo para visitantes/pedestres */
   font-weight: 600;
 }
 
 html.light .text-cyan-300 {
   color: #0e7490 !important;
-  /* Ciano para almoxarifado */
   font-weight: 600;
 }
 
 html.light .text-red-300 {
   color: #b91c1c !important;
-  /* Vermelho para avisos de erro */
   font-weight: 600;
 }
 
-/* 2.7 Badges e Indicadores de Status */
 html.light .bg-emerald-500\/10,
 html.light .bg-emerald-500\/15 {
   background-color: #ecfdf5 !important;
@@ -464,7 +732,6 @@ html.light .bg-red-500\/10 {
   color: #b91c1c !important;
 }
 
-/* 2.8 Inputs e Formulários */
 html.light label {
   color: #1e293b !important;
   font-weight: 600 !important;
@@ -474,43 +741,44 @@ html.light input,
 html.light select,
 html.light textarea {
   background-color: #ffffff !important;
-  color: #0f172a !important;
   border: 1px solid #cbd5e1 !important;
   box-shadow: none !important;
+  color: #0f172a !important;
 }
 
 html.light input:focus,
 html.light select:focus,
 html.light textarea:focus {
   border-color: #059669 !important;
-  outline: none !important;
   box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.20) !important;
+  outline: none;
 }
 
 html.light input::placeholder,
 html.light textarea::placeholder {
-  color: #94a3b8 !important;
+  color: #8e98a7 !important;
 }
 
-/* Autocomplete e Dropdown flutuante */
-html.light div[class*="absolute"][class*="z-20"] {
+html.light div[class*="absolute"][class*="z-20"],
+html.light div[class*="absolute"][class*="z-50"] {
   background-color: #ffffff !important;
   border: 1px solid #e2e8f0 !important;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05) !important;
 }
 
-html.light div[class*="absolute"][class*="z-20"] button {
+html.light div[class*="absolute"][class*="z-20"] button,
+html.light div[class*="absolute"][class*="z-50"] button {
   background-color: transparent !important;
-  color: #1e293b !important;
   border-bottom-color: #f1f5f9 !important;
+  color: #1e293b !important;
 }
 
-html.light div[class*="absolute"][class*="z-20"] button:hover {
+html.light div[class*="absolute"][class*="z-20"] button:hover,
+html.light div[class*="absolute"][class*="z-50"] button:hover {
   background-color: #f1f5f9 !important;
   color: #059669 !important;
 }
 
-/* 2.9 Botões de Ação */
 html.light .bg-emerald-500 {
   background-color: #059669 !important;
   color: #ffffff !important;
@@ -535,7 +803,6 @@ html.light button[class*="bg-\[#0f1c2e\]"] {
   color: #64748b !important;
 }
 
-/* 2.10 Bordas e Divisores */
 html.light .border-emerald-500\/10,
 html.light .border-emerald-500\/15,
 html.light .border-emerald-500\/20,
@@ -547,49 +814,62 @@ html.light .border-purple-500\/20,
 html.light .border-white\/5,
 html.light .border-white\/10 {
   border-color: #a8a6a683 !important;
-  /* Bordas suaves */
 }
 
 html.light .divide-white\/5>*+* {
   border-color: #f9f2f1 !important;
-  /* Divisor entre linhas de tabela */
 }
 
 html.light .hover\:bg-emerald-500\/5:hover,
 html.light .hover\:bg-purple-500\/5:hover {
   background-color: #bdb6b642 !important;
-  /* Fundo suave ao passar o mouse nas linhas */
 }
 
-/* Remove sombras de neon no modo claro */
 html.light [class*="shadow-[0_0_"] {
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
 }
 
+/* ==========================================================================
+   Tabelas
+   ========================================================================== */
 
-/* ================================================================
-   ANIMAÇÕES DE TRANSIÇÃO
-   ================================================================ */
-@keyframes fadeInSlide {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.99);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+table th,
+table td {
+  text-align: center !important;
+  vertical-align: middle !important;
 }
 
-.animate-tab {
-  animation: fadeInSlide 0.25s ease-out forwards;
+table td>div {
+  align-items: center !important;
+  display: inline-flex !important;
+  justify-content: center !important;
+  margin: 0 auto !important;
 }
 
-/* ================================================================
-   TEMA ESCURO EXCLUSIVO PARA TELAS DE AUTENTICAÇÃO (LOGIN / SIGN-UP)
-   Garante que o tema claro NUNCA seja aplicado nessas páginas
-   ================================================================ */
+html:not(.light) table thead th {
+  background-color: #0f1c2e !important;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.2) !important;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+html.light table thead th {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+html.light th {
+  color: #160175 !important;
+}
+
+/* ==========================================================================
+   Telas de Autenticacao
+   ========================================================================== */
+
 [data-auth-page],
 [data-auth-page] * {
   color-scheme: dark !important;
@@ -615,8 +895,8 @@ html.light [data-auth-page] input,
 html.light [data-auth-page] select,
 html.light [data-auth-page] textarea {
   background-color: #132337 !important;
-  color: #ffffff !important;
   border: 1px solid rgba(52, 211, 153, 0.2) !important;
+  color: #ffffff !important;
 }
 
 html.light [data-auth-page] label {
@@ -624,165 +904,62 @@ html.light [data-auth-page] label {
   font-weight: 500 !important;
 }
 
-[data-auth-page] .cl-otpCodeFieldInputs,
-[data-auth-page] [class*="otpCodeFieldInputs"] {
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 0.5rem !important;
-  flex-wrap: nowrap !important;
-  width: 100% !important;
-}
-
-[data-auth-page] .cl-otpCodeFieldInput,
-[data-auth-page] [class*="otpCodeFieldInput"] {
-  width: 2.75rem !important;
-  min-width: 2.75rem !important;
-  height: 3rem !important;
-  padding: 0 !important;
-  text-align: center !important;
-  font-size: 1.125rem !important;
-  font-weight: 700 !important;
-  line-height: 3rem !important;
-  display: inline-flex !important;
-}
-
 [data-auth-page] input[name="code"],
-[data-auth-page] input[inputmode="numeric"][autocomplete="one-time-code"] {
-  letter-spacing: 0.25rem !important;
-  text-align: center !important;
+[data-auth-page] input[autocomplete="one-time-code"],
+[data-auth-page] .cl-otpCodeField input,
+html.light [data-auth-page] input[name="code"],
+html.light [data-auth-page] input[autocomplete="one-time-code"],
+html.light [data-auth-page] .cl-otpCodeField input {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  caret-color: transparent !important;
+  color: transparent !important;
+  outline: 0 !important;
+  text-shadow: none !important;
 }
 
-/* ================================================================
-   RESPONSIVIDADE GLOBAL DO SISTEMA
-   Ajusta sidebar, conteudo, tabelas e zoom para notebooks/celulares
-   ================================================================ */
-@media (max-width: 1280px) {
-  [style*="zoom"] {
-    zoom: 0.9 !important;
+/* ==========================================================================
+   Animacoes
+   ========================================================================== */
+
+@keyframes fadeInSlide {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
   }
 
-  .text-3xl {
-    font-size: 1.625rem !important;
-    line-height: 2rem !important;
-  }
-
-  .text-2xl {
-    font-size: 1.375rem !important;
-    line-height: 1.75rem !important;
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 
-@media (max-width: 1024px) {
-  [style*="zoom"] {
-    zoom: 1 !important;
-  }
+.animate-tab {
+  animation: fadeInSlide 0.25s ease-out forwards;
+}
 
-  aside.w-64.fixed {
-    position: sticky !important;
-    top: 0 !important;
-    width: 100% !important;
-    height: auto !important;
-    max-height: 44vh !important;
-    overflow-y: auto !important;
-    border-right: 0 !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-  }
+/* ==========================================================================
+   Responsividade
+   ========================================================================== */
 
-  aside.w-64.fixed>div:first-child {
-    padding: 0.875rem 1rem !important;
-  }
-
-  aside.w-64.fixed img {
-    max-height: 2.25rem !important;
-  }
-
-  aside.w-64.fixed nav {
-    display: flex !important;
-    gap: 0.5rem !important;
-    overflow-x: auto !important;
-    overflow-y: visible !important;
-    padding: 0.75rem 1rem !important;
-    white-space: nowrap !important;
-  }
-
-  aside.w-64.fixed nav>p {
-    display: none !important;
-  }
-
-  aside.w-64.fixed nav>a,
-  aside.w-64.fixed nav>div {
-    flex: 0 0 auto !important;
-  }
-
-  aside.w-64.fixed nav button,
-  aside.w-64.fixed nav a {
-    min-height: 2.5rem !important;
-  }
-
-  aside.w-64.fixed nav div[class*="border-l"] {
-    position: absolute !important;
-    left: 1rem !important;
-    right: 1rem !important;
-    top: calc(100% - 0.5rem) !important;
-    z-index: 60 !important;
-    margin: 0 !important;
-    padding: 0.5rem !important;
-    border-left: 0 !important;
-    border-radius: 0.75rem !important;
-    background: #132337 !important;
-    box-shadow: 0 18px 35px rgba(0, 0, 0, 0.28) !important;
-  }
-
-  aside.w-64.fixed>div:nth-last-child(-n+2) {
-    display: none !important;
-  }
-
+@media (max-width: 1023px) {
   .min-h-screen.flex.bg-\[\#0a1625\] {
     flex-direction: column !important;
   }
 
-  .ml-64 {
-    margin-left: 0 !important;
+  [style*="zoom"] {
+    zoom: 1 !important;
   }
 
-  .h-screen {
-    height: auto !important;
-    min-height: 100dvh !important;
-  }
-
-  .overflow-hidden {
-    overflow: visible !important;
-  }
-
-  .overflow-y-auto {
-    overflow-y: visible !important;
-  }
-
-  main,
-  .flex-1 {
-    min-width: 0 !important;
-  }
-
-  [data-banner] {
-    padding-left: 1rem !important;
-    padding-right: 1rem !important;
-    padding-bottom: 1rem !important;
-  }
-
-  .p-6 {
+  main.p-6,
+  .animate-tab.p-6 {
     padding: 1rem !important;
   }
 
   .px-8 {
     padding-left: 1rem !important;
     padding-right: 1rem !important;
-  }
-
-  .py-6 {
-    padding-top: 1rem !important;
-    padding-bottom: 1rem !important;
   }
 
   .max-w-7xl,
@@ -797,69 +974,27 @@ html.light [data-auth-page] label {
     width: 100% !important;
   }
 
-  header .flex,
-  .items-center.justify-between {
-    flex-wrap: wrap !important;
-  }
-
-  .min-w-\[180px\] {
-    min-width: 10rem !important;
-  }
-
-  table {
-    font-size: 0.75rem !important;
-  }
-
-  table th,
-  table td {
-    padding: 0.625rem 0.5rem !important;
-  }
-
-  table .text-lg {
-    font-size: 0.75rem !important;
-    line-height: 1rem !important;
-  }
-
-  div:has(> table) {
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
+  main,
+  .flex-1 {
+    min-width: 0 !important;
   }
 }
 
 @media (max-width: 640px) {
-  aside.w-64.fixed {
-    max-height: 52vh !important;
-  }
-
-  aside.w-64.fixed>div:first-child p {
-    display: none !important;
-  }
 
   .relative.h-28,
   .relative.md\:h-36 {
-    height: 5.5rem !important;
-  }
-
-  .text-xl {
-    font-size: 1.125rem !important;
-    line-height: 1.5rem !important;
+    height: 5.75rem !important;
   }
 
   .text-3xl {
-    font-size: 1.5rem !important;
+    font-size: 1.625rem !important;
+    line-height: 2rem !important;
+  }
+
+  .text-2xl {
+    font-size: 1.375rem !important;
     line-height: 1.75rem !important;
-  }
-
-  .grid.grid-cols-2 {
-    grid-template-columns: 1fr !important;
-  }
-
-  .sm\:grid-cols-2,
-  .sm\:grid-cols-3,
-  .md\:grid-cols-2,
-  .lg\:grid-cols-4,
-  .xl\:grid-cols-3 {
-    grid-template-columns: 1fr !important;
   }
 
   input,
@@ -869,16 +1004,8 @@ html.light [data-auth-page] label {
     font-size: 16px !important;
   }
 
-  table {
-    min-width: 42rem;
-  }
-
-  table.table-fixed {
-    table-layout: auto !important;
-  }
-
-  table th,
-  table td {
-    white-space: nowrap !important;
+  div[class*="overflow-x-auto"],
+  div[class*="overflow-auto"] {
+    -webkit-overflow-scrolling: touch;
   }
 }

@@ -6,6 +6,13 @@ export function formatPlate(value: string) {
   return value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 7)
 }
 
+export function formatPlateDisplay(value: string) {
+  const plate = formatPlate(value)
+  if (plate.length <= 3) return plate
+
+  return `${plate.slice(0, 3)}-${plate.slice(3)}`
+}
+
 export function formatCpf(value: string) {
   const digits = onlyDigits(value).slice(0, 11)
 

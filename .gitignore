@@ -23,6 +23,7 @@
 # misc
 .DS_Store
 *.pem
+.push-victor/
 
 # debug
 npm-debug.log*
@@ -32,6 +33,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+env.local.txt
 
 # vercel
 .vercel
