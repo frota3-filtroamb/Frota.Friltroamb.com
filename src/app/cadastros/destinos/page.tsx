@@ -3,6 +3,7 @@
 import RequirePermissao from '@/components/RequirePermissao'
 import Sidebar from '@/components/Sidebar'
 import { useTopbarSearch } from '@/components/TopbarSearchProvider'
+import { lerJsonSeguro } from '@/lib/http'
 import { createClient } from '@/lib/supabase/client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
@@ -91,13 +92,13 @@ export default function DestinosPage() {
           endereco: enderecoDestino,
         }),
       })
-      const resultado = await resposta.json()
-      if (!resposta.ok) throw new Error(resultado.error || 'Erro ao cadastrar destino.')
+      const resultado = await lerJsonSeguro(resposta)
+      if (!resposta.ok) throw new Error(typeof resultado.error === 'string' ? resultado.error : 'Erro ao cadastrar destino.')
 
       setNome('')
       setTipoDestino('')
       setEndereco('')
-      setMensagem(resultado.mensagem || 'Destino cadastrado com sucesso.')
+      setMensagem(typeof resultado.mensagem === 'string' ? resultado.mensagem : 'Destino cadastrado com sucesso.')
       await carregar()
     } catch (error) {
       setMensagem(error instanceof Error ? error.message : 'Erro ao cadastrar destino.')

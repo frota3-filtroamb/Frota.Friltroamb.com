@@ -6,6 +6,7 @@ import { KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Sidebar from '@/components/Sidebar'
 import { usePermissions } from '@/components/PermissionsProvider'
+import { lerJsonSeguro } from '@/lib/http'
 import { formatCpf, formatPhone, formatPlate, formatPlateDisplay, onlyDigits } from '@/lib/masks'
 
 type Veiculo = {
@@ -25,17 +26,6 @@ type GestorAutorizacao = {
   nome: string
   email: string
   setor: string
-}
-
-async function lerJsonSeguro(resposta: Response) {
-  const texto = await resposta.text()
-  if (!texto.trim()) return {}
-
-  try {
-    return JSON.parse(texto) as Record<string, unknown>
-  } catch {
-    throw new Error(`Resposta invalida do servidor (${resposta.status}).`)
-  }
 }
 
 export default function LiberacaoPage() {
@@ -401,8 +391,12 @@ export default function LiberacaoPage() {
       setMensagem('Essa placa pertence a um veiculo da empresa. Use a opcao Veiculo da Empresa ou Veiculo Interno.')
       return
     }
-    if (!motoristaSelecionado) {
-      setMensagem('Selecione um motorista')
+    const motoristaFinal = tipoVeiculo === 'externo'
+      ? buscaMotorista.replace(/\s+/g, ' ').trim().toUpperCase()
+      : motoristaSelecionado
+
+    if (!motoristaFinal) {
+      setMensagem(tipoVeiculo === 'externo' ? 'Informe o motorista externo' : 'Selecione um motorista')
       return
     }
     if (!destinoSelecionado) {
@@ -433,7 +427,7 @@ export default function LiberacaoPage() {
         tipo_veiculo: tipoVeiculo,
         placa: placaFinal,
         km: kmAtual,
-        motorista: motoristaSelecionado,
+        motorista: motoristaFinal,
         origem: origemSelecionada || buscaOrigem || null,
         destino: destinoSelecionado,
         data: dataHora,
@@ -550,6 +544,25 @@ export default function LiberacaoPage() {
             ))}
         </div>
       )}
+    </div>
+  )
+
+  const MotoristaExternoInput = () => (
+    <div>
+      <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+        Motorista Externo
+      </label>
+      <input
+        type="text"
+        value={buscaMotorista}
+        onChange={(e) => {
+          setBuscaMotorista(e.target.value.toUpperCase())
+          setMotoristaSelecionado('')
+          setMostrarListaMotorista(false)
+        }}
+        placeholder="Nome do motorista externo"
+        className="w-full px-4 py-2.5 bg-[#132337] border border-orange-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-400/40 transition"
+      />
     </div>
   )
 
@@ -1214,7 +1227,7 @@ export default function LiberacaoPage() {
                         </div>
 
                         <div className="space-y-4">
-                          {MotoristaDropdown(false)}
+                          {tipoVeiculo === 'externo' ? MotoristaExternoInput() : MotoristaDropdown(false)}
 
                           {tipoVeiculo === 'veiculo_interno' ? (
                             IdentificadorLiberacao('sky')

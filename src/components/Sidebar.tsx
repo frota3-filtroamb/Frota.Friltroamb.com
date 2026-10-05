@@ -3,12 +3,13 @@
 import { useUser, UserButton } from '@clerk/nextjs'
 import { dark } from '@clerk/themes'
 import { usePathname } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { useTheme } from '@/components/ThemeProvider'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useTopbarSearch } from '@/components/TopbarSearchProvider'
 import { usePermissions } from '@/components/PermissionsProvider'
+import { lerJsonSeguro } from '@/lib/http'
 
 type IconName =
   | 'inicio'
@@ -30,6 +31,8 @@ type Notificacao = {
   data: string | null
   href: string
 }
+
+type FeedbackTipo = 'bug' | 'ideia' | 'outro'
 
 function SidebarIcon({ nome }: { nome: IconName }) {
   const props = {
@@ -70,6 +73,39 @@ function TopBarIcon() {
   }
 
   return <svg {...props}><path d="M15 17H9" /><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+}
+
+function FeedbackIcon() {
+  const props = {
+    className: 'h-4 w-4',
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.8,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    'aria-hidden': true,
+  }
+
+  return <svg {...props}><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" /></svg>
+}
+
+function FeedbackTipoIcon({ tipo }: { tipo: FeedbackTipo }) {
+  const props = {
+    className: 'h-5 w-5',
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.8,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    'aria-hidden': true,
+  }
+
+  if (tipo === 'bug') return <svg {...props}><path d="M8 2v3" /><path d="M16 2v3" /><path d="M9 9h6" /><path d="M8 13h8" /><path d="M3 13h4" /><path d="M17 13h4" /><path d="M4 19l3-3" /><path d="m20 19-3-3" /><rect x="7" y="5" width="10" height="14" rx="5" /></svg>
+  if (tipo === 'ideia') return <svg {...props}><path d="M9 18h6" /><path d="M10 22h4" /><path d="M8.5 14.5A6 6 0 1 1 15.5 14c-.9.7-1.5 1.7-1.5 3h-4c0-1.1-.5-1.9-1.5-2.5Z" /></svg>
+
+  return <svg {...props}><circle cx="12" cy="12" r="8" /><path d="M12 8v4" /><path d="M12 16h.01" /></svg>
 }
 
 function TopbarSearchIcon() {
@@ -184,8 +220,16 @@ export default function Sidebar() {
   const [notificacoesAberta, setNotificacoesAberta] = useState(false)
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>([])
   const [carregandoNotificacoes, setCarregandoNotificacoes] = useState(false)
+  const [feedbackAberto, setFeedbackAberto] = useState(false)
+  const [feedbackTipo, setFeedbackTipo] = useState<FeedbackTipo>('bug')
+  const [feedbackTexto, setFeedbackTexto] = useState('')
+  const [feedbackAnexo, setFeedbackAnexo] = useState<File | null>(null)
+  const [feedbackMensagem, setFeedbackMensagem] = useState('')
+  const [feedbackEnviando, setFeedbackEnviando] = useState(false)
+  const [feedbackCapturando, setFeedbackCapturando] = useState(false)
   const notificacoesRef = useRef<HTMLDivElement | null>(null)
   const notificacoesMobileRef = useRef<HTMLDivElement | null>(null)
+  const feedbackRef = useRef<HTMLDivElement | null>(null)
   const paginasComBusca = pathname === '/'
 
   useEffect(() => {
@@ -223,6 +267,169 @@ export default function Sidebar() {
     }
   }, [notificacoesAberta])
 
+  useEffect(() => {
+    if (!feedbackAberto) return
+
+    function fecharAoClicarFora(event: MouseEvent) {
+      const target = event.target as Node
+      if (!feedbackRef.current?.contains(target)) {
+        setFeedbackAberto(false)
+      }
+    }
+
+    function fecharComEsc(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setFeedbackAberto(false)
+      }
+    }
+
+    document.addEventListener('mousedown', fecharAoClicarFora)
+    document.addEventListener('keydown', fecharComEsc)
+
+    return () => {
+      document.removeEventListener('mousedown', fecharAoClicarFora)
+      document.removeEventListener('keydown', fecharComEsc)
+    }
+  }, [feedbackAberto])
+
+  function abrirFeedback() {
+    setNotificacoesAberta(false)
+    setFeedbackMensagem('')
+    setFeedbackAberto(true)
+  }
+
+  function corNaoSuportada(valor: string) {
+    return /(^|[^\w-])(lab|oklab|lch|oklch|color|color-mix)\(/i.test(valor)
+  }
+
+  function corFallback(propriedade: string) {
+    if (propriedade.toLowerCase().includes('background')) return 'transparent'
+    if (propriedade.toLowerCase().includes('shadow')) return 'none'
+    if (theme === 'dark') return 'rgb(248, 250, 252)'
+    return 'rgb(15, 23, 42)'
+  }
+
+  function sanitizarCoresParaCaptura(documento: Document) {
+    const janela = documento.defaultView
+    if (!janela) return
+
+    const propriedades = [
+      'color',
+      'backgroundColor',
+      'borderTopColor',
+      'borderRightColor',
+      'borderBottomColor',
+      'borderLeftColor',
+      'outlineColor',
+      'textDecorationColor',
+      'fill',
+      'stroke',
+      'boxShadow',
+      'textShadow',
+    ] as const
+
+    documento.querySelector('.feedback-overlay')?.remove()
+
+    const estiloCompatibilidade = documento.createElement('style')
+    estiloCompatibilidade.textContent = `
+      *, *::before, *::after {
+        --tw-ring-color: rgba(16, 185, 129, 0.25) !important;
+        --tw-shadow-color: rgba(15, 23, 42, 0.18) !important;
+        --tw-border-opacity: 1 !important;
+        --tw-bg-opacity: 1 !important;
+        --tw-text-opacity: 1 !important;
+      }
+    `
+    documento.head.appendChild(estiloCompatibilidade)
+
+    documento.querySelectorAll('*').forEach((elemento) => {
+      const estiloComputado = janela.getComputedStyle(elemento)
+      const estiloInline = (elemento as HTMLElement).style
+
+      propriedades.forEach((propriedade) => {
+        const valor = estiloComputado[propriedade]
+        if (valor && corNaoSuportada(valor)) {
+          estiloInline[propriedade] = corFallback(propriedade)
+        }
+      })
+    })
+  }
+
+  async function capturarTelaFeedback() {
+    setFeedbackCapturando(true)
+    setFeedbackMensagem('')
+
+    try {
+      const { default: html2canvas } = await import('html2canvas')
+      const painel = feedbackRef.current
+      if (painel) painel.style.visibility = 'hidden'
+
+      await new Promise((resolve) => window.requestAnimationFrame(resolve))
+      const canvas = await html2canvas(document.body, {
+        backgroundColor: null,
+        scale: Math.min(window.devicePixelRatio || 1, 2),
+        useCORS: true,
+        ignoreElements: (element) => element.classList.contains('feedback-overlay'),
+        onclone: sanitizarCoresParaCaptura,
+      })
+
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png', 0.92))
+      if (!blob) throw new Error('Nao foi possivel gerar a captura.')
+
+      const arquivo = new File([blob], `feedback-${new Date().toISOString().replace(/[:.]/g, '-')}.png`, {
+        type: 'image/png',
+      })
+      setFeedbackAnexo(arquivo)
+      setFeedbackMensagem('Captura de tela anexada.')
+    } catch (error) {
+      setFeedbackMensagem(error instanceof Error ? error.message : 'Erro ao capturar a tela.')
+    } finally {
+      if (feedbackRef.current) feedbackRef.current.style.visibility = ''
+      setFeedbackCapturando(false)
+    }
+  }
+
+  async function enviarFeedback(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (feedbackTexto.trim().length < 8) {
+      setFeedbackMensagem('Descreva o feedback com pelo menos 8 caracteres.')
+      return
+    }
+
+    setFeedbackEnviando(true)
+    setFeedbackMensagem('')
+
+    try {
+      const dadosFeedback = new FormData()
+      dadosFeedback.set('tipo', feedbackTipo)
+      dadosFeedback.set('mensagem', feedbackTexto.trim())
+      dadosFeedback.set('pagina', pathname)
+      if (feedbackAnexo) {
+        dadosFeedback.set('anexo', feedbackAnexo)
+      }
+
+      const resposta = await fetch('/api/feedbacks', {
+        method: 'POST',
+        body: dadosFeedback,
+      })
+      const resultado = await lerJsonSeguro(resposta)
+
+      if (!resposta.ok) {
+        throw new Error(typeof resultado.error === 'string' ? resultado.error : 'Erro ao enviar feedback.')
+      }
+
+      setFeedbackMensagem(typeof resultado.mensagem === 'string' ? resultado.mensagem : 'Feedback enviado com sucesso.')
+      setFeedbackTexto('')
+      setFeedbackAnexo(null)
+      setTimeout(() => setFeedbackAberto(false), 900)
+    } catch (error) {
+      setFeedbackMensagem(error instanceof Error ? error.message : 'Erro ao enviar feedback.')
+    } finally {
+      setFeedbackEnviando(false)
+    }
+  }
+
   const carregarNotificacoes = useCallback(async function carregarNotificacoes() {
     if (!isLoaded || !user) {
       setNotificacoes([])
@@ -232,9 +439,9 @@ export default function Sidebar() {
     setCarregandoNotificacoes(true)
     try {
       const resposta = await fetch('/api/notificacoes')
-      const resultado = await resposta.json()
+      const resultado = await lerJsonSeguro(resposta)
 
-      if (!resposta.ok) throw new Error(resultado.error || 'Erro ao carregar notificacoes.')
+      if (!resposta.ok) throw new Error(typeof resultado.error === 'string' ? resultado.error : 'Erro ao carregar notificacoes.')
       setNotificacoes(Array.isArray(resultado.notificacoes) ? resultado.notificacoes : [])
     } catch {
       setNotificacoes([])
@@ -302,6 +509,16 @@ export default function Sidebar() {
           </h1>
 
           <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              aria-label="Enviar feedback"
+              title="Enviar feedback"
+              onClick={abrirFeedback}
+              className={`topbar-feedback-button flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 transition-colors ${feedbackAberto ? 'is-open' : ''}`}
+            >
+              <FeedbackIcon />
+            </button>
+
             <div ref={notificacoesMobileRef} className="relative">
               <button
                 type="button"
@@ -558,7 +775,17 @@ export default function Sidebar() {
           </label>
         )}
 
-        <div ref={notificacoesRef} className="relative ml-auto flex items-center">
+        <button
+          type="button"
+          aria-label="Enviar feedback"
+          title="Enviar feedback"
+          onClick={abrirFeedback}
+          className={`topbar-feedback-button ml-auto flex h-9 w-9 items-center justify-center rounded-full transition-colors ${feedbackAberto ? 'is-open' : ''}`}
+        >
+          <FeedbackIcon />
+        </button>
+
+        <div ref={notificacoesRef} className="relative flex items-center">
           <button
             type="button"
             aria-label="Notificações"
@@ -612,6 +839,81 @@ export default function Sidebar() {
           )}
         </div>
       </div>
+
+      {feedbackAberto && (
+        <div className="feedback-overlay fixed inset-0 z-[80] flex items-start justify-end bg-black/35 px-4 py-16 min-[1025px]:py-20">
+          <div ref={feedbackRef} className="feedback-panel w-full max-w-[340px] overflow-hidden rounded-2xl border shadow-2xl">
+            <div className="feedback-header flex items-center justify-between px-5 py-4">
+              <div className="flex items-center gap-2">
+                <FeedbackIcon />
+                <h2 className="text-sm font-bold">Enviar Feedback</h2>
+              </div>
+              <button
+                type="button"
+                aria-label="Fechar feedback"
+                onClick={() => setFeedbackAberto(false)}
+                className="feedback-close flex h-8 w-8 items-center justify-center rounded-full"
+              >
+                x
+              </button>
+            </div>
+
+            <form onSubmit={enviarFeedback} className="feedback-body space-y-4 p-5">
+              <div className="grid grid-cols-3 gap-2">
+                {(['bug', 'ideia', 'outro'] as FeedbackTipo[]).map((tipo) => (
+                  <button
+                    key={tipo}
+                    type="button"
+                    disabled={feedbackEnviando}
+                    onClick={() => setFeedbackTipo(tipo)}
+                    className={`feedback-type-button flex h-14 flex-col items-center justify-center gap-1 rounded-xl border text-[10px] font-bold uppercase ${feedbackTipo === tipo ? 'is-active' : ''}`}
+                  >
+                    <FeedbackTipoIcon tipo={tipo} />
+                    {tipo === 'ideia' ? 'Ideia' : tipo === 'outro' ? 'Outro' : 'Bug'}
+                  </button>
+                ))}
+              </div>
+
+              <textarea
+                value={feedbackTexto}
+                onChange={(event) => setFeedbackTexto(event.target.value)}
+                disabled={feedbackEnviando}
+                placeholder="Conte-nos o que aconteceu ou sua ideia..."
+                className="feedback-textarea h-28 w-full resize-none rounded-xl border px-3 py-3 text-sm outline-none"
+              />
+
+              <button
+                type="button"
+                disabled={feedbackEnviando || feedbackCapturando}
+                onClick={capturarTelaFeedback}
+                className="feedback-attachment flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left disabled:opacity-60"
+              >
+                <span className="feedback-checkbox flex h-5 w-5 shrink-0 items-center justify-center rounded border">
+                  {feedbackAnexo ? 'ok' : ''}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-bold">
+                    {feedbackCapturando ? 'Capturando tela...' : feedbackAnexo ? 'Captura de tela anexada' : 'Anexar captura de tela'}
+                  </span>
+                  <span className="block text-[10px]">Clique para capturar a tela atual</span>
+                </span>
+                <span className="text-slate-400">
+                  <FeedbackIcon />
+                </span>
+              </button>
+
+              {feedbackMensagem && (
+                <p className="feedback-message text-center text-xs font-semibold">{feedbackMensagem}</p>
+              )}
+
+              <button type="submit" disabled={feedbackEnviando} className="feedback-submit flex h-11 w-full items-center justify-center gap-2 rounded-xl text-xs font-black uppercase disabled:opacity-60">
+                <span aria-hidden="true">&gt;</span>
+                {feedbackEnviando ? 'Enviando...' : 'Enviar Feedback'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       <aside className="group/sidebar fixed left-0 top-0 z-30 hidden h-full w-[53px] overflow-hidden bg-[#101314] text-white shadow-xl shadow-black/20 transition-[width] duration-200 ease-out hover:w-[188px] focus-within:w-[188px] min-[1025px]:flex min-[1025px]:flex-col">
         <Link

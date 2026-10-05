@@ -4,6 +4,7 @@ import Sidebar from '@/components/Sidebar'
 import { useTopbarSearch } from '@/components/TopbarSearchProvider'
 import { useUser } from '@clerk/nextjs'
 import { useEffect, useMemo, useState } from 'react'
+import { lerJsonSeguro } from '@/lib/http'
 import type { Permissao, Role } from '@/lib/roles'
 
 type Usuario = {
@@ -107,10 +108,10 @@ export default function UsuariosPage() {
 
       try {
         const resposta = await fetch('/api/usuarios')
-        const dados = await resposta.json()
+        const dados = await lerJsonSeguro(resposta)
 
-        if (!resposta.ok) throw new Error(dados.error || 'Erro ao carregar usuarios.')
-        setUsuarios(dados.usuarios || [])
+        if (!resposta.ok) throw new Error(typeof dados.error === 'string' ? dados.error : 'Erro ao carregar usuarios.')
+        setUsuarios(Array.isArray(dados.usuarios) ? dados.usuarios : [])
       } catch (error) {
         setMensagem(error instanceof Error ? error.message : 'Erro ao carregar usuarios.')
       } finally {
@@ -213,12 +214,13 @@ export default function UsuariosPage() {
           permissoes: usuario.permissoes,
         }),
       })
-      const dados = await resposta.json()
+      const dados = await lerJsonSeguro(resposta)
 
-      if (!resposta.ok) throw new Error(dados.error || 'Erro ao salvar usuario.')
+      if (!resposta.ok) throw new Error(typeof dados.error === 'string' ? dados.error : 'Erro ao salvar usuario.')
 
-      setUsuarios((atuais) => atuais.map((item) => (item.id === usuario.id ? dados.usuario : item)))
-      setMensagem(`Permissoes de ${dados.usuario?.nome || usuario.nome} atualizadas.`)
+      const usuarioAtualizado = typeof dados.usuario === 'object' && dados.usuario !== null ? dados.usuario as Partial<Usuario> : null
+      setUsuarios((atuais) => atuais.map((item) => (item.id === usuario.id ? { ...item, ...usuarioAtualizado } : item)))
+      setMensagem(`Permissoes de ${usuarioAtualizado?.nome || usuario.nome} atualizadas.`)
     } catch (error) {
       setMensagem(error instanceof Error ? error.message : 'Erro ao salvar usuario.')
     } finally {

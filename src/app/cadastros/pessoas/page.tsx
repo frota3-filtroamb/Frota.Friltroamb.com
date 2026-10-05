@@ -3,6 +3,7 @@
 import RequirePermissao from '@/components/RequirePermissao'
 import Sidebar from '@/components/Sidebar'
 import { useTopbarSearch } from '@/components/TopbarSearchProvider'
+import { lerJsonSeguro } from '@/lib/http'
 import { createClient } from '@/lib/supabase/client'
 import { formatCpf, formatPhone, onlyDigits } from '@/lib/masks'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -160,11 +161,11 @@ export default function PessoasPage() {
           foto_url: cadastro.foto_url,
         }),
       })
-      const resultado = await resposta.json()
-      if (!resposta.ok) throw new Error(resultado.error || 'Erro ao cadastrar pessoa.')
+      const resultado = await lerJsonSeguro(resposta)
+      if (!resposta.ok) throw new Error(typeof resultado.error === 'string' ? resultado.error : 'Erro ao cadastrar pessoa.')
 
       setCadastro(cadastroInicial)
-      setMensagem(resultado.mensagem || 'Pessoa cadastrada com sucesso.')
+      setMensagem(typeof resultado.mensagem === 'string' ? resultado.mensagem : 'Pessoa cadastrada com sucesso.')
       await carregar()
     } catch (error) {
       setMensagem(error instanceof Error ? error.message : 'Erro ao cadastrar pessoa.')

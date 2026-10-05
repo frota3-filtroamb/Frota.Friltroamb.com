@@ -5,6 +5,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Sidebar from '@/components/Sidebar'
 import { useTopbarSearch } from '@/components/TopbarSearchProvider'
+import { lerJsonSeguro } from '@/lib/http'
 
 type AbaEncomenda = 'avisar_encomenda' | 'portaria' | 'historico'
 
@@ -106,10 +107,10 @@ export default function EncomendasPage() {
           data: dataHora || null,
         }),
       })
-      const resultado = await resposta.json()
-      if (!resposta.ok) throw new Error(resultado.error || 'Erro ao registrar.')
+      const resultado = await lerJsonSeguro(resposta)
+      if (!resposta.ok) throw new Error(typeof resultado.error === 'string' ? resultado.error : 'Erro ao registrar.')
 
-      setMensagem(resultado.mensagem || 'Registro salvo.')
+      setMensagem(typeof resultado.mensagem === 'string' ? resultado.mensagem : 'Registro salvo.')
       limparFormulario()
       carregar()
     } catch (error) {
@@ -146,11 +147,11 @@ export default function EncomendasPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acao: 'confirmar_chegada', id }),
       })
-      const resultado = await resposta.json()
-      if (!resposta.ok) throw new Error(resultado.error || 'Erro ao confirmar chegada.')
+      const resultado = await lerJsonSeguro(resposta)
+      if (!resposta.ok) throw new Error(typeof resultado.error === 'string' ? resultado.error : 'Erro ao confirmar chegada.')
 
       cancelarConfirmacao()
-      setMensagem(resultado.mensagem || 'Chegada confirmada.')
+      setMensagem(typeof resultado.mensagem === 'string' ? resultado.mensagem : 'Chegada confirmada.')
       carregar()
     } catch (error) {
       setMensagem(error instanceof Error ? 'Erro ao confirmar chegada: ' + error.message : 'Erro ao confirmar chegada.')
@@ -169,11 +170,11 @@ export default function EncomendasPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acao: 'entregar', id, retirado_por: retiradoPor.trim() }),
       })
-      const resultado = await resposta.json()
-      if (!resposta.ok) throw new Error(resultado.error || 'Erro ao retirar.')
+      const resultado = await lerJsonSeguro(resposta)
+      if (!resposta.ok) throw new Error(typeof resultado.error === 'string' ? resultado.error : 'Erro ao retirar.')
 
       cancelarConfirmacao()
-      setMensagem(resultado.mensagem || 'Encomenda marcada como retirada.')
+      setMensagem(typeof resultado.mensagem === 'string' ? resultado.mensagem : 'Encomenda marcada como retirada.')
       carregar()
     } catch (error) {
       setMensagem(error instanceof Error ? 'Erro ao retirar: ' + error.message : 'Erro ao retirar.')
