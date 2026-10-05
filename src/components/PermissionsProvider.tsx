@@ -31,7 +31,10 @@ export function PermissionsProvider({ children }: { children: React.ReactNode })
     }
 
     try {
-      const resposta = await fetch('/api/me/permissoes', { cache: 'no-store' })
+      const resposta = await fetch(`/api/me/permissoes?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      })
       const dados = await lerJsonSeguro(resposta)
 
       if (!resposta.ok) throw new Error(typeof dados.error === 'string' ? dados.error : 'Erro ao atualizar permissoes.')

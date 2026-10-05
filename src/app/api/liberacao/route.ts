@@ -64,23 +64,28 @@ function maiorKmDosRegistros(registros: RegistroKm[], placa: string) {
   }, null)
 }
 
+function padraoBuscaPlaca(placa: string) {
+  const limpa = placaNormalizada(placa)
+  return limpa ? `%${limpa.split('').join('%')}%` : '%'
+}
+
 async function buscarMaiorKmRegistrado(
   supabase: ReturnType<typeof createAdminClient>,
   placa: string,
 ) {
-  const variantes = variantesPlaca(placa)
+  const padraoPlaca = padraoBuscaPlaca(placa)
   const [movimentacoesQuery, acoesQuery] = await Promise.all([
     supabase
       .from('movimentacoes')
       .select('placa, km')
-      .in('placa', variantes)
+      .ilike('placa', padraoPlaca)
       .not('km', 'is', null)
       .limit(1000)
       .returns<RegistroKm[]>(),
     supabase
       .from('movimentacoes_acoes')
       .select('placa, km')
-      .in('placa', variantes)
+      .ilike('placa', padraoPlaca)
       .not('km', 'is', null)
       .limit(1000)
       .returns<RegistroKm[]>(),

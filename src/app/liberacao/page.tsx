@@ -33,12 +33,6 @@ type RegistroKm = {
   km: number | string | null
 }
 
-function variantesPlacaKm(placa: string) {
-  const limpa = formatPlate(placa)
-  const comHifen = formatPlateDisplay(limpa)
-  return Array.from(new Set([placa.toUpperCase(), limpa, comHifen].filter(Boolean)))
-}
-
 function placasIguaisKm(a: string | null | undefined, b: string) {
   const placaA = formatPlate(a || '')
   const placaB = formatPlate(b)
@@ -61,6 +55,11 @@ function maiorKmDosRegistros(registros: RegistroKm[], placa: string) {
     if (kmRegistro === null) return maior
     return maior === null || kmRegistro > maior ? kmRegistro : maior
   }, null)
+}
+
+function padraoBuscaPlacaKm(placa: string) {
+  const limpa = formatPlate(placa)
+  return limpa ? `%${limpa.split('').join('%')}%` : '%'
 }
 
 export default function LiberacaoPage() {
@@ -274,19 +273,19 @@ export default function LiberacaoPage() {
       return null
     }
 
-    const variantes = variantesPlacaKm(placa)
+    const padraoPlaca = padraoBuscaPlacaKm(placa)
     const [movimentacoesQuery, acoesQuery] = await Promise.all([
       supabase
         .from('movimentacoes')
         .select('placa, km')
-        .in('placa', variantes)
+        .ilike('placa', padraoPlaca)
         .not('km', 'is', null)
         .limit(1000)
         .returns<RegistroKm[]>(),
       supabase
         .from('movimentacoes_acoes')
         .select('placa, km')
-        .in('placa', variantes)
+        .ilike('placa', padraoPlaca)
         .not('km', 'is', null)
         .limit(1000)
         .returns<RegistroKm[]>(),
