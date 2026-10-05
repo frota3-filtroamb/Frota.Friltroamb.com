@@ -9,6 +9,18 @@ type Veiculo = {
   NR_PLACA: string
 }
 
+type GestorAutorizacao = {
+  id: string
+  nome: string
+  email: string
+  setor: string
+}
+
+type RegistroKm = {
+  placa: string | null
+  km: number | string | null
+}
+
 function texto(valor: unknown) {
   return typeof valor === 'string' && valor.trim() ? valor.trim() : null
 }
@@ -19,11 +31,69 @@ function placaNormalizada(valor: unknown) {
 }
 
 function placaComHifen(placa: string) {
-  return placa.length > 3 ? `${placa.slice(0, 3)}-${placa.slice(3)}` : placa
+  const limpa = placaNormalizada(placa) || placa.toUpperCase()
+  return limpa.length > 3 ? `${limpa.slice(0, 3)}-${limpa.slice(3)}` : limpa
 }
 
 function variantesPlaca(placa: string) {
-  return Array.from(new Set([placa, placaComHifen(placa)]))
+  const limpa = placaNormalizada(placa)
+  return Array.from(new Set([placa.toUpperCase(), limpa, limpa ? placaComHifen(limpa) : null].filter(Boolean) as string[]))
+}
+
+function placasIguais(a: string | null | undefined, b: string) {
+  const placaA = placaNormalizada(a)
+  const placaB = placaNormalizada(b)
+  return Boolean(placaA && placaB && placaA === placaB)
+}
+
+function kmNumero(valor: unknown) {
+  if (typeof valor === 'number' && Number.isFinite(valor)) return valor
+  if (typeof valor === 'string') {
+    const parsed = Number(valor.replace(/\D/g, ''))
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+function maiorKmDosRegistros(registros: RegistroKm[], placa: string) {
+  return registros.reduce<number | null>((maior, registro) => {
+    if (!placasIguais(registro.placa, placa)) return maior
+    const km = kmNumero(registro.km)
+    if (km === null) return maior
+    return maior === null || km > maior ? km : maior
+  }, null)
+}
+
+async function buscarMaiorKmRegistrado(
+  supabase: ReturnType<typeof createAdminClient>,
+  placa: string,
+) {
+  const variantes = variantesPlaca(placa)
+  const [movimentacoesQuery, acoesQuery] = await Promise.all([
+    supabase
+      .from('movimentacoes')
+      .select('placa, km')
+      .in('placa', variantes)
+      .not('km', 'is', null)
+      .limit(1000)
+      .returns<RegistroKm[]>(),
+    supabase
+      .from('movimentacoes_acoes')
+      .select('placa, km')
+      .in('placa', variantes)
+      .not('km', 'is', null)
+      .limit(1000)
+      .returns<RegistroKm[]>(),
+  ])
+
+  if (movimentacoesQuery.error) return { km: null, error: movimentacoesQuery.error.message }
+  if (acoesQuery.error) return { km: null, error: acoesQuery.error.message }
+
+  const maiorMovimentacoes = maiorKmDosRegistros(movimentacoesQuery.data || [], placa)
+  const maiorAcoes = maiorKmDosRegistros(acoesQuery.data || [], placa)
+  const kms = [maiorMovimentacoes, maiorAcoes].filter((km): km is number => km !== null)
+
+  return { km: kms.length ? Math.max(...kms) : null, error: null }
 }
 
 async function buscarVeiculoPorPlaca(
@@ -45,12 +115,7 @@ function dataIso(valor: unknown) {
 }
 
 function numero(valor: unknown) {
-  if (typeof valor === 'number' && Number.isFinite(valor)) return valor
-  if (typeof valor === 'string') {
-    const parsed = Number(valor.replace(/\D/g, ''))
-    return Number.isFinite(parsed) ? parsed : null
-  }
-  return null
+  return kmNumero(valor)
 }
 
 function nomeResponsavel(operador: Awaited<ReturnType<typeof currentUser>>) {
@@ -276,23 +341,38 @@ export async function POST(request: NextRequest) {
     const destino = texto(body.destino)
     if (!destino) return NextResponse.json({ error: 'Destino obrigatorio.' }, { status: 400 })
 
+    let gestorResponsavel: GestorAutorizacao | null = null
+    if (tipoVeiculo === 'externo') {
+      const gestorResponsavelId = texto(body.gestor_responsavel_id)
+      if (!gestorResponsavelId) {
+        return NextResponse.json({ error: 'Gestor responsavel obrigatorio para veiculo externo.' }, { status: 400 })
+      }
+
+      const { data: gestor, error: gestorError } = await supabase
+        .from('gestores_autorizacao')
+        .select('id, nome, email, setor')
+        .eq('id', gestorResponsavelId)
+        .eq('ativo', true)
+        .maybeSingle<GestorAutorizacao>()
+
+      if (gestorError) return NextResponse.json({ error: gestorError.message }, { status: 400 })
+      if (!gestor) {
+        return NextResponse.json({ error: 'Gestor responsavel nao encontrado ou inativo.' }, { status: 400 })
+      }
+
+      gestorResponsavel = gestor
+    }
+
     const kmAtual = tipoVeiculo === 'interno' ? numero(body.km) : null
     if (tipoVeiculo === 'interno') {
       if (!kmAtual || kmAtual <= 0) {
         return NextResponse.json({ error: 'Informe um KM maior que zero.' }, { status: 400 })
       }
 
-      const { data: ultimoKm, error: kmError } = await supabase
-        .from('movimentacoes')
-        .select('km')
-        .in('placa', variantesPlaca(placa))
-        .not('km', 'is', null)
-        .order('km', { ascending: false })
-        .limit(1)
-        .maybeSingle<{ km: number | null }>()
+      const ultimoKm = await buscarMaiorKmRegistrado(supabase, placaMovimentacao)
 
-      if (kmError) return NextResponse.json({ error: kmError.message }, { status: 400 })
-      if (ultimoKm?.km && kmAtual < ultimoKm.km) {
+      if (ultimoKm.error) return NextResponse.json({ error: ultimoKm.error }, { status: 400 })
+      if (ultimoKm.km !== null && kmAtual < ultimoKm.km) {
         return NextResponse.json({ error: `KM informado (${kmAtual}) menor que o ultimo registrado (${ultimoKm.km}).` }, { status: 400 })
       }
     }
@@ -308,6 +388,10 @@ export async function POST(request: NextRequest) {
       liberado_em: dataRegistro,
       entrada_em: tipoVeiculo === 'externo' ? dataRegistro : null,
       tipo_veiculo: tipoVeiculo,
+      gestor_responsavel_id: gestorResponsavel?.id || null,
+      gestor_responsavel_nome: gestorResponsavel?.nome || null,
+      gestor_responsavel_email: gestorResponsavel?.email || null,
+      gestor_responsavel_setor: gestorResponsavel?.setor || null,
     }).select('id').single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })

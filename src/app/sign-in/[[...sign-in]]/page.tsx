@@ -43,8 +43,8 @@ export default function Page() {
         <SignIn
           path="/sign-in"
           routing="path"
-          fallbackRedirectUrl="/"
-          forceRedirectUrl="/"
+          fallbackRedirectUrl="/inicio"
+          forceRedirectUrl="/inicio"
           appearance={{
             theme: dark,
             variables: {

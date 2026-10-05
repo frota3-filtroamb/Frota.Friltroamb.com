@@ -5,6 +5,7 @@ import Sidebar from '@/components/Sidebar'
 import { useTopbarSearch } from '@/components/TopbarSearchProvider'
 import { usePermissions } from '@/components/PermissionsProvider'
 import { lerJsonSeguro } from '@/lib/http'
+import { formatPlateDisplay } from '@/lib/masks'
 import { createClient } from '@/lib/supabase/client'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 
@@ -50,6 +51,16 @@ type FormEdicao = {
   motivo_correcao: string
 }
 
+type Veiculo = {
+  NR_PLACA: string | null
+  DS_MODELO: string | null
+}
+
+type OpcaoCadastro = {
+  id: number | string
+  nome: string | null
+}
+
 const FORM_VAZIO: FormEdicao = {
   placa: '',
   motorista: '',
@@ -82,6 +93,9 @@ export default function EntradaSaidaVeiculosPage() {
   const [mensagem, setMensagem] = useState('')
   const [editandoId, setEditandoId] = useState<number | null>(null)
   const [formEdicao, setFormEdicao] = useState<FormEdicao>(FORM_VAZIO)
+  const [veiculosCadastro, setVeiculosCadastro] = useState<Veiculo[]>([])
+  const [motoristasCadastro, setMotoristasCadastro] = useState<OpcaoCadastro[]>([])
+  const [destinosCadastro, setDestinosCadastro] = useState<OpcaoCadastro[]>([])
   const [salvando, setSalvando] = useState(false)
   const [confirmandoExclusaoId, setConfirmandoExclusaoId] = useState<number | null>(null)
   const [motivoExclusao, setMotivoExclusao] = useState('')
@@ -112,6 +126,22 @@ export default function EntradaSaidaVeiculosPage() {
   useEffect(() => {
     carregar()
   }, [carregar])
+
+  useEffect(() => {
+    async function carregarCadastros() {
+      const [veiculosQuery, motoristasQuery, destinosQuery] = await Promise.all([
+        supabase.from('veiculos').select('NR_PLACA, DS_MODELO').order('NR_PLACA'),
+        supabase.from('motoristas').select('id, nome').order('nome'),
+        supabase.from('destinos').select('id, nome').order('nome'),
+      ])
+
+      if (!veiculosQuery.error) setVeiculosCadastro(veiculosQuery.data || [])
+      if (!motoristasQuery.error) setMotoristasCadastro(motoristasQuery.data || [])
+      if (!destinosQuery.error) setDestinosCadastro(destinosQuery.data || [])
+    }
+
+    carregarCadastros()
+  }, [supabase])
 
   const historicoVigente = useMemo(() => {
     const porId = new Map(historico.map((registro) => [registro.id, registro]))
@@ -493,17 +523,71 @@ export default function EntradaSaidaVeiculosPage() {
                       className="report-modal-field w-full min-w-0 rounded-lg border border-emerald-500/20 bg-[#0f1c2e] px-3 py-2.5 text-sm normal-case tracking-normal text-white [color-scheme:dark] focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
                     />
                   </label>
-                  {(['placa', 'motorista', 'km', 'destino'] as const).map((campo) => (
-                    <label key={campo} className="flex min-w-0 flex-col gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                      {campo.replace('_', ' ')}
-                      <input
-                        type={campo === 'km' ? 'number' : 'text'}
-                        value={formEdicao[campo]}
-                        onChange={(e) => setFormEdicao((atual) => ({ ...atual, [campo]: e.target.value }))}
-                        className="report-modal-field w-full min-w-0 rounded-lg border border-emerald-500/20 bg-[#0f1c2e] px-3 py-2.5 text-sm normal-case tracking-normal text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
-                      />
-                    </label>
-                  ))}
+                  <label className="flex min-w-0 flex-col gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    Placa
+                    <input
+                      type="text"
+                      list="relatorio-veiculos-placas"
+                      value={formEdicao.placa}
+                      onChange={(e) => setFormEdicao((atual) => ({ ...atual, placa: e.target.value }))}
+                      className="report-modal-field w-full min-w-0 rounded-lg border border-emerald-500/20 bg-[#0f1c2e] px-3 py-2.5 text-sm normal-case tracking-normal text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                    />
+                    <datalist id="relatorio-veiculos-placas">
+                      {veiculosCadastro
+                        .filter((veiculo) => veiculo.NR_PLACA)
+                        .map((veiculo) => (
+                          <option key={veiculo.NR_PLACA || ''} value={formatPlateDisplay(veiculo.NR_PLACA || '')}>
+                            {veiculo.DS_MODELO || 'Veiculo cadastrado'}
+                          </option>
+                        ))}
+                    </datalist>
+                  </label>
+
+                  <label className="flex min-w-0 flex-col gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    Motorista
+                    <input
+                      type="text"
+                      list="relatorio-veiculos-motoristas"
+                      value={formEdicao.motorista}
+                      onChange={(e) => setFormEdicao((atual) => ({ ...atual, motorista: e.target.value }))}
+                      className="report-modal-field w-full min-w-0 rounded-lg border border-emerald-500/20 bg-[#0f1c2e] px-3 py-2.5 text-sm normal-case tracking-normal text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                    />
+                    <datalist id="relatorio-veiculos-motoristas">
+                      {motoristasCadastro
+                        .filter((motorista) => motorista.nome)
+                        .map((motorista) => (
+                          <option key={motorista.id} value={motorista.nome || ''} />
+                        ))}
+                    </datalist>
+                  </label>
+
+                  <label className="flex min-w-0 flex-col gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    KM
+                    <input
+                      type="number"
+                      value={formEdicao.km}
+                      onChange={(e) => setFormEdicao((atual) => ({ ...atual, km: e.target.value }))}
+                      className="report-modal-field w-full min-w-0 rounded-lg border border-emerald-500/20 bg-[#0f1c2e] px-3 py-2.5 text-sm normal-case tracking-normal text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                    />
+                  </label>
+
+                  <label className="flex min-w-0 flex-col gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    Destino
+                    <input
+                      type="text"
+                      list="relatorio-veiculos-destinos"
+                      value={formEdicao.destino}
+                      onChange={(e) => setFormEdicao((atual) => ({ ...atual, destino: e.target.value }))}
+                      className="report-modal-field w-full min-w-0 rounded-lg border border-emerald-500/20 bg-[#0f1c2e] px-3 py-2.5 text-sm normal-case tracking-normal text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                    />
+                    <datalist id="relatorio-veiculos-destinos">
+                      {destinosCadastro
+                        .filter((destino) => destino.nome)
+                        .map((destino) => (
+                          <option key={destino.id} value={destino.nome || ''} />
+                        ))}
+                    </datalist>
+                  </label>
                   <label className="flex min-w-0 flex-col gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500 md:col-span-2">
                     Motivo da correcao
                     <input
