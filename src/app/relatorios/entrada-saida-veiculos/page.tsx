@@ -4,6 +4,7 @@ import RequirePermissao from '@/components/RequirePermissao'
 import Sidebar from '@/components/Sidebar'
 import { useTopbarSearch } from '@/components/TopbarSearchProvider'
 import { usePermissions } from '@/components/PermissionsProvider'
+import { lerJsonSeguro } from '@/lib/http'
 import { createClient } from '@/lib/supabase/client'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 
@@ -263,9 +264,9 @@ export default function EntradaSaidaVeiculosPage() {
           motivo_correcao: formEdicao.motivo_correcao,
         }),
       })
-      const resultado = await resposta.json()
+      const resultado = await lerJsonSeguro(resposta)
 
-      if (!resposta.ok) throw new Error(resultado.error || 'Erro ao salvar correcao.')
+      if (!resposta.ok) throw new Error(typeof resultado.error === 'string' ? resultado.error : 'Erro ao salvar correcao.')
 
       cancelarEdicao()
       setMensagem('Correcao registrada sem alterar a linha original.')
@@ -294,9 +295,9 @@ export default function EntradaSaidaVeiculosPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ motivo_exclusao: motivoExclusao.trim() }),
       })
-      const resultado = await resposta.json()
+      const resultado = await lerJsonSeguro(resposta)
 
-      if (!resposta.ok) throw new Error(resultado.error || 'Erro ao excluir registro.')
+      if (!resposta.ok) throw new Error(typeof resultado.error === 'string' ? resultado.error : 'Erro ao excluir registro.')
 
       if (editandoId === registro.acao_original_id) cancelarEdicao()
       cancelarExclusao()

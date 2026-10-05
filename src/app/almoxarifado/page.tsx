@@ -3,6 +3,7 @@
 import RequirePermissao from '@/components/RequirePermissao'
 import Sidebar from '@/components/Sidebar'
 import { useTopbarSearch } from '@/components/TopbarSearchProvider'
+import { lerJsonSeguro } from '@/lib/http'
 import { createClient } from '@/lib/supabase/client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
@@ -177,10 +178,10 @@ export default function AlmoxarifadoPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dados),
     })
-    const resultado = await resposta.json()
+    const resultado = await lerJsonSeguro(resposta)
 
     if (!resposta.ok) {
-      throw new Error(resultado.error || 'Erro ao executar acao do almoxarifado.')
+      throw new Error(typeof resultado.error === 'string' ? resultado.error : 'Erro ao executar acao do almoxarifado.')
     }
 
     return resultado as { mensagem?: string; quantidade?: number }

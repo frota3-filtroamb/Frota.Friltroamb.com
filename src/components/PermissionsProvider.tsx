@@ -2,6 +2,7 @@
 
 import { useUser } from '@clerk/nextjs'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { lerJsonSeguro } from '@/lib/http'
 import { getPermissoes, getRole, podeAcessar as podeAcessarRole, podeAcessarDetalhe as podeAcessarDetalheRole, type Permissao, type Role } from '@/lib/roles'
 
 type PermissionsContextValue = {
@@ -31,11 +32,11 @@ export function PermissionsProvider({ children }: { children: React.ReactNode })
 
     try {
       const resposta = await fetch('/api/me/permissoes', { cache: 'no-store' })
-      const dados = await resposta.json()
+      const dados = await lerJsonSeguro(resposta)
 
-      if (!resposta.ok) throw new Error(dados.error || 'Erro ao atualizar permissoes.')
+      if (!resposta.ok) throw new Error(typeof dados.error === 'string' ? dados.error : 'Erro ao atualizar permissoes.')
 
-      setRole(dados.role)
+      setRole(typeof dados.role === 'string' ? dados.role as Role : getRole(user))
       setPermissoes(Array.isArray(dados.permissoes) ? dados.permissoes : [])
     } catch {
       setRole(getRole(user))
