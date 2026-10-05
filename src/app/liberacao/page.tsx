@@ -28,6 +28,41 @@ type GestorAutorizacao = {
   setor: string
 }
 
+type RegistroKm = {
+  placa: string | null
+  km: number | string | null
+}
+
+function variantesPlacaKm(placa: string) {
+  const limpa = formatPlate(placa)
+  const comHifen = formatPlateDisplay(limpa)
+  return Array.from(new Set([placa.toUpperCase(), limpa, comHifen].filter(Boolean)))
+}
+
+function placasIguaisKm(a: string | null | undefined, b: string) {
+  const placaA = formatPlate(a || '')
+  const placaB = formatPlate(b)
+  return Boolean(placaA && placaB && placaA === placaB)
+}
+
+function kmParaNumero(valor: unknown) {
+  if (typeof valor === 'number' && Number.isFinite(valor)) return valor
+  if (typeof valor === 'string') {
+    const parsed = Number(valor.replace(/\D/g, ''))
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+function maiorKmDosRegistros(registros: RegistroKm[], placa: string) {
+  return registros.reduce<number | null>((maior, registro) => {
+    if (!placasIguaisKm(registro.placa, placa)) return maior
+    const kmRegistro = kmParaNumero(registro.km)
+    if (kmRegistro === null) return maior
+    return maior === null || kmRegistro > maior ? kmRegistro : maior
+  }, null)
+}
+
 export default function LiberacaoPage() {
   const supabase = useMemo(() => createClient(), [])
   const { user, isLoaded } = useUser()
@@ -239,22 +274,35 @@ export default function LiberacaoPage() {
       return null
     }
 
-    const { data, error } = await supabase
-      .from('movimentacoes')
-      .select('km')
-      .eq('placa', placa)
-      .not('km', 'is', null)
-      .order('km', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    const variantes = variantesPlacaKm(placa)
+    const [movimentacoesQuery, acoesQuery] = await Promise.all([
+      supabase
+        .from('movimentacoes')
+        .select('placa, km')
+        .in('placa', variantes)
+        .not('km', 'is', null)
+        .limit(1000)
+        .returns<RegistroKm[]>(),
+      supabase
+        .from('movimentacoes_acoes')
+        .select('placa, km')
+        .in('placa', variantes)
+        .not('km', 'is', null)
+        .limit(1000)
+        .returns<RegistroKm[]>(),
+    ])
 
-    if (error) {
-      setMensagem('Erro ao validar KM: ' + error.message)
+    if (movimentacoesQuery.error || acoesQuery.error) {
+      const erro = movimentacoesQuery.error?.message || acoesQuery.error?.message || 'Erro desconhecido'
+      setMensagem('Erro ao validar KM: ' + erro)
       return null
     }
 
-    const ultimoKm = Number(data?.km ?? 0)
-    if (kmAtual < ultimoKm) {
+    const maiorMovimentacoes = maiorKmDosRegistros(movimentacoesQuery.data || [], placa)
+    const maiorAcoes = maiorKmDosRegistros(acoesQuery.data || [], placa)
+    const kmsRegistrados = [maiorMovimentacoes, maiorAcoes].filter((kmRegistro): kmRegistro is number => kmRegistro !== null)
+    const ultimoKm = kmsRegistrados.length ? Math.max(...kmsRegistrados) : 0
+    if (ultimoKm > 0 && kmAtual < ultimoKm) {
       setMensagem(`KM informado nao pode ser menor que o ultimo registrado (${ultimoKm})`)
       return null
     }

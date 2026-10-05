@@ -401,12 +401,12 @@ function PortariaContent() {
                 <div key={abaAtual} className="animate-tab">
                   {carregando ? (
                     <div className="space-y-6 animate-pulse">
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 min-[1025px]:grid-cols-4">{[...Array(4)].map((_, i) => <div key={i} className="h-28 rounded-2xl bg-white/5 border border-white/5" />)}</div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">{[...Array(4)].map((_, i) => <div key={i} className="h-28 rounded-2xl bg-white/5 border border-white/5" />)}</div>
                       <div className="rounded-2xl border border-white/5 bg-[#0f1c2e] overflow-hidden"><div className="h-12 bg-[#132337]" /><div className="space-y-3 p-5"><div className="h-10 rounded-lg bg-white/5" /><div className="h-10 rounded-lg bg-white/5" /><div className="h-10 rounded-lg bg-white/5" /></div></div>
                     </div>
                   ) : abaAtual === 'veiculos' ? (
                     <>
-                      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 min-[1025px]:grid-cols-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                         <div className="bg-[#0f1c2e] border border-orange-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Aguardando Saida</p><p className="text-3xl font-bold text-orange-300 mt-1">{vAguardando}</p></div>
                         <div className="bg-[#0f1c2e] border border-blue-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Em Rota</p><p className="text-3xl font-bold text-blue-300 mt-1">{vEmRota}</p></div>
                         <div className="bg-[#0f1c2e] border border-emerald-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Retornos Hoje</p><p className="text-3xl font-bold text-emerald-300 mt-1">{vRetornosHoje}</p></div>
@@ -571,7 +571,7 @@ function PortariaContent() {
                     </>
                   ) : abaAtual === 'autorizacoes' ? (
                     <>
-                      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 min-[1025px]:grid-cols-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                         <div className="bg-[#0f1c2e] border border-orange-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Aguardando Gestor</p><p className="text-3xl font-bold text-orange-300 mt-1">{autorizacoesPendentes.length}</p></div>
                       </div>
                       <div className="mb-8 hidden overflow-hidden rounded-2xl border border-orange-500/15 bg-[#0f1c2e] shadow-[0_0_30px_rgba(249,115,22,0.05)] min-[1025px]:block">
@@ -673,7 +673,7 @@ function PortariaContent() {
                     </>
                   ) : abaAtual === 'pedestres' ? (
                     <>
-                      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 min-[1025px]:grid-cols-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                         <div className="bg-[#0f1c2e] border border-orange-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Aguardando Entrada</p><p className="text-3xl font-bold text-orange-300 mt-1">{pAguardando}</p></div>
                         <div className="bg-[#0f1c2e] border border-purple-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Em Visita</p><p className="text-3xl font-bold text-purple-300 mt-1">{pEmVisita}</p></div>
                         <div className="bg-[#0f1c2e] border border-emerald-500/15 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Total em Aberto</p><p className="text-3xl font-bold text-white mt-1">{pAguardando + pEmVisita}</p></div>
@@ -797,7 +797,7 @@ function PortariaContent() {
                     </>
                   ) : (
                     <>
-                      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 min-[1025px]:grid-cols-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                         <div className="bg-[#0f1c2e] border border-orange-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Aguardando Confirmacao</p><p className="text-3xl font-bold text-orange-300 mt-1">{transferenciasPendentes.length}</p></div>
                       </div>
                       <div className="hidden overflow-hidden rounded-2xl border border-emerald-500/15 bg-[#0f1c2e] shadow-[0_0_30px_rgba(16,185,129,0.05)] min-[1025px]:block">

@@ -51,18 +51,44 @@ function CabecalhoFiltro({
   onLimpar: (coluna: ColunaFiltro) => void
 }) {
   const filtroRef = useRef<HTMLTableCellElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [posicaoMenu, setPosicaoMenu] = useState({ top: 0, left: 0 })
 
   useEffect(() => {
     if (!aberto) return
 
+    function atualizarPosicao() {
+      const rect = filtroRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const larguraMenu = 224
+      const margem = 12
+      setPosicaoMenu({
+        top: rect.bottom + 6,
+        left: Math.min(
+          Math.max(rect.left + rect.width / 2, margem + larguraMenu / 2),
+          window.innerWidth - margem - larguraMenu / 2,
+        ),
+      })
+    }
+
+    atualizarPosicao()
+
     function fecharAoClicarFora(event: PointerEvent) {
-      if (!filtroRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node
+      if (!filtroRef.current?.contains(target) && !menuRef.current?.contains(target)) {
         onFechar()
       }
     }
 
     document.addEventListener('pointerdown', fecharAoClicarFora)
-    return () => document.removeEventListener('pointerdown', fecharAoClicarFora)
+    window.addEventListener('resize', atualizarPosicao)
+    window.addEventListener('scroll', atualizarPosicao, true)
+
+    return () => {
+      document.removeEventListener('pointerdown', fecharAoClicarFora)
+      window.removeEventListener('resize', atualizarPosicao)
+      window.removeEventListener('scroll', atualizarPosicao, true)
+    }
   }, [aberto, onFechar])
 
   return (
@@ -77,7 +103,11 @@ function CabecalhoFiltro({
       </button>
 
       {aberto && (
-        <div className="absolute left-1/2 top-full z-30 mt-1 w-56 -translate-x-1/2 rounded-lg border border-emerald-500/20 bg-[#0f1c2e] p-2 text-left shadow-2xl shadow-black/40">
+        <div
+          ref={menuRef}
+          className="fixed z-[90] w-56 -translate-x-1/2 rounded-lg border border-emerald-500/20 bg-[#0f1c2e] p-2 text-left shadow-2xl shadow-black/40"
+          style={{ top: posicaoMenu.top, left: posicaoMenu.left }}
+        >
           <div className="mb-2 flex items-center justify-between gap-2 border-b border-white/10 pb-2">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
               Filtrar
