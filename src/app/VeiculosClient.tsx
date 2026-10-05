@@ -1,5 +1,6 @@
 'use client'
 
+import { useTopbarSearch } from '@/components/TopbarSearchProvider'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 type Veiculo = {
@@ -110,6 +111,7 @@ function CabecalhoFiltro({
 }
 
 export default function VeiculosClient({ veiculos }: { veiculos: Veiculo[] }) {
+  const { busca } = useTopbarSearch()
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_INICIAIS)
   const [menuAberto, setMenuAberto] = useState<ColunaFiltro | null>(null)
 
@@ -132,7 +134,20 @@ export default function VeiculosClient({ veiculos }: { veiculos: Veiculo[] }) {
     }, {} as Record<ColunaFiltro, string[]>)
   }, [veiculos])
 
+  const textoBusca = busca.toLowerCase().trim()
   const veiculosFiltrados = veiculos.filter((veiculo) => {
+    const passaBusca =
+      !textoBusca ||
+      veiculo.NR_PLACA?.toLowerCase().includes(textoBusca) ||
+      veiculo.DS_MODELO?.toLowerCase().includes(textoBusca) ||
+      veiculo.DS_MARCA?.toLowerCase().includes(textoBusca) ||
+      String(veiculo.NR_ANO_MODELO || '').includes(textoBusca) ||
+      veiculo.DS_COR?.toLowerCase().includes(textoBusca) ||
+      veiculo.DS_COMBUSTIVEL?.toLowerCase().includes(textoBusca) ||
+      veiculo.DS_TIPOVEICULO?.toLowerCase().includes(textoBusca)
+
+    if (!passaBusca) return false
+
     return (Object.keys(filtros) as ColunaFiltro[]).every((coluna) => {
       const selecionados = filtros[coluna]
       if (selecionados.length === 0) return true
@@ -157,7 +172,7 @@ export default function VeiculosClient({ veiculos }: { veiculos: Veiculo[] }) {
   }
 
   return (
-    <main className="animate-tab flex flex-1 min-h-0 flex-col overflow-hidden bg-[#0a1625] p-6" style={{ zoom: 0.90 }}>
+    <main className="animate-tab flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0a1625] p-4 lg:p-5 xl:p-6">
       {filtrosAtivos && (
         <div className="mb-3 flex shrink-0 justify-end">
           <button

@@ -2,6 +2,7 @@
 
 import RequirePermissao from '@/components/RequirePermissao'
 import Sidebar from '@/components/Sidebar'
+import { useTopbarSearch } from '@/components/TopbarSearchProvider'
 import { createClient } from '@/lib/supabase/client'
 import { formatCpf, formatPhone, onlyDigits } from '@/lib/masks'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -88,7 +89,7 @@ function formatarData(data: string | null | undefined) {
 export default function PessoasPage() {
   const supabase = useMemo(() => createClient(), [])
   const [pessoas, setPessoas] = useState<Pessoa[]>([])
-  const [busca, setBusca] = useState('')
+  const { busca, setBusca } = useTopbarSearch()
   const [cadastro, setCadastro] = useState<CadastroPessoa>(cadastroInicial)
   const [carregando, setCarregando] = useState(true)
   const [salvando, setSalvando] = useState(false)

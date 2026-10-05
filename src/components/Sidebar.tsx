@@ -2,12 +2,13 @@
 
 import { useUser, UserButton } from '@clerk/nextjs'
 import { dark } from '@clerk/themes'
-import { getRole, podeAcessar } from '@/lib/roles'
 import { usePathname } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTheme } from '@/components/ThemeProvider'
 import Link from 'next/link'
 import Image from 'next/image'
+import { useTopbarSearch } from '@/components/TopbarSearchProvider'
+import { usePermissions } from '@/components/PermissionsProvider'
 
 type IconName =
   | 'inicio'
@@ -71,6 +72,56 @@ function TopBarIcon() {
   return <svg {...props}><path d="M15 17H9" /><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
 }
 
+function TopbarSearchIcon() {
+  const props = {
+    className: 'h-4 w-4',
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.8,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    'aria-hidden': true,
+  }
+
+  return <svg {...props}><circle cx="11" cy="11" r="7" /><path d="m16.5 16.5 4 4" /></svg>
+}
+
+function MobileThemeIcon({ theme }: { theme: 'dark' | 'light' }) {
+  const props = {
+    className: 'h-4 w-4',
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.8,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    'aria-hidden': true,
+  }
+
+  if (theme === 'dark') {
+    return <svg {...props}><path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z" /></svg>
+  }
+
+  return <svg {...props}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" /></svg>
+}
+
+function MobileMenuIcon({ aberto = false }: { aberto?: boolean }) {
+  const props = {
+    className: 'h-4 w-4',
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.8,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    'aria-hidden': true,
+  }
+
+  if (aberto) return <svg {...props}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+  return <svg {...props}><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></svg>
+}
+
 function tituloDaPagina(pathname: string) {
   const titulos: Record<string, string> = {
     '/': 'Veículos',
@@ -94,20 +145,22 @@ function tituloDaPagina(pathname: string) {
 export default function Sidebar() {
   const pathname = usePathname()
   const { theme, toggleTheme } = useTheme()
+  const { busca, setBusca, limparBusca } = useTopbarSearch()
+  const permissoesAtualizadas = usePermissions()
   const { user, isLoaded } = useUser()
-  const role = getRole(user)
+  const role = permissoesAtualizadas.role
   const roleLabel = role === 'dev' ? 'Dev' : role === 'gestor' ? 'Gestor' : role === 'editor' ? 'Editor' : role === 'porteiro' ? 'Porteiro' : 'Basico'
   const podeUsuarios = role === 'dev'
 
-  const podeVeiculos = podeAcessar(user, 'veiculos')
-  const podePortaria = podeAcessar(user, 'portaria')
-  const podeLiberacao = podeAcessar(user, 'liberacao')
-  const podeTransferencia = podeAcessar(user, 'transferencia')
-  const podeEncomendas = podeAcessar(user, 'encomendas')
-  const podeAlmoxarifado = podeAcessar(user, 'almoxarifado')
-  const podeCadastros = podeAcessar(user, 'cadastros')
-  const podeCadastroPessoas = podeAcessar(user, 'cadastros.pessoas')
-  const podeCadastroDestinos = podeAcessar(user, 'cadastros.destinos')
+  const podeVeiculos = permissoesAtualizadas.podeAcessar('veiculos')
+  const podePortaria = permissoesAtualizadas.podeAcessar('portaria')
+  const podeLiberacao = permissoesAtualizadas.podeAcessar('liberacao')
+  const podeTransferencia = permissoesAtualizadas.podeAcessar('transferencia')
+  const podeEncomendas = permissoesAtualizadas.podeAcessar('encomendas')
+  const podeAlmoxarifado = permissoesAtualizadas.podeAcessar('almoxarifado')
+  const podeCadastros = permissoesAtualizadas.podeAcessar('cadastros')
+  const podeCadastroPessoas = permissoesAtualizadas.podeAcessar('cadastros.pessoas')
+  const podeCadastroDestinos = permissoesAtualizadas.podeAcessar('cadastros.destinos')
 
   const portariaAtiva =
     pathname === '/portaria' ||
@@ -132,6 +185,12 @@ export default function Sidebar() {
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>([])
   const [carregandoNotificacoes, setCarregandoNotificacoes] = useState(false)
   const notificacoesRef = useRef<HTMLDivElement | null>(null)
+  const notificacoesMobileRef = useRef<HTMLDivElement | null>(null)
+  const paginasComBusca = pathname === '/'
+
+  useEffect(() => {
+    limparBusca()
+  }, [limparBusca, pathname])
 
   useEffect(() => {
     setPortariaAberta(false)
@@ -143,7 +202,8 @@ export default function Sidebar() {
     if (!notificacoesAberta) return
 
     function fecharAoClicarFora(event: MouseEvent) {
-      if (!notificacoesRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node
+      if (!notificacoesRef.current?.contains(target) && !notificacoesMobileRef.current?.contains(target)) {
         setNotificacoesAberta(false)
       }
     }
@@ -226,48 +286,117 @@ export default function Sidebar() {
 
   return (
     <>
-      <header className="lg:hidden sticky top-0 z-50 bg-[#0b1f33] text-white border-b border-white/10">
-        <div className="flex items-center justify-between gap-3 px-4 py-3">
-          <Link href="/" className="flex min-w-0 items-center gap-3" onClick={() => setMobileMenuAberto(false)}>
-            <Image
-              src="/images/favicon.png"
-              alt="Filtroamb"
-              width={36}
-              height={36}
-              className="h-9 w-auto object-contain"
-            />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-white">Gestao de Frota</p>
-              <p className="text-[10px] uppercase tracking-wider text-slate-500">{roleLabel}</p>
-            </div>
-          </Link>
+      <header className="mobile-app-header sticky top-0 z-50 border-b border-white/10 bg-[#0b1f33] text-white min-[1025px]:hidden">
+        <div className="flex h-14 items-center justify-between gap-3 px-3">
+          <button
+            type="button"
+            onClick={() => setMobileMenuAberto(true)}
+            aria-label="Abrir menu"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+          >
+            <MobileMenuIcon />
+          </button>
 
-          <div className="flex items-center gap-2">
+          <h1 className="min-w-0 flex-1 truncate text-center text-base font-bold text-white">
+            {tituloDaPagina(pathname)}
+          </h1>
+
+          <div className="flex items-center gap-1.5">
+            <div ref={notificacoesMobileRef} className="relative">
+              <button
+                type="button"
+                aria-label="Notificacoes"
+                aria-expanded={notificacoesAberta}
+                onClick={() => setNotificacoesAberta((aberta) => !aberta)}
+                className={`topbar-notification-button relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 transition-colors ${notificacoesAberta ? 'is-open' : ''}`}
+              >
+                <TopBarIcon />
+                {notificacoes.length > 0 && (
+                  <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold leading-none text-white">
+                    {notificacoes.length > 9 ? '9+' : notificacoes.length}
+                  </span>
+                )}
+              </button>
+
+              {notificacoesAberta && (
+                <div className="topbar-notification-panel absolute right-0 top-12 w-[min(320px,calc(100vw-24px))] overflow-hidden rounded-2xl border shadow-xl">
+                  <div className="flex items-center justify-between border-b px-4 py-3">
+                    <h2 className="text-sm font-bold">Notificacoes</h2>
+                    <span className={`h-1.5 w-1.5 rounded-full ${notificacoes.length > 0 ? 'bg-orange-400' : 'bg-emerald-400'}`} aria-hidden="true" />
+                  </div>
+
+                  {carregandoNotificacoes ? (
+                    <div className="flex min-h-[108px] items-center justify-center px-4 py-8">
+                      <p className="text-center text-xs font-medium italic">Carregando alertas...</p>
+                    </div>
+                  ) : notificacoes.length === 0 ? (
+                    <div className="flex min-h-[108px] items-center justify-center px-4 py-8">
+                      <p className="text-center text-xs font-medium italic">Nenhum alerta recente.</p>
+                    </div>
+                  ) : (
+                    <div className="app-scroll max-h-[320px] overflow-y-auto py-1">
+                      {notificacoes.map((notificacao) => (
+                        <Link
+                          key={notificacao.id}
+                          href={notificacao.href}
+                          onClick={() => setNotificacoesAberta(false)}
+                          className="block border-b px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-orange-500/10"
+                        >
+                          <p className="text-sm font-semibold">{notificacao.titulo}</p>
+                          <p className="mt-1 text-xs">{notificacao.descricao}</p>
+                          {notificacao.data && (
+                            <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide">{formatarDataNotificacao(notificacao.data)}</p>
+                          )}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <button
               type="button"
               onClick={toggleTheme}
-              className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-300"
+              aria-label={theme === 'dark' ? 'Ativar modo claro' : 'Ativar modo escuro'}
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 text-slate-300"
             >
-              Tema
+              <MobileThemeIcon theme={theme} />
             </button>
-            <button
-              type="button"
-              onClick={() => setMobileMenuAberto(!mobileMenuAberto)}
-              className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-300"
-            >
-              Menu
-            </button>
-            <UserButton
-              appearance={{
-                theme: theme === 'dark' ? dark : undefined,
-              }}
-            />
           </div>
         </div>
 
         {mobileMenuAberto && (
-          <nav className="sidebar-scroll max-h-[70dvh] overflow-y-auto border-t border-white/10 px-3 py-3">
-            <div className="grid grid-cols-1 gap-1">
+          <div className="fixed inset-0 z-50 bg-black/45 min-[1025px]:hidden" onClick={() => setMobileMenuAberto(false)}>
+            <aside
+              className="sidebar-scroll h-full w-[min(82vw,320px)] overflow-y-auto bg-[#101314] p-3 shadow-2xl shadow-black/40"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="mb-3 flex items-center justify-between gap-3 border-b border-white/10 pb-3">
+                <Link href="/inicio" className="flex min-w-0 items-center gap-3" onClick={() => setMobileMenuAberto(false)}>
+                  <Image
+                    src="/images/favicon.png"
+                    alt="Filtroamb"
+                    width={40}
+                    height={40}
+                    className="h-10 w-10 object-contain"
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-white">Filtroamb</p>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-500">{roleLabel}</p>
+                  </div>
+                </Link>
+                <button
+                  type="button"
+                  aria-label="Fechar menu"
+                  onClick={() => setMobileMenuAberto(false)}
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-slate-300"
+                >
+                  <MobileMenuIcon aberto />
+                </button>
+              </div>
+
+              <nav className="grid grid-cols-1 gap-1">
               <Link href="/inicio" onClick={() => setMobileMenuAberto(false)} className={mobileLinkClass('/inicio')}>
                 Inicio
               </Link>
@@ -383,17 +512,51 @@ export default function Sidebar() {
                   Usuarios
                 </Link>
               )}
-            </div>
-          </nav>
+              </nav>
+
+              <div className="mt-4 border-t border-white/10 pt-4">
+                <UserButton
+                  appearance={{
+                    theme: theme === 'dark' ? dark : undefined,
+                  }}
+                />
+              </div>
+            </aside>
+          </div>
         )}
       </header>
 
-      <div className="hidden w-[53px] shrink-0 lg:block" aria-hidden="true" />
+      <div className="hidden w-[53px] shrink-0 min-[1025px]:block" aria-hidden="true" />
 
-      <div className="app-topbar fixed left-[53px] right-0 top-0 z-20 hidden h-14 items-center gap-5 border-b border-slate-200 bg-white px-6 text-slate-950 lg:flex">
+      <div className="app-topbar fixed left-[53px] right-0 top-0 z-20 hidden h-14 items-center gap-5 border-b border-slate-200 bg-white px-6 text-slate-950 min-[1025px]:flex">
         <h1 className="min-w-[108px] whitespace-nowrap text-lg font-bold">
           {tituloDaPagina(pathname)}
         </h1>
+
+        {paginasComBusca && (
+          <label className="topbar-search relative flex h-9 w-full max-w-md items-center">
+            <span className="pointer-events-none absolute left-3 text-slate-400">
+              <TopbarSearchIcon />
+            </span>
+            <input
+              type="text"
+              value={busca}
+              onChange={(event) => setBusca(event.target.value)}
+              placeholder="Pesquisar nesta pagina..."
+              className="h-full w-full rounded-lg border border-slate-200 bg-white pl-10 pr-9 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
+            />
+            {busca && (
+              <button
+                type="button"
+                onClick={() => setBusca('')}
+                aria-label="Limpar pesquisa"
+                className="absolute right-2 flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                x
+              </button>
+            )}
+          </label>
+        )}
 
         <div ref={notificacoesRef} className="relative ml-auto flex items-center">
           <button
@@ -450,7 +613,7 @@ export default function Sidebar() {
         </div>
       </div>
 
-      <aside className="group/sidebar fixed left-0 top-0 z-30 hidden h-full w-[53px] overflow-hidden bg-[#101314] text-white shadow-xl shadow-black/20 transition-[width] duration-200 ease-out hover:w-[188px] focus-within:w-[188px] lg:flex lg:flex-col">
+      <aside className="group/sidebar fixed left-0 top-0 z-30 hidden h-full w-[53px] overflow-hidden bg-[#101314] text-white shadow-xl shadow-black/20 transition-[width] duration-200 ease-out hover:w-[188px] focus-within:w-[188px] min-[1025px]:flex min-[1025px]:flex-col">
         <Link
           href="/inicio"
           title="Inicio"

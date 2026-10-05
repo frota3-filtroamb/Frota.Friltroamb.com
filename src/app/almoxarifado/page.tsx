@@ -2,6 +2,7 @@
 
 import RequirePermissao from '@/components/RequirePermissao'
 import Sidebar from '@/components/Sidebar'
+import { useTopbarSearch } from '@/components/TopbarSearchProvider'
 import { createClient } from '@/lib/supabase/client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
@@ -81,7 +82,7 @@ export default function AlmoxarifadoPage() {
   const [itens, setItens] = useState<EstoqueItem[]>([])
   const [movimentos, setMovimentos] = useState<EstoqueMovimento[]>([])
   const [ordens, setOrdens] = useState<OrdemCompra[]>([])
-  const [busca, setBusca] = useState('')
+  const { busca, setBusca } = useTopbarSearch()
   const [mensagem, setMensagem] = useState('')
   const [carregando, setCarregando] = useState(true)
   const [salvando, setSalvando] = useState(false)
@@ -326,7 +327,7 @@ export default function AlmoxarifadoPage() {
         <Sidebar />
 
         <div className="flex-1 flex flex-col h-screen overflow-hidden">
-          <div className="app-scroll flex-1 overflow-y-auto bg-[#0a1625]" style={{ zoom: 0.95 }}>
+          <div className="app-scroll flex-1 overflow-y-auto bg-[#0a1625]">
             <main className="p-6">
               <div className="max-w-7xl mx-auto space-y-5">
                 <div className="flex flex-col gap-2 rounded-xl border border-cyan-500/20 bg-[#132337] p-1.5 lg:flex-row lg:items-center">

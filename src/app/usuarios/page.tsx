@@ -1,6 +1,7 @@
 'use client'
 
 import Sidebar from '@/components/Sidebar'
+import { useTopbarSearch } from '@/components/TopbarSearchProvider'
 import { useUser } from '@clerk/nextjs'
 import { useEffect, useMemo, useState } from 'react'
 import type { Permissao, Role } from '@/lib/roles'
@@ -89,7 +90,7 @@ function iniciais(nome: string, email: string) {
 export default function UsuariosPage() {
   const { user, isLoaded } = useUser()
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
-  const [busca, setBusca] = useState('')
+  const { busca, setBusca } = useTopbarSearch()
   const [filtroRole, setFiltroRole] = useState<'todos' | Role>('todos')
   const [carregando, setCarregando] = useState(true)
   const [salvandoId, setSalvandoId] = useState<string | null>(null)

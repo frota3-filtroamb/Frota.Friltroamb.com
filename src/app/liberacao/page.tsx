@@ -5,7 +5,7 @@ import { useUser } from '@clerk/nextjs'
 import { KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Sidebar from '@/components/Sidebar'
-import { podeAcessarDetalhe } from '@/lib/roles'
+import { usePermissions } from '@/components/PermissionsProvider'
 import { formatCpf, formatPhone, formatPlate, formatPlateDisplay, onlyDigits } from '@/lib/masks'
 
 type Veiculo = {
@@ -27,9 +27,21 @@ type GestorAutorizacao = {
   setor: string
 }
 
+async function lerJsonSeguro(resposta: Response) {
+  const texto = await resposta.text()
+  if (!texto.trim()) return {}
+
+  try {
+    return JSON.parse(texto) as Record<string, unknown>
+  } catch {
+    throw new Error(`Resposta invalida do servidor (${resposta.status}).`)
+  }
+}
+
 export default function LiberacaoPage() {
   const supabase = useMemo(() => createClient(), [])
   const { user, isLoaded } = useUser()
+  const permissoesAtualizadas = usePermissions()
 
   const [veiculos, setVeiculos] = useState<Veiculo[]>([])
   const [origens, setOrigens] = useState<Item[]>([])
@@ -82,11 +94,11 @@ export default function LiberacaoPage() {
   const [carregando, setCarregando] = useState(false)
   const [mensagem, setMensagem] = useState('')
 
-  const podeVeiculoEmpresa = podeAcessarDetalhe(user, 'liberacao', 'liberacao.veiculo_empresa')
-  const podeVeiculoExterno = podeAcessarDetalhe(user, 'liberacao', 'liberacao.veiculo_externo')
-  const podePedestre = podeAcessarDetalhe(user, 'liberacao', 'liberacao.pedestre')
-  const podeTransferencia = podeAcessarDetalhe(user, 'liberacao', 'liberacao.transferencia')
-  const podeVeiculoInterno = podeAcessarDetalhe(user, 'liberacao', 'liberacao.veiculo_interno')
+  const podeVeiculoEmpresa = permissoesAtualizadas.podeAcessarDetalhe('liberacao', 'liberacao.veiculo_empresa')
+  const podeVeiculoExterno = permissoesAtualizadas.podeAcessarDetalhe('liberacao', 'liberacao.veiculo_externo')
+  const podePedestre = permissoesAtualizadas.podeAcessarDetalhe('liberacao', 'liberacao.pedestre')
+  const podeTransferencia = permissoesAtualizadas.podeAcessarDetalhe('liberacao', 'liberacao.transferencia')
+  const podeVeiculoInterno = permissoesAtualizadas.podeAcessarDetalhe('liberacao', 'liberacao.veiculo_interno')
   const identificadorLiberacao =
     user?.fullName ||
     user?.username ||
@@ -167,10 +179,10 @@ export default function LiberacaoPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dados),
     })
-    const resultado = await resposta.json()
+    const resultado = await lerJsonSeguro(resposta)
 
     if (!resposta.ok) {
-      throw new Error(resultado.error || 'Erro ao registrar liberacao.')
+      throw new Error(typeof resultado.error === 'string' ? resultado.error : 'Erro ao registrar liberacao.')
     }
 
     return typeof resultado.mensagem === 'string' ? resultado.mensagem : 'Registro criado com sucesso.'
@@ -190,9 +202,9 @@ export default function LiberacaoPage() {
     if (m.data) setMotoristas(m.data)
 
     try {
-      const resultadoGestores = await gestoresResposta.json()
+      const resultadoGestores = await lerJsonSeguro(gestoresResposta)
       if (!gestoresResposta.ok) {
-        throw new Error(resultadoGestores.error || 'Erro ao carregar gestores.')
+        throw new Error(typeof resultadoGestores.error === 'string' ? resultadoGestores.error : 'Erro ao carregar gestores.')
       }
       setGestores(Array.isArray(resultadoGestores.gestores) ? resultadoGestores.gestores : [])
     } catch (error) {
@@ -703,9 +715,8 @@ export default function LiberacaoPage() {
         <Sidebar />
 
         <div className="flex-1 flex flex-col h-screen overflow-hidden">
-          {/* Main content compactado */}
-          <div className="app-scroll flex-1 overflow-y-auto bg-[#0a1625]" style={{ zoom: 0.95 }}>
-            <main className="liberacao-page px-4 py-6 md:px-8 xl:px-14">
+          <div className="app-scroll flex-1 overflow-y-auto bg-[#0a1625]">
+            <main className={`liberacao-page px-4 md:px-8 xl:px-14 ${tipoVeiculo === 'transferencia' ? 'py-4' : 'py-6'}`}>
               <div className="w-full">
                 <div className="app-scroll mb-4 flex gap-1.5 overflow-x-auto rounded-xl border border-emerald-500/20 bg-[#132337] p-1.5">
                   {podeVeiculoEmpresa && (
@@ -788,8 +799,8 @@ export default function LiberacaoPage() {
 
                     {tipoVeiculo === 'pedestre' ? (
                       /* ======= FORMULÃRIO DE PEDESTRE ======= */
-                      <div className="space-y-5">
-                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                           <div className="xl:order-1">
                             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                               Nome Completo *
@@ -899,7 +910,7 @@ export default function LiberacaoPage() {
                           </div>
                         </div>
 
-                        <div className="pt-2">
+                        <div>
                           <button
                             type="submit"
                             disabled={carregando}
