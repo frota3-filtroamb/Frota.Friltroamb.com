@@ -4,7 +4,9 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useUser } from '@clerk/nextjs'
 import Sidebar from '@/components/Sidebar'
-import { podeAcessar, type Permissao } from '@/lib/roles'
+import { type Permissao } from '@/lib/roles'
+import { usePermissions } from '@/components/PermissionsProvider'
+import { useEffect, useState } from 'react'
 
 type Atalho = {
   href: string
@@ -82,20 +84,62 @@ function saudacao() {
 
 export default function InicioPage() {
   const { user } = useUser()
+  const permissoesAtualizadas = usePermissions()
+  const [mensagemPermissao, setMensagemPermissao] = useState('')
   const nome = user?.firstName || user?.fullName || 'Usuario'
-  const role = user?.publicMetadata?.role === 'dev' ? 'dev' : null
+  const role = permissoesAtualizadas.role === 'dev' ? 'dev' : null
 
   const atalhosPermitidos = ATALHOS.filter((atalho) => {
     if (atalho.permissao === 'usuarios') return role === 'dev'
-    return podeAcessar(user, atalho.permissao)
+    return permissoesAtualizadas.podeAcessar(atalho.permissao)
   })
+
+  useEffect(() => {
+    try {
+      const mensagem = window.sessionStorage.getItem('frota_access_denied_message')
+      if (!mensagem) return
+
+      setMensagemPermissao(mensagem)
+      window.sessionStorage.removeItem('frota_access_denied_message')
+
+      const timeout = window.setTimeout(() => {
+        setMensagemPermissao('')
+      }, 7000)
+
+      return () => window.clearTimeout(timeout)
+    } catch {
+      return undefined
+    }
+  }, [])
 
   return (
     <div className="min-h-screen flex bg-[#0a1625]">
       <Sidebar />
 
       <main className="app-scroll flex-1 overflow-y-auto bg-[#0a1625]">
-        <div className="relative h-[170px] w-full overflow-hidden">
+        {mensagemPermissao && (
+          <div className="access-denied-toast fixed right-5 top-20 z-50 max-w-sm rounded-2xl border border-orange-500/25 bg-[#111827] p-4 text-sm text-slate-200 shadow-2xl shadow-black/30">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500/15 text-sm font-bold text-orange-300">
+                !
+              </span>
+              <div className="min-w-0">
+                <p className="font-semibold text-white">Acesso bloqueado</p>
+                <p className="mt-1 leading-relaxed text-slate-300">{mensagemPermissao}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMensagemPermissao('')}
+                aria-label="Fechar aviso"
+                className="ml-1 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-white/5 hover:text-white"
+              >
+                x
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="inicio-hero relative h-[170px] w-full overflow-hidden">
           <Image
             src="/images/banner-frota3.jpg"
             alt="Gestao de Frota"
@@ -104,14 +148,14 @@ export default function InicioPage() {
             sizes="100vw"
             className="object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#061322]/85 via-[#061322]/55 to-[#061322]/10" />
-          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#0a1625] to-transparent" />
+          <div className="inicio-hero-overlay absolute inset-0 bg-gradient-to-r from-[#061322]/85 via-[#061322]/55 to-[#061322]/10" />
+          <div className="inicio-hero-fade absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#0a1625] to-transparent" />
 
           <div className="absolute inset-0 flex items-end px-4 pb-6 md:px-8 xl:px-14">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Filtroamb - Frota Ativa</p>
-              <h1 className="mt-2 text-2xl font-bold text-white md:text-3xl">{saudacao()}, {nome}</h1>
-              <p className="mt-1 text-sm text-slate-300">Acesse rapidamente as principais rotinas do sistema.</p>
+              <p className="inicio-hero-kicker text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Filtroamb - Frota Ativa</p>
+              <h1 className="inicio-hero-title mt-2 text-2xl font-bold text-white md:text-3xl">{saudacao()}, {nome}</h1>
+              <p className="inicio-hero-subtitle mt-1 text-sm text-slate-300">Acesse rapidamente as principais rotinas do sistema.</p>
             </div>
           </div>
         </div>
@@ -127,7 +171,7 @@ export default function InicioPage() {
             <div className="rounded-2xl border border-emerald-500/15 bg-[#0f1c2e] p-5">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Base</p>
               <p className="mt-2 text-xl font-bold text-white">Cadastros organizados</p>
-              <p className="mt-1 text-sm leading-relaxed text-slate-400">Pessoas, destinos e frota alimentam os formulários do dia a dia.</p>
+              <p className="mt-1 text-sm leading-relaxed text-slate-400">Pessoas, destinos e frota alimentam os formularios do dia a dia.</p>
             </div>
 
             <div className="rounded-2xl border border-emerald-500/15 bg-[#0f1c2e] p-5">

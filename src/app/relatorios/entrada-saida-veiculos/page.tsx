@@ -2,9 +2,9 @@
 
 import RequirePermissao from '@/components/RequirePermissao'
 import Sidebar from '@/components/Sidebar'
+import { useTopbarSearch } from '@/components/TopbarSearchProvider'
+import { usePermissions } from '@/components/PermissionsProvider'
 import { createClient } from '@/lib/supabase/client'
-import { getRole } from '@/lib/roles'
-import { useUser } from '@clerk/nextjs'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 
 type AcaoBase = 'liberacao' | 'saida' | 'entrada' | 'saida_autorizada'
@@ -70,11 +70,11 @@ const acaoLabel: Record<AcaoBase, string> = {
 
 export default function EntradaSaidaVeiculosPage() {
   const supabase = useMemo(() => createClient(), [])
-  const { user } = useUser()
-  const podeEditar = ['dev', 'editor'].includes(getRole(user))
+  const permissoesAtualizadas = usePermissions()
+  const podeEditar = ['dev', 'editor'].includes(permissoesAtualizadas.role)
 
   const [historico, setHistorico] = useState<MovimentacaoAcao[]>([])
-  const [busca, setBusca] = useState('')
+  const { busca, setBusca } = useTopbarSearch()
   const [dataInicio, setDataInicio] = useState('')
   const [dataFim, setDataFim] = useState('')
   const [carregando, setCarregando] = useState(true)

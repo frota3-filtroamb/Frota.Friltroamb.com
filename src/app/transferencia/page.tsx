@@ -4,6 +4,7 @@ import RequirePermissao from '@/components/RequirePermissao'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Sidebar from '@/components/Sidebar'
+import { useTopbarSearch } from '@/components/TopbarSearchProvider'
 import Link from 'next/link'
 
 type Transferencia = {
@@ -21,7 +22,7 @@ export default function TransferenciaPage() {
   const supabase = useMemo(() => createClient(), [])
 
   const [lista, setLista] = useState<Transferencia[]>([])
-  const [busca, setBusca] = useState('')
+  const { busca, setBusca } = useTopbarSearch()
 
   const carregarDados = useCallback(async function carregarDados() {
     const { data } = await supabase

@@ -5,7 +5,8 @@ import { useUser } from '@clerk/nextjs'
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Sidebar from '@/components/Sidebar'
-import { getRole, podeAcessarDetalhe } from '@/lib/roles'
+import { useTopbarSearch } from '@/components/TopbarSearchProvider'
+import { usePermissions } from '@/components/PermissionsProvider'
 import { formatCpf, formatPhone, onlyDigits } from '@/lib/masks'
 import { useRouter, useSearchParams } from 'next/navigation'
 
@@ -62,6 +63,7 @@ function PortariaContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, isLoaded } = useUser()
+  const permissoesAtualizadas = usePermissions()
 
   const [abaAtual, setAbaAtual] = useState<'veiculos' | 'autorizacoes' | 'pedestres' | 'transferencia'>('veiculos')
   const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([])
@@ -71,13 +73,13 @@ function PortariaContent() {
   const [transferencias, setTransferencias] = useState<Transferencia[]>([])
   const [carregando, setCarregando] = useState(true)
   const [mensagem, setMensagem] = useState('')
-  const [busca, setBusca] = useState('')
+  const { busca, setBusca } = useTopbarSearch()
   const [acaoEmAndamentoId, setAcaoEmAndamentoId] = useState<string | null>(null)
 
-  const podeControleVeiculos = podeAcessarDetalhe(user, 'portaria', 'portaria.veiculos')
-  const podeControlePedestres = podeAcessarDetalhe(user, 'portaria', 'portaria.pedestres')
-  const podeControleTransferencia = podeAcessarDetalhe(user, 'portaria', 'portaria.transferencia')
-  const roleUsuario = getRole(user)
+  const podeControleVeiculos = permissoesAtualizadas.podeAcessarDetalhe('portaria', 'portaria.veiculos')
+  const podeControlePedestres = permissoesAtualizadas.podeAcessarDetalhe('portaria', 'portaria.pedestres')
+  const podeControleTransferencia = permissoesAtualizadas.podeAcessarDetalhe('portaria', 'portaria.transferencia')
+  const roleUsuario = permissoesAtualizadas.role
   const emailUsuario = user?.primaryEmailAddress?.emailAddress?.toLowerCase() || ''
   const podeAutorizarSaida = ['dev', 'gestor', 'editor'].includes(roleUsuario)
   const abasPermitidas = useMemo(
@@ -328,14 +330,14 @@ function PortariaContent() {
         <Sidebar />
 
         <div className="flex-1 flex flex-col h-screen overflow-hidden">
-          <div className="app-scroll flex-1 overflow-y-auto overflow-x-hidden bg-[#0a1625]" style={{ zoom: 0.95 }}>
+          <div className="app-scroll flex-1 overflow-y-auto overflow-x-hidden bg-[#0a1625]">
             <div className="portaria-controle-page flex-1 px-4 py-6 md:px-8 xl:px-14">
               {mensagem && <div className={`mb-4 p-4 rounded-xl text-sm border ${mensagem.includes('Erro') ? 'bg-red-500/10 text-red-300 border-red-500/20' : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'}`}>{mensagem}</div>}
               {abasPermitidas.length === 0 && <div className="p-6 rounded-2xl border border-white/10 bg-[#0f1c2e] text-slate-400">Nenhum topico do controle liberado para este usuario.</div>}
 
               {abasPermitidas.length > 0 && (
-                <div className="mb-4 flex flex-col gap-2 rounded-xl border border-emerald-500/20 bg-[#132337] p-1.5 lg:flex-row lg:items-center">
-                  <div className="flex flex-wrap gap-1.5 lg:flex-nowrap">
+                <div className="mb-4 flex flex-col gap-2 rounded-xl border border-emerald-500/20 bg-[#132337] p-1.5 min-[1025px]:flex-row min-[1025px]:items-center">
+                  <div className="flex flex-wrap gap-1.5 min-[1025px]:flex-nowrap">
                     {podeControleVeiculos && (
                       <button
                         data-topic-button
@@ -399,18 +401,18 @@ function PortariaContent() {
                 <div key={abaAtual} className="animate-tab">
                   {carregando ? (
                     <div className="space-y-6 animate-pulse">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">{[...Array(4)].map((_, i) => <div key={i} className="h-28 rounded-2xl bg-white/5 border border-white/5" />)}</div>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 min-[1025px]:grid-cols-4">{[...Array(4)].map((_, i) => <div key={i} className="h-28 rounded-2xl bg-white/5 border border-white/5" />)}</div>
                       <div className="rounded-2xl border border-white/5 bg-[#0f1c2e] overflow-hidden"><div className="h-12 bg-[#132337]" /><div className="space-y-3 p-5"><div className="h-10 rounded-lg bg-white/5" /><div className="h-10 rounded-lg bg-white/5" /><div className="h-10 rounded-lg bg-white/5" /></div></div>
                     </div>
                   ) : abaAtual === 'veiculos' ? (
                     <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 min-[1025px]:grid-cols-4">
                         <div className="bg-[#0f1c2e] border border-orange-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Aguardando Saida</p><p className="text-3xl font-bold text-orange-300 mt-1">{vAguardando}</p></div>
                         <div className="bg-[#0f1c2e] border border-blue-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Em Rota</p><p className="text-3xl font-bold text-blue-300 mt-1">{vEmRota}</p></div>
                         <div className="bg-[#0f1c2e] border border-emerald-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Retornos Hoje</p><p className="text-3xl font-bold text-emerald-300 mt-1">{vRetornosHoje}</p></div>
                         <div className="bg-[#0f1c2e] border border-emerald-500/15 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Total em Aberto</p><p className="text-3xl font-bold text-white mt-1">{vAguardando + vEmRota}</p></div>
                       </div>
-                      <div className="bg-[#0f1c2e] rounded-2xl border border-emerald-500/15 shadow-[0_0_30px_rgba(16,185,129,0.05)] overflow-hidden mb-8">
+                      <div className="mb-8 hidden overflow-hidden rounded-2xl border border-emerald-500/15 bg-[#0f1c2e] shadow-[0_0_30px_rgba(16,185,129,0.05)] min-[1025px]:block">
                         <div className="app-scroll max-h-[52vh] overflow-y-auto overflow-x-hidden">
                           <table className="w-full text-xs">
                             <thead>
@@ -488,13 +490,91 @@ function PortariaContent() {
                           </table>
                         </div>
                       </div>
+                      <div className="mb-8 space-y-3 min-[1025px]:hidden">
+                        {mFiltradas.length === 0 ? (
+                          <div className="rounded-2xl border border-emerald-500/15 bg-[#0f1c2e] p-5 text-center text-sm text-slate-500">
+                            Nenhum veiculo em andamento.
+                          </div>
+                        ) : (
+                          mFiltradas.map((m) => (
+                            <div key={m.id} className="rounded-2xl border border-emerald-500/15 bg-[#0f1c2e] p-4 shadow-[0_0_24px_rgba(16,185,129,0.05)]">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-lg font-bold tracking-wide text-emerald-300">{m.placa}</p>
+                                    {isVeiculoInterno(m.tipo_veiculo) && (
+                                      <span className="rounded-full border border-blue-500/25 bg-blue-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-blue-300">
+                                        Interno
+                                      </span>
+                                    )}
+                                    {m.tipo_veiculo === 'externo' && (
+                                      <span className="rounded-full border border-orange-500/25 bg-orange-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-orange-300">
+                                        Externo
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${m.status === 'aguardando_saida' ? 'border border-orange-500/20 bg-orange-500/15 text-orange-300' : 'border border-blue-500/20 bg-blue-500/15 text-blue-300'}`}>
+                                  {m.status === 'aguardando_saida' ? 'Aguardando Saida' : 'Em Rota'}
+                                </span>
+                              </div>
+
+                              <div className="mt-4 grid grid-cols-1 gap-3 text-sm">
+                                <div>
+                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Motorista</p>
+                                  <p className="mt-1 font-semibold text-white">{m.motorista || '--'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Destino</p>
+                                  <p className="mt-1 font-semibold text-white">{m.destino || '--'}</p>
+                                </div>
+                              </div>
+
+                              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                                <div className="rounded-xl bg-[#132337]/70 p-3">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Liberacao</p>
+                                  <p className="mt-1 font-semibold text-slate-200">{formatarData(m.liberado_em)}</p>
+                                </div>
+                                <div className="rounded-xl bg-[#132337]/70 p-3">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Saida</p>
+                                  <p className="mt-1 font-semibold text-slate-200">{formatarData(m.saida_em)}</p>
+                                </div>
+                              </div>
+
+                              <div className="mt-4">
+                                {isVeiculoExterno(m.tipo_veiculo) && !temSaidaAutorizada(m.id) ? (
+                                  <span className="flex w-full items-center justify-center rounded-xl border border-orange-500/20 bg-orange-500/10 px-3 py-3 text-sm font-semibold text-orange-300">
+                                    Aguardando gestor
+                                  </span>
+                                ) : deveMostrarAcaoSaida(m) ? (
+                                  <button
+                                    onClick={() => registrarSaidaVeiculoSegura(m)}
+                                    disabled={acaoEmAndamentoId === chaveAcao('veiculo_saida', m.id)}
+                                    className="w-full rounded-xl bg-orange-500 px-4 py-3 text-sm font-bold text-[#0a1625] transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    {acaoEmAndamentoId === chaveAcao('veiculo_saida', m.id) ? 'Registrando...' : 'Registrar Saida'}
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => registrarEntradaVeiculoSegura(m.id)}
+                                    disabled={acaoEmAndamentoId === chaveAcao('veiculo_entrada', m.id)}
+                                    className="w-full rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-[#0a1625] transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    {acaoEmAndamentoId === chaveAcao('veiculo_entrada', m.id) ? 'Registrando...' : 'Registrar Entrada'}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </>
                   ) : abaAtual === 'autorizacoes' ? (
                     <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 min-[1025px]:grid-cols-4">
                         <div className="bg-[#0f1c2e] border border-orange-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Aguardando Gestor</p><p className="text-3xl font-bold text-orange-300 mt-1">{autorizacoesPendentes.length}</p></div>
                       </div>
-                      <div className="bg-[#0f1c2e] rounded-2xl border border-orange-500/15 shadow-[0_0_30px_rgba(249,115,22,0.05)] overflow-hidden mb-8">
+                      <div className="mb-8 hidden overflow-hidden rounded-2xl border border-orange-500/15 bg-[#0f1c2e] shadow-[0_0_30px_rgba(249,115,22,0.05)] min-[1025px]:block">
                         <div className="app-scroll max-h-[52vh] overflow-y-auto overflow-x-auto">
                           <table className="w-full min-w-[760px] text-xs">
                             <thead>
@@ -541,15 +621,64 @@ function PortariaContent() {
                           </table>
                         </div>
                       </div>
+                      <div className="mb-8 space-y-3 min-[1025px]:hidden">
+                        {autorizacoesPendentes.length === 0 ? (
+                          <div className="rounded-2xl border border-orange-500/15 bg-[#0f1c2e] p-5 text-center text-sm text-slate-500">
+                            Nenhum veiculo externo aguardando autorizacao de saida.
+                          </div>
+                        ) : (
+                          autorizacoesPendentes.map((m) => (
+                            <div key={m.id} className="rounded-2xl border border-orange-500/15 bg-[#0f1c2e] p-4 shadow-[0_0_24px_rgba(249,115,22,0.05)]">
+                              <div className="flex items-start justify-between gap-3">
+                                <p className="text-lg font-bold tracking-wide text-orange-300">{m.placa}</p>
+                                <span className="shrink-0 rounded-full border border-orange-500/20 bg-orange-500/15 px-2.5 py-1 text-[11px] font-semibold text-orange-300">
+                                  Aguardando Gestor
+                                </span>
+                              </div>
+
+                              <div className="mt-4 grid grid-cols-1 gap-3 text-sm">
+                                <div>
+                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Motorista</p>
+                                  <p className="mt-1 font-semibold text-white">{m.motorista || '--'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Destino</p>
+                                  <p className="mt-1 font-semibold text-white">{m.destino || '--'}</p>
+                                </div>
+                              </div>
+
+                              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                                <div className="rounded-xl bg-[#132337]/70 p-3">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Liberado</p>
+                                  <p className="mt-1 font-semibold text-slate-200">{formatarData(m.entrada_em || m.liberado_em)}</p>
+                                </div>
+                                <div className="rounded-xl bg-[#132337]/70 p-3">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Gestor</p>
+                                  <p className="mt-1 font-semibold text-slate-200">{m.gestor_responsavel_nome || '--'}</p>
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => autorizarSaidaVeiculoSegura(m)}
+                                disabled={acaoEmAndamentoId === chaveAcao('veiculo_autorizar_saida', m.id)}
+                                className="mt-4 w-full rounded-xl bg-orange-500 px-4 py-3 text-sm font-bold text-[#0a1625] transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {acaoEmAndamentoId === chaveAcao('veiculo_autorizar_saida', m.id) ? 'Registrando...' : 'Autorizar Saida'}
+                              </button>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </>
                   ) : abaAtual === 'pedestres' ? (
                     <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 min-[1025px]:grid-cols-4">
                         <div className="bg-[#0f1c2e] border border-orange-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Aguardando Entrada</p><p className="text-3xl font-bold text-orange-300 mt-1">{pAguardando}</p></div>
                         <div className="bg-[#0f1c2e] border border-purple-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Em Visita</p><p className="text-3xl font-bold text-purple-300 mt-1">{pEmVisita}</p></div>
                         <div className="bg-[#0f1c2e] border border-emerald-500/15 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Total em Aberto</p><p className="text-3xl font-bold text-white mt-1">{pAguardando + pEmVisita}</p></div>
                       </div>
-                      <div className="bg-[#0f1c2e] rounded-2xl border border-purple-500/15 shadow-[0_0_30px_rgba(168,85,247,0.05)] overflow-hidden mb-8">
+                      <div className="mb-8 hidden overflow-hidden rounded-2xl border border-purple-500/15 bg-[#0f1c2e] shadow-[0_0_30px_rgba(168,85,247,0.05)] min-[1025px]:block">
                         <div className="app-scroll max-h-[52vh] overflow-y-auto overflow-x-hidden">
                           <table className="w-full table-fixed text-xs">
                             <thead>
@@ -607,13 +736,71 @@ function PortariaContent() {
                           </table>
                         </div>
                       </div>
+                      <div className="mb-8 space-y-3 min-[1025px]:hidden">
+                        {pFiltrados.length === 0 ? (
+                          <div className="rounded-2xl border border-purple-500/15 bg-[#0f1c2e] p-5 text-center text-sm text-slate-500">
+                            Nenhum pedestre em andamento.
+                          </div>
+                        ) : (
+                          pFiltrados.map((p) => (
+                            <div key={p.id} className="rounded-2xl border border-purple-500/15 bg-[#0f1c2e] p-4 shadow-[0_0_24px_rgba(168,85,247,0.05)]">
+                              <div className="flex items-start justify-between gap-3">
+                                <p className="min-w-0 text-lg font-bold text-purple-300">{p.nome}</p>
+                                <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${p.status === 'aguardando_entrada' ? 'border border-orange-500/20 bg-orange-500/15 text-orange-300' : 'border border-purple-500/20 bg-purple-500/15 text-purple-300'}`}>
+                                  {p.status === 'aguardando_entrada' ? 'Aguardando Entrada' : 'Em Visita'}
+                                </span>
+                              </div>
+
+                              <div className="mt-4 grid grid-cols-1 gap-3 text-sm">
+                                <div>
+                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Empresa</p>
+                                  <p className="mt-1 font-semibold text-white">{p.empresa || 'Sem empresa'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Destino</p>
+                                  <p className="mt-1 font-semibold text-white">{p.destino || '--'}</p>
+                                </div>
+                              </div>
+
+                              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                                <div className="rounded-xl bg-[#132337]/70 p-3">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">CPF</p>
+                                  <p className="mt-1 font-semibold text-slate-200">{p.cpf_rg ? formatCpf(p.cpf_rg) : '--'}</p>
+                                </div>
+                                <div className="rounded-xl bg-[#132337]/70 p-3">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Liberacao</p>
+                                  <p className="mt-1 font-semibold text-slate-200">{formatarData(p.liberado_em)}</p>
+                                </div>
+                              </div>
+
+                              {p.status === 'aguardando_entrada' ? (
+                                <button
+                                  onClick={() => registrarEntradaPedestreSegura(p.id)}
+                                  disabled={acaoEmAndamentoId === chaveAcao('pedestre_entrada', p.id)}
+                                  className="mt-4 w-full rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-[#0a1625] transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  {acaoEmAndamentoId === chaveAcao('pedestre_entrada', p.id) ? 'Registrando...' : 'Entrou'}
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => registrarSaidaPedestreSegura(p.id)}
+                                  disabled={acaoEmAndamentoId === chaveAcao('pedestre_saida', p.id)}
+                                  className="mt-4 w-full rounded-xl bg-orange-500 px-4 py-3 text-sm font-bold text-[#0a1625] transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  {acaoEmAndamentoId === chaveAcao('pedestre_saida', p.id) ? 'Registrando...' : 'Saiu'}
+                                </button>
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </>
                   ) : (
                     <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 min-[1025px]:grid-cols-4">
                         <div className="bg-[#0f1c2e] border border-orange-500/20 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase tracking-wider">Aguardando Confirmacao</p><p className="text-3xl font-bold text-orange-300 mt-1">{transferenciasPendentes.length}</p></div>
                       </div>
-                      <div className="bg-[#0f1c2e] rounded-2xl border border-emerald-500/15 shadow-[0_0_30px_rgba(16,185,129,0.05)] overflow-hidden">
+                      <div className="hidden overflow-hidden rounded-2xl border border-emerald-500/15 bg-[#0f1c2e] shadow-[0_0_30px_rgba(16,185,129,0.05)] min-[1025px]:block">
                         <div className="app-scroll max-h-[52vh] overflow-y-auto overflow-x-hidden">
                           <table className="w-full text-xs">
                             <thead>
@@ -658,6 +845,54 @@ function PortariaContent() {
                             </tbody>
                           </table>
                         </div>
+                      </div>
+                      <div className="space-y-3 min-[1025px]:hidden">
+                        {transferenciasPendentes.length === 0 ? (
+                          <div className="rounded-2xl border border-emerald-500/15 bg-[#0f1c2e] p-5 text-center text-sm text-slate-500">
+                            Nenhuma transferencia aguardando confirmacao.
+                          </div>
+                        ) : (
+                          transferenciasPendentes.map((t) => (
+                            <div key={t.id} className="rounded-2xl border border-emerald-500/15 bg-[#0f1c2e] p-4 shadow-[0_0_24px_rgba(16,185,129,0.05)]">
+                              <div className="flex items-start justify-between gap-3">
+                                <p className="text-lg font-bold tracking-wide text-emerald-300">{t.placa}</p>
+                                <span className="shrink-0 rounded-full border border-orange-500/20 bg-orange-500/15 px-2.5 py-1 text-[11px] font-semibold text-orange-300">
+                                  Aguardando
+                                </span>
+                              </div>
+
+                              <div className="mt-4 grid grid-cols-1 gap-3 text-sm">
+                                <div>
+                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Motorista</p>
+                                  <p className="mt-1 font-semibold text-white">{t.motorista || 'Nao informado'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Destino</p>
+                                  <p className="mt-1 font-semibold text-white">{t.base_destino}</p>
+                                </div>
+                              </div>
+
+                              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                                <div className="rounded-xl bg-[#132337]/70 p-3">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Origem</p>
+                                  <p className="mt-1 font-semibold text-slate-200">{t.base_origem}</p>
+                                </div>
+                                <div className="rounded-xl bg-[#132337]/70 p-3">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Data / Hora</p>
+                                  <p className="mt-1 font-semibold text-slate-200">{formatarData(t.transferido_em)}</p>
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={() => confirmarTransferenciaSegura(t)}
+                                disabled={acaoEmAndamentoId === chaveAcao('transferencia_confirmar', t.id)}
+                                className="mt-4 w-full rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-[#0a1625] transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {acaoEmAndamentoId === chaveAcao('transferencia_confirmar', t.id) ? 'Registrando...' : 'Confirmar'}
+                              </button>
+                            </div>
+                          ))
+                        )}
                       </div>
                     </>
                   )}

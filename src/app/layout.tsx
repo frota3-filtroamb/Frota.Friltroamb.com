@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { ClerkProvider } from '@clerk/nextjs'
 import { ptBR } from '@clerk/localizations'
 import { ThemeProvider } from '@/components/ThemeProvider'
+import { TopbarSearchProvider } from '@/components/TopbarSearchProvider'
+import { PermissionsProvider } from '@/components/PermissionsProvider'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -18,7 +20,11 @@ export default function RootLayout({
     <ClerkProvider localization={ptBR}>
   <html lang="pt-BR">
     <body>
-      <ThemeProvider>{children}</ThemeProvider>
+      <ThemeProvider>
+        <PermissionsProvider>
+          <TopbarSearchProvider>{children}</TopbarSearchProvider>
+        </PermissionsProvider>
+      </ThemeProvider>
     </body>
   </html>
 </ClerkProvider>

@@ -2,6 +2,7 @@
 
 import RequirePermissao from '@/components/RequirePermissao'
 import Sidebar from '@/components/Sidebar'
+import { useTopbarSearch } from '@/components/TopbarSearchProvider'
 import { createClient } from '@/lib/supabase/client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
@@ -19,7 +20,7 @@ function normalizarDestino(valor: string) {
 export default function DestinosPage() {
   const supabase = useMemo(() => createClient(), [])
   const [destinos, setDestinos] = useState<Destino[]>([])
-  const [busca, setBusca] = useState('')
+  const { busca, setBusca } = useTopbarSearch()
   const [nome, setNome] = useState('')
   const [tipoDestino, setTipoDestino] = useState('')
   const [endereco, setEndereco] = useState('')
