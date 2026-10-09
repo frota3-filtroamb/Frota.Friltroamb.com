@@ -43,6 +43,8 @@ type RegistroHistoricoKm = {
 
 type MovimentacaoAutorizacao = {
   id: number
+  origem_tabela: string | null
+  origem_id: number | null
   placa: string
   km: number | null
   motorista: string | null
@@ -327,12 +329,13 @@ export default function LiberacaoPage() {
   const carregarDados = useCallback(async function carregarDados() {
     const [v, o, d, motoristasResponse, autorizacoes, acoes] = await Promise.all([
       supabase.from('TBL_VEICULOS').select('NR_PLACA, DS_MODELO, DS_MARCA, NR_ANO_MODELO').order('NR_PLACA'),
-      supabase.from('origens').select('id, nome').order('nome'),
+      supabase.from('TBL_ORIGENS').select('id, nome').order('nome'),
       supabase.from('TBL_DESTINOS').select('id, nome').order('nome'),
       fetch('/api/cadastros/pessoas/selecao?tipo=motorista', { cache: 'no-store' }),
       supabase
-        .from('movimentacoes')
-        .select('id, placa, km, motorista, localizacao, destino, status, liberado_em, saida_em, entrada_em, tipo_veiculo, gestor_responsavel_nome, gestor_responsavel_email, gestor_responsavel_setor')
+        .from('TBL_MOVIMENTACOES')
+        .select('id, origem_tabela, origem_id, placa, km, motorista, localizacao, destino, status, liberado_em, saida_em, entrada_em, tipo_veiculo, gestor_responsavel_nome, gestor_responsavel_email, gestor_responsavel_setor')
+        .eq('tipo_entidade', 'veiculo')
         .in('tipo_veiculo', ['externo', 'veiculo_externo'])
         .is('saida_em', null)
         .order('liberado_em', { ascending: false })
@@ -401,8 +404,16 @@ export default function LiberacaoPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  function temSaidaAutorizada(movimentacaoId: number) {
-    return acoesMovimentacoes.some((acao) => String(acao.entidade_id) === String(movimentacaoId) && acao.acao === 'saida_autorizada')
+  function idsHistoricoMovimentacao(movimentacao: MovimentacaoAutorizacao) {
+    return new Set([
+      String(movimentacao.id),
+      movimentacao.origem_tabela === 'movimentacoes' && movimentacao.origem_id ? String(movimentacao.origem_id) : null,
+    ].filter(Boolean) as string[])
+  }
+
+  function temSaidaAutorizada(movimentacao: MovimentacaoAutorizacao) {
+    const ids = idsHistoricoMovimentacao(movimentacao)
+    return acoesMovimentacoes.some((acao) => acao.entidade_id && ids.has(String(acao.entidade_id)) && acao.acao === 'saida_autorizada')
   }
 
   function podeAutorizarMovimentacao(movimentacao: MovimentacaoAutorizacao) {
@@ -415,7 +426,7 @@ export default function LiberacaoPage() {
     Boolean(movimentacao.entrada_em) &&
     !movimentacao.saida_em &&
     movimentacao.status !== 'saida_autorizada' &&
-    !temSaidaAutorizada(movimentacao.id) &&
+    !temSaidaAutorizada(movimentacao) &&
     podeAutorizarMovimentacao(movimentacao)
   )
 
@@ -430,8 +441,9 @@ export default function LiberacaoPage() {
     const padraoPlaca = padraoBuscaPlacaKm(placa)
     const [movimentacoesQuery, acoesQuery] = await Promise.all([
       supabase
-        .from('movimentacoes')
+        .from('TBL_MOVIMENTACOES')
         .select('placa, km')
+        .eq('tipo_entidade', 'veiculo')
         .ilike('placa', padraoPlaca)
         .not('km', 'is', null)
         .limit(1000)

@@ -116,6 +116,33 @@ function pessoaDoRh(registro: RegistroRhGeral, interno: CadastroInterno | null) 
   }
 }
 
+function pessoaInterna(interno: CadastroInterno) {
+  return {
+    origem: 'manual',
+    id: interno.id,
+    id_rh: null,
+    nome: interno.nome,
+    cpf: digitosDocumento(interno.cpf),
+    empresa: 'Cadastro interno',
+    base: null,
+    cargo: null,
+    situacao: interno.status || null,
+    departamento: null,
+    telefone: interno.telefone,
+    funcao: interno.funcao || interno.tipo || 'Colaborador',
+    tipo: interno.tipo || interno.funcao || 'Colaborador',
+    status: interno.status,
+    ativo: interno.ativo,
+    cnh_numero: interno.cnh_numero,
+    cnh_categoria: interno.cnh_categoria,
+    cnh_vencimento: interno.cnh_vencimento,
+    app_habilitado: interno.app_habilitado,
+    email_gestor: interno.email_gestor,
+    setor_gestor: interno.setor_gestor,
+    cadastro_interno_id: interno.id,
+  }
+}
+
 export async function GET() {
   const operador = await currentUser()
 
@@ -145,20 +172,27 @@ export async function GET() {
     return NextResponse.json({ error: cadastrosQuery.error.message }, { status: 400 })
   }
 
-  const internos = cadastrosQuery.data || []
+  const internos = (cadastrosQuery.data || [])
+  const internosAtivos = internos.filter((cadastro) => cadastro.ativo !== false && cadastro.status?.toLowerCase() !== 'inativo')
   const internosPorCpf = new Map(
-    internos
+    internosAtivos
       .map((cadastro) => [digitosDocumento(cadastro.cpf), cadastro] as const)
       .filter(([cpf]) => cpf.length === 11),
   )
 
+  const cpfsRh = new Set<string>()
   const pessoasRh = (rhResultado.data || [])
     .map((registro) => {
       const cpf = digitosDocumento(registro.cpf)
+      if (cpf) cpfsRh.add(cpf)
       return pessoaDoRh(registro, internosPorCpf.get(cpf) || null)
     })
 
-  const pessoas = pessoasRh.sort((a, b) =>
+  const pessoasInternas = internosAtivos
+    .filter((cadastro) => !cpfsRh.has(digitosDocumento(cadastro.cpf)))
+    .map(pessoaInterna)
+
+  const pessoas = [...pessoasRh, ...pessoasInternas].sort((a, b) =>
     (a.nome || '').localeCompare(b.nome || '', 'pt-BR'),
   )
 
@@ -166,7 +200,7 @@ export async function GET() {
     pessoas,
     total: pessoas.length,
     total_rh: pessoasRh.length,
-    total_manuais: pessoasRh.filter((pessoa) => Boolean(pessoa.cadastro_interno_id)).length,
+    total_manuais: pessoasInternas.length + pessoasRh.filter((pessoa) => Boolean(pessoa.cadastro_interno_id)).length,
   })
 }
 

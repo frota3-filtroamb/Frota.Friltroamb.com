@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 type Pessoa = {
   id: number | string
-  origem?: 'rh'
+  origem?: 'rh' | 'manual'
   id_rh?: string | null
   cadastro_interno_id?: number | null
   nome: string | null
@@ -60,7 +60,7 @@ const cadastroInicial: CadastroPessoa = {
   nome: '',
   cpf: '',
   telefone: '',
-  funcao: 'Motorista',
+  funcao: 'Porteiro',
   status: 'ativo',
   cnh_numero: '',
   cnh_categoria: '',
@@ -111,10 +111,14 @@ function formatarData(data: string | null | undefined) {
 export default function PessoasPage() {
   const [pessoas, setPessoas] = useState<Pessoa[]>([])
   const { busca, setBusca } = useTopbarSearch()
+  const [cadastro, setCadastro] = useState<CadastroPessoa>(cadastroInicial)
   const [pessoaAberta, setPessoaAberta] = useState<Pessoa | null>(null)
+  const [pessoaParaExcluir, setPessoaParaExcluir] = useState<Pessoa | null>(null)
   const [formPessoaAberta, setFormPessoaAberta] = useState<CadastroPessoa>(cadastroInicial)
   const [carregando, setCarregando] = useState(true)
+  const [salvando, setSalvando] = useState(false)
   const [salvandoPessoaAberta, setSalvandoPessoaAberta] = useState(false)
+  const [excluindoPessoa, setExcluindoPessoa] = useState(false)
   const [mensagem, setMensagem] = useState('')
   const [resumoPessoas, setResumoPessoas] = useState({ total: 0, totalRh: 0, totalManuais: 0 })
 
@@ -168,6 +172,72 @@ export default function PessoasPage() {
   function fecharPessoa() {
     setPessoaAberta(null)
     setFormPessoaAberta(cadastroInicial)
+  }
+
+  async function cadastrarPessoa(e: React.FormEvent) {
+    e.preventDefault()
+
+    const nome = normalizarNomeCompleto(cadastro.nome).trim()
+    const cpf = onlyDigits(cadastro.cpf)
+    const telefone = onlyDigits(cadastro.telefone)
+
+    if (!nomeTemNomeESobrenome(nome)) {
+      setMensagem('Informe nome e sobrenome.')
+      return
+    }
+
+    if (cpf.length !== 11) {
+      setMensagem('Informe um CPF com 11 numeros.')
+      return
+    }
+
+    if (telefone && telefone.length < 10) {
+      setMensagem('Informe um telefone com DDD ou deixe o campo vazio.')
+      return
+    }
+
+    if (cadastro.funcao.toLowerCase() === 'gestor' && !cadastro.email_gestor.trim()) {
+      setMensagem('Informe o email do gestor.')
+      return
+    }
+
+    if (cadastro.funcao.toLowerCase() === 'gestor' && !cadastro.setor_gestor.trim()) {
+      setMensagem('Selecione o setor do gestor.')
+      return
+    }
+
+    setSalvando(true)
+    setMensagem('')
+
+    try {
+      const resposta = await fetch('/api/cadastros/pessoas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome,
+          cpf,
+          telefone,
+          funcao: cadastro.funcao,
+          status: cadastro.status,
+          cnh_numero: cadastro.cnh_numero,
+          cnh_categoria: cadastro.cnh_categoria,
+          cnh_vencimento: cadastro.cnh_vencimento,
+          app_habilitado: cadastro.app_habilitado,
+          email_gestor: cadastro.email_gestor,
+          setor_gestor: cadastro.setor_gestor,
+        }),
+      })
+      const resultado = await lerJsonSeguro(resposta)
+      if (!resposta.ok) throw new Error(typeof resultado.error === 'string' ? resultado.error : 'Erro ao cadastrar pessoa.')
+
+      setCadastro(cadastroInicial)
+      setMensagem(typeof resultado.mensagem === 'string' ? resultado.mensagem : 'Cadastro interno criado com sucesso.')
+      await carregar()
+    } catch (error) {
+      setMensagem(error instanceof Error ? error.message : 'Erro ao cadastrar pessoa.')
+    } finally {
+      setSalvando(false)
+    }
   }
 
   async function salvarPessoaAberta() {
@@ -238,6 +308,29 @@ export default function PessoasPage() {
     }
   }
 
+  async function excluirPessoaInterna() {
+    if (!pessoaParaExcluir?.cadastro_interno_id) return
+
+    setExcluindoPessoa(true)
+    setMensagem('')
+
+    try {
+      const resposta = await fetch(`/api/cadastros/pessoas/${pessoaParaExcluir.cadastro_interno_id}`, {
+        method: 'DELETE',
+      })
+      const resultado = await lerJsonSeguro(resposta)
+      if (!resposta.ok) throw new Error(typeof resultado.error === 'string' ? resultado.error : 'Erro ao excluir cadastro.')
+
+      setPessoaParaExcluir(null)
+      setMensagem(typeof resultado.mensagem === 'string' ? resultado.mensagem : 'Cadastro interno inativado com sucesso.')
+      await carregar()
+    } catch (error) {
+      setMensagem(error instanceof Error ? error.message : 'Erro ao excluir cadastro.')
+    } finally {
+      setExcluindoPessoa(false)
+    }
+  }
+
   const pessoasFiltradas = useMemo(() => {
     const texto = busca.toLowerCase()
     return pessoas.filter((pessoa) => {
@@ -293,9 +386,111 @@ export default function PessoasPage() {
             <div className="mb-4 rounded-2xl border border-emerald-500/15 bg-[#0f1c2e] p-4">
               <h2 className="text-sm font-semibold text-white">Dados do RH</h2>
               <p className="mt-1 text-xs text-slate-500">
-                A lista vem direto do Banco de dados do RH. Use o botao ''Abrir''' para adicionar apenas as configuracoes internas do sistema.
+                A lista combina dados do RH com cadastros internos. Use cadastro interno para terceiros, como porteiros.
               </p>
             </div>
+
+            <form onSubmit={cadastrarPessoa} className="mb-4 rounded-2xl border border-emerald-500/15 bg-[#0f1c2e] p-4">
+              <div className="mb-4 flex flex-col gap-1">
+                <h2 className="text-sm font-semibold text-white">Novo cadastro interno</h2>
+                <p className="text-xs text-slate-500">Use para porteiros terceiros e pessoas que nao existem no RH.</p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <label className="xl:col-span-2">
+                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Nome completo</span>
+                  <input
+                    value={cadastro.nome}
+                    onChange={(e) => setCadastro((atual) => ({ ...atual, nome: normalizarNomeCompleto(e.target.value) }))}
+                    placeholder="Nome completo"
+                    required
+                    className="w-full rounded-xl border border-emerald-500/20 bg-[#132337] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                  />
+                </label>
+
+                <label>
+                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">CPF</span>
+                  <input
+                    value={cadastro.cpf}
+                    onChange={(e) => setCadastro((atual) => ({ ...atual, cpf: formatCpf(e.target.value) }))}
+                    placeholder="000.000.000-00"
+                    required
+                    className="w-full rounded-xl border border-emerald-500/20 bg-[#132337] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                  />
+                </label>
+
+                <label>
+                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Telefone</span>
+                  <input
+                    value={cadastro.telefone}
+                    onChange={(e) => setCadastro((atual) => ({ ...atual, telefone: formatPhone(e.target.value) }))}
+                    placeholder="00 0 0000-0000"
+                    className="w-full rounded-xl border border-emerald-500/20 bg-[#132337] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                  />
+                </label>
+
+                <label>
+                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Funcao</span>
+                  <select
+                    value={cadastro.funcao}
+                    onChange={(e) => setCadastro((atual) => ({ ...atual, funcao: e.target.value }))}
+                    className="w-full rounded-xl border border-emerald-500/20 bg-[#132337] px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                  >
+                    <option>Porteiro</option>
+                    <option>Motorista</option>
+                    <option>Colaborador</option>
+                    <option>Prestador</option>
+                    <option>Visitante</option>
+                    <option>Gestor</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Status</span>
+                  <select
+                    value={cadastro.status}
+                    onChange={(e) => setCadastro((atual) => ({ ...atual, status: e.target.value as CadastroPessoa['status'] }))}
+                    className="w-full rounded-xl border border-emerald-500/20 bg-[#132337] px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                  >
+                    <option value="ativo">Ativo</option>
+                    <option value="inativo">Inativo</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Email</span>
+                  <input
+                    type="email"
+                    value={cadastro.email_gestor}
+                    onChange={(e) => setCadastro((atual) => ({ ...atual, email_gestor: e.target.value.toLowerCase().trim() }))}
+                    placeholder="email@filtroamb.com.br"
+                    className="w-full rounded-xl border border-emerald-500/20 bg-[#132337] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                  />
+                </label>
+
+                <label>
+                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Setor do gestor</span>
+                  <select
+                    value={cadastro.setor_gestor}
+                    onChange={(e) => setCadastro((atual) => ({ ...atual, setor_gestor: e.target.value }))}
+                    className="w-full rounded-xl border border-emerald-500/20 bg-[#132337] px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                  >
+                    <option value="">Selecione o setor</option>
+                    {SETORES_GESTOR.map((setor) => (
+                      <option key={setor} value={setor}>{setor}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <button
+                  type="submit"
+                  disabled={salvando}
+                  className="self-end rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-[#0a1625] transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {salvando ? 'Salvando...' : 'Cadastrar pessoa'}
+                </button>
+              </div>
+            </form>
 
             {mensagem && (
               <div className={`mb-4 rounded-xl border p-4 text-sm ${mensagem.includes('sucesso') ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-red-500/20 bg-red-500/10 text-red-300'}`}>
@@ -387,7 +582,7 @@ export default function PessoasPage() {
                         </p>
                       </div>
 
-                      <div className="flex items-start justify-end p-4">
+                      <div className="flex flex-col items-stretch justify-start gap-2 p-4">
                         <button
                           type="button"
                           onClick={() => abrirPessoa(pessoa)}
@@ -395,6 +590,15 @@ export default function PessoasPage() {
                         >
                           Abrir
                         </button>
+                        {pessoa.cadastro_interno_id && (
+                          <button
+                            type="button"
+                            onClick={() => setPessoaParaExcluir(pessoa)}
+                            className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-300 transition hover:border-red-400/40 hover:text-red-200"
+                          >
+                            Excluir
+                          </button>
+                        )}
                       </div>
                     </article>
                   )
@@ -410,7 +614,7 @@ export default function PessoasPage() {
                   <div>
                     <h2 className="text-base font-semibold text-white">Cadastro da pessoa</h2>
                     <p className="mt-1 text-xs text-slate-500">
-                      {pessoaAberta.nome || 'Pessoa sem nome'} · Registro RH · ID {pessoaAberta.cadastro_interno_id || pessoaAberta.id}
+                      {pessoaAberta.nome || 'Pessoa sem nome'} · {pessoaAberta.origem === 'rh' ? 'Registro RH' : 'Cadastro interno'} · ID {pessoaAberta.cadastro_interno_id || pessoaAberta.id}
                     </p>
                   </div>
                   <button
@@ -581,6 +785,36 @@ export default function PessoasPage() {
                     className="rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-[#0a1625] transition hover:bg-emerald-400"
                   >
                     {salvandoPessoaAberta ? 'Salvando...' : 'Salvar alteracoes'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {pessoaParaExcluir && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+              <div className="w-full max-w-lg rounded-2xl border border-red-500/20 bg-[#0f1c2e] p-6 shadow-2xl">
+                <h2 className="text-lg font-bold text-white">Excluir cadastro interno?</h2>
+                <p className="mt-2 text-sm leading-relaxed text-slate-400">
+                  O cadastro interno de {pessoaParaExcluir.nome || 'pessoa sem nome'} sera inativado no sistema. Dados do RH nao serao alterados.
+                </p>
+
+                <div className="mt-5 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPessoaParaExcluir(null)}
+                    disabled={excluindoPessoa}
+                    className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={excluirPessoaInterna}
+                    disabled={excluindoPessoa}
+                    className="rounded-xl bg-red-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {excluindoPessoa ? 'Excluindo...' : 'Excluir cadastro'}
                   </button>
                 </div>
               </div>

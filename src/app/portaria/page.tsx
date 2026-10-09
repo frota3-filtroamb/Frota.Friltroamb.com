@@ -24,6 +24,8 @@ type Item = {
 
 type Movimentacao = {
   id: number
+  origem_tabela?: string | null
+  origem_id?: number | null
   placa: string
   km: number | null
   motorista: string | null
@@ -65,6 +67,19 @@ type Transferencia = {
   status: string | null
   transferido_em: string | null
   transferido_por: string | null
+}
+
+type TransferenciaMovimentacao = {
+  id: number
+  placa: string
+  km: number | null
+  localizacao: string | null
+  destino: string | null
+  motorista: string | null
+  observacao: string | null
+  status: string | null
+  liberado_em: string | null
+  liberado_por: string | null
 }
 
 type AcaoMovimentacao = {
@@ -155,9 +170,9 @@ function PortariaContent() {
     setCarregando(true)
     try {
       const [vAtivos, pAtivos, tQuery, acoesQuery, veiculosQuery, motoristasResponse, porteirosResponse] = await Promise.all([
-        supabase.from('movimentacoes').select('*').in('status', ['aguardando_entrada', 'aguardando_saida', 'saida_autorizada', 'em_rota']).order('liberado_em', { ascending: false }),
-        supabase.from('movimentacoes_pedestres').select('*').in('status', ['aguardando_entrada', 'em_visita']).order('liberado_em', { ascending: false }),
-        supabase.from('transferencias').select('*').eq('status', 'aguardando_confirmacao').order('transferido_em', { ascending: false }).limit(100),
+        supabase.from('TBL_MOVIMENTACOES').select('*').eq('tipo_entidade', 'veiculo').in('status', ['aguardando_entrada', 'aguardando_saida', 'saida_autorizada', 'em_rota']).order('liberado_em', { ascending: false }),
+        supabase.from('TBL_MOVIMENTACOES').select('*').eq('tipo_entidade', 'pedestre').in('status', ['aguardando_entrada', 'em_visita']).order('liberado_em', { ascending: false }),
+        supabase.from('TBL_MOVIMENTACOES').select('id, placa, km, localizacao, destino, motorista, observacao, status, liberado_em, liberado_por').eq('tipo_entidade', 'transferencia').eq('status', 'aguardando_confirmacao').order('liberado_em', { ascending: false }).limit(100).returns<TransferenciaMovimentacao[]>(),
         supabase.from('TBL_HISTORICOS_ACOES').select('entidade_id, acao').eq('tipo_entidade', 'veiculo').eq('acao', 'saida_autorizada'),
         supabase.from('TBL_VEICULOS').select('NR_PLACA, DS_MODELO, DS_MARCA').order('NR_PLACA'),
         fetch('/api/cadastros/pessoas/selecao?tipo=motorista', { cache: 'no-store' }),
@@ -172,7 +187,18 @@ function PortariaContent() {
       setMovimentacoes(vAtivos.data || [])
       setAcoesMovimentacoes(acoesQuery.data || [])
       setPedestres(pAtivos.data || [])
-      setTransferencias(tQuery.data || [])
+      setTransferencias((tQuery.data || []).map((t) => ({
+        id: t.id,
+        placa: t.placa,
+        km: t.km,
+        base_origem: t.localizacao || '',
+        base_destino: t.destino || '',
+        motorista: t.motorista,
+        observacao: t.observacao,
+        status: t.status,
+        transferido_em: t.liberado_em,
+        transferido_por: t.liberado_por,
+      })))
       setVeiculos(veiculosQuery.data || [])
       setMotoristas(Array.isArray(motoristasResultado.pessoas) ? motoristasResultado.pessoas : [])
       setPorteiros(Array.isArray(porteirosResultado.pessoas) ? porteirosResultado.pessoas : [])
@@ -443,12 +469,20 @@ function PortariaContent() {
     return m.status === 'aguardando_saida' || m.status === 'saida_autorizada' || (isVeiculoExterno(m.tipo_veiculo) && Boolean(m.entrada_em)) || veiculoJaEntrouESemSaida
   }
 
-  function temSaidaAutorizada(movimentacaoId: number) {
-    return acoesMovimentacoes.some((acao) => String(acao.entidade_id) === String(movimentacaoId) && acao.acao === 'saida_autorizada')
+  function idsHistoricoMovimentacao(movimentacao: Movimentacao) {
+    return new Set([
+      String(movimentacao.id),
+      movimentacao.origem_tabela === 'movimentacoes' && movimentacao.origem_id ? String(movimentacao.origem_id) : null,
+    ].filter(Boolean) as string[])
+  }
+
+  function temSaidaAutorizada(movimentacao: Movimentacao) {
+    const ids = idsHistoricoMovimentacao(movimentacao)
+    return acoesMovimentacoes.some((acao) => acao.entidade_id && ids.has(String(acao.entidade_id)) && acao.acao === 'saida_autorizada')
   }
 
   function saidaAutorizada(m: Movimentacao) {
-    return m.status === 'saida_autorizada' || temSaidaAutorizada(m.id)
+    return m.status === 'saida_autorizada' || temSaidaAutorizada(m)
   }
 
   const vInternos = movimentacoes.filter((m) => isVeiculoInterno(m.tipo_veiculo)).length

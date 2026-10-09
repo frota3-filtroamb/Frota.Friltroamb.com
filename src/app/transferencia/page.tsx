@@ -18,6 +18,17 @@ type Transferencia = {
   transferido_por: string | null
 }
 
+type TransferenciaMovimentacao = {
+  id: number
+  placa: string
+  localizacao: string | null
+  destino: string | null
+  motorista: string | null
+  observacao: string | null
+  liberado_em: string | null
+  liberado_por: string | null
+}
+
 export default function TransferenciaPage() {
   const supabase = useMemo(() => createClient(), [])
 
@@ -26,12 +37,24 @@ export default function TransferenciaPage() {
 
   const carregarDados = useCallback(async function carregarDados() {
     const { data } = await supabase
-      .from('transferencias')
-      .select('*')
-      .order('transferido_em', { ascending: false })
+      .from('TBL_MOVIMENTACOES')
+      .select('id, placa, localizacao, destino, motorista, observacao, liberado_em, liberado_por')
+      .eq('tipo_entidade', 'transferencia')
+      .order('liberado_em', { ascending: false })
       .limit(100)
 
-    if (data) setLista(data)
+    if (data) {
+      setLista((data as TransferenciaMovimentacao[]).map((t) => ({
+        id: t.id,
+        placa: t.placa,
+        base_origem: t.localizacao || '',
+        base_destino: t.destino || '',
+        motorista: t.motorista,
+        observacao: t.observacao,
+        transferido_em: t.liberado_em,
+        transferido_por: t.liberado_por,
+      })))
+    }
   }, [supabase])
 
   useEffect(() => {

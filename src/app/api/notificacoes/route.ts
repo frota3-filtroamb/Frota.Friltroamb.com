@@ -5,6 +5,8 @@ import { getRole, podeAcessar } from '@/lib/roles'
 
 type Movimentacao = {
   id: number
+  origem_tabela: string | null
+  origem_id: number | null
   placa: string
   motorista: string | null
   destino: string | null
@@ -18,6 +20,13 @@ type Movimentacao = {
 type AcaoMovimentacao = {
   entidade_id: number | string | null
   data_acao: string
+}
+
+function idsHistoricoMovimentacao(movimentacao: Movimentacao) {
+  return [
+    movimentacao.id,
+    movimentacao.origem_tabela === 'movimentacoes' ? movimentacao.origem_id : null,
+  ].filter((valor): valor is number => typeof valor === 'number')
 }
 
 function podeVerAutorizacoes(operador: Awaited<ReturnType<typeof currentUser>>) {
@@ -44,8 +53,9 @@ export async function GET() {
 
   const [movimentacoesQuery, autorizacoesQuery] = await Promise.all([
     supabase
-      .from('movimentacoes')
-      .select('id, placa, motorista, destino, liberado_em, entrada_em, gestor_responsavel_email, gestor_responsavel_nome, gestor_responsavel_setor')
+      .from('TBL_MOVIMENTACOES')
+      .select('id, origem_tabela, origem_id, placa, motorista, destino, liberado_em, entrada_em, gestor_responsavel_email, gestor_responsavel_nome, gestor_responsavel_setor')
+      .eq('tipo_entidade', 'veiculo')
       .eq('tipo_veiculo', 'externo')
       .is('saida_em', null)
       .order('liberado_em', { ascending: false })
@@ -73,7 +83,7 @@ export async function GET() {
 
   const notificacoesGestor = (movimentacoesQuery.data || [])
     .filter((movimentacao) => Boolean(movimentacao.entrada_em))
-    .filter((movimentacao) => !autorizacoes.has(movimentacao.id))
+    .filter((movimentacao) => idsHistoricoMovimentacao(movimentacao).every((id) => !autorizacoes.has(id)))
     .filter((movimentacao) => {
       if (role !== 'gestor') return role === 'dev' || role === 'editor'
       return Boolean(emailOperador && movimentacao.gestor_responsavel_email?.toLowerCase() === emailOperador)
@@ -91,14 +101,14 @@ export async function GET() {
     }))
 
   const notificacoesPortaria = (movimentacoesQuery.data || [])
-    .filter((movimentacao) => autorizacoes.has(movimentacao.id))
+    .filter((movimentacao) => idsHistoricoMovimentacao(movimentacao).some((id) => autorizacoes.has(id)))
     .filter(() => role === 'porteiro' || role === 'dev' || role === 'editor')
     .map((movimentacao) => ({
       id: `saida-liberada-portaria-${movimentacao.id}`,
       tipo: 'saida_liberada_portaria',
       titulo: `Saida liberada para ${movimentacao.placa}`,
       descricao: `${movimentacao.motorista || 'Motorista nao informado'} - registre a saida na portaria`,
-      data: autorizacoes.get(movimentacao.id) || movimentacao.entrada_em || movimentacao.liberado_em,
+      data: idsHistoricoMovimentacao(movimentacao).map((id) => autorizacoes.get(id)).find(Boolean) || movimentacao.entrada_em || movimentacao.liberado_em,
       href: '/portaria?aba=veiculos',
       placa: movimentacao.placa,
       gestor: movimentacao.gestor_responsavel_nome,

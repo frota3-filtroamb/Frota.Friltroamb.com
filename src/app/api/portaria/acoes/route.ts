@@ -12,6 +12,8 @@ type Body = {
 
 type Movimentacao = {
   id: number
+  origem_tabela: string | null
+  origem_id: number | null
   placa: string
   km: number | null
   motorista: string | null
@@ -37,10 +39,12 @@ type Pedestre = {
 
 type Transferencia = {
   id: number
+  origem_tabela: string | null
+  origem_id: number | null
   placa: string
   km: number | null
-  base_origem: string
-  base_destino: string
+  localizacao: string | null
+  destino: string | null
   motorista: string | null
   observacao: string | null
 }
@@ -94,6 +98,13 @@ function isVeiculoInterno(tipo: string | null | undefined) {
 function isVeiculoExterno(tipo: string | null | undefined) {
   const tipoNormalizado = (tipo || '').toLowerCase().trim()
   return tipoNormalizado === 'externo' || tipoNormalizado === 'veiculo_externo'
+}
+
+function idsHistoricoMovimentacao(movimentacao: Movimentacao) {
+  return Array.from(new Set([
+    movimentacao.id,
+    movimentacao.origem_tabela === 'movimentacoes' ? movimentacao.origem_id : null,
+  ].filter((valor): valor is number => typeof valor === 'number')))
 }
 
 function podeOperarVeiculos(operador: Awaited<ReturnType<typeof currentUser>>) {
@@ -158,8 +169,9 @@ export async function POST(request: NextRequest) {
     if (!podeOperarVeiculos(operador)) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 })
 
     const { data: movimentacao, error: buscaError } = await supabase
-      .from('movimentacoes')
+      .from('TBL_MOVIMENTACOES')
       .select('*')
+      .eq('tipo_entidade', 'veiculo')
       .eq('id', id)
       .single<Movimentacao>()
 
@@ -174,8 +186,9 @@ export async function POST(request: NextRequest) {
         .from('TBL_HISTORICOS_ACOES')
         .select('id')
         .eq('tipo_entidade', 'veiculo')
-        .eq('entidade_id', movimentacao.id)
+        .in('entidade_id', idsHistoricoMovimentacao(movimentacao))
         .eq('acao', 'saida_autorizada')
+        .limit(1)
         .maybeSingle()
 
       if (autorizacaoError) return NextResponse.json({ error: autorizacaoError.message }, { status: 400 })
@@ -196,8 +209,9 @@ export async function POST(request: NextRequest) {
       : { status: 'em_rota', saida_em: agora }
 
     const { error: updateError } = await supabase
-      .from('movimentacoes')
+      .from('TBL_MOVIMENTACOES')
       .update(dadosSaida)
+      .eq('tipo_entidade', 'veiculo')
       .eq('id', id)
 
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 })
@@ -238,8 +252,9 @@ export async function POST(request: NextRequest) {
     }
 
     const { data: movimentacao, error: buscaError } = await supabase
-      .from('movimentacoes')
+      .from('TBL_MOVIMENTACOES')
       .select('*')
+      .eq('tipo_entidade', 'veiculo')
       .eq('id', id)
       .single<Movimentacao>()
 
@@ -270,8 +285,9 @@ export async function POST(request: NextRequest) {
       .from('TBL_HISTORICOS_ACOES')
       .select('id')
       .eq('tipo_entidade', 'veiculo')
-      .eq('entidade_id', movimentacao.id)
+      .in('entidade_id', idsHistoricoMovimentacao(movimentacao))
       .eq('acao', 'saida_autorizada')
+      .limit(1)
       .maybeSingle()
 
     if (autorizacaoError) return NextResponse.json({ error: autorizacaoError.message }, { status: 400 })
@@ -302,8 +318,9 @@ export async function POST(request: NextRequest) {
     }
 
     const { error: statusError } = await supabase
-      .from('movimentacoes')
+      .from('TBL_MOVIMENTACOES')
       .update({ status: 'saida_autorizada' })
+      .eq('tipo_entidade', 'veiculo')
       .eq('id', movimentacao.id)
 
     if (statusError) return NextResponse.json({ error: statusError.message }, { status: 400 })
@@ -315,8 +332,9 @@ export async function POST(request: NextRequest) {
     if (!podeOperarVeiculos(operador)) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 })
 
     const { data: movimentacao, error: buscaError } = await supabase
-      .from('movimentacoes')
+      .from('TBL_MOVIMENTACOES')
       .select('*')
+      .eq('tipo_entidade', 'veiculo')
       .eq('id', id)
       .single<Movimentacao>()
 
@@ -329,8 +347,9 @@ export async function POST(request: NextRequest) {
     const statusEntrada = isVeiculoExterno(movimentacao.tipo_veiculo) ? 'aguardando_saida' : 'finalizado'
 
     const { error: updateError } = await supabase
-      .from('movimentacoes')
+      .from('TBL_MOVIMENTACOES')
       .update({ status: statusEntrada, entrada_em: agora })
+      .eq('tipo_entidade', 'veiculo')
       .eq('id', id)
 
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 })
@@ -369,8 +388,9 @@ export async function POST(request: NextRequest) {
     if (!podeOperarPedestres(operador)) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 })
 
     const { data: pedestre, error: buscaError } = await supabase
-      .from('movimentacoes_pedestres')
+      .from('TBL_MOVIMENTACOES')
       .select('*')
+      .eq('tipo_entidade', 'pedestre')
       .eq('id', id)
       .single<Pedestre>()
 
@@ -382,8 +402,9 @@ export async function POST(request: NextRequest) {
       : { status: 'finalizado', saida_em: agora }
 
     const { error: updateError } = await supabase
-      .from('movimentacoes_pedestres')
+      .from('TBL_MOVIMENTACOES')
       .update(update)
+      .eq('tipo_entidade', 'pedestre')
       .eq('id', id)
 
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 })
@@ -420,16 +441,18 @@ export async function POST(request: NextRequest) {
     if (!podeOperarTransferencias(operador)) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 })
 
     const { data: transferencia, error: buscaError } = await supabase
-      .from('transferencias')
+      .from('TBL_MOVIMENTACOES')
       .select('*')
+      .eq('tipo_entidade', 'transferencia')
       .eq('id', id)
       .single<Transferencia>()
 
     if (buscaError) return NextResponse.json({ error: buscaError.message }, { status: 400 })
 
     const { error: updateError } = await supabase
-      .from('transferencias')
+      .from('TBL_MOVIMENTACOES')
       .update({ status: 'concluida' })
+      .eq('tipo_entidade', 'transferencia')
       .eq('id', id)
 
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 })
@@ -448,8 +471,8 @@ export async function POST(request: NextRequest) {
       porteiro_nome: porteiro.data?.nome || null,
       dados: {
         placa: transferencia.placa,
-        base_origem: transferencia.base_origem,
-        base_destino: transferencia.base_destino,
+        base_origem: transferencia.localizacao,
+        base_destino: transferencia.destino,
         motorista: transferencia.motorista,
         km: transferencia.km,
         observacao: transferencia.observacao,
