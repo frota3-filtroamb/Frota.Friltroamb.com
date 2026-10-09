@@ -82,20 +82,27 @@ export async function GET(request: NextRequest) {
   }
 
   const internos = internosQuery.data || []
+  const internosAtivos = internos.filter((cadastro) => cadastro.ativo !== false && cadastro.status?.toLowerCase() !== 'inativo')
   const internosPorCpf = new Map(
-    internos
+    internosAtivos
       .map((cadastro) => [digitosDocumento(cadastro.cpf), cadastro] as const)
       .filter(([cpf]) => cpf.length === 11),
   )
 
+  const cpfsRh = new Set<string>()
   const itensRh = (rhResultado.data || [])
     .filter(ehAtivoRh)
     .map((registro) => {
       const cpf = digitosDocumento(registro.cpf)
+      if (cpf) cpfsRh.add(cpf)
       return { registro, interno: internosPorCpf.get(cpf) || null }
     })
 
-  const pessoas = itensRh
+  const itensManuais = internosAtivos
+    .filter((cadastro) => !cpfsRh.has(digitosDocumento(cadastro.cpf)))
+    .map((interno) => ({ registro: null, interno }))
+
+  const pessoas = [...itensRh, ...itensManuais]
     .filter(({ registro, interno }) => {
       if (tipo === 'motorista') return ehMotorista(registro, interno)
       if (tipo === 'porteiro') return ehPorteiro(interno)

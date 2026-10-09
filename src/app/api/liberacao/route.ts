@@ -90,8 +90,9 @@ async function buscarMaiorKmRegistrado(
   const padraoPlaca = padraoBuscaPlaca(placa)
   const [movimentacoesQuery, acoesQuery] = await Promise.all([
     supabase
-      .from('movimentacoes')
+      .from('TBL_MOVIMENTACOES')
       .select('placa, km')
+      .eq('tipo_entidade', 'veiculo')
       .ilike('placa', padraoPlaca)
       .not('km', 'is', null)
       .limit(1000)
@@ -127,16 +128,18 @@ async function buscarBloqueioEmRota(
   const motoristaNormalizado = motorista?.trim().toLowerCase() || null
   const [placaQuery, motoristaQuery] = await Promise.all([
     supabase
-      .from('movimentacoes')
+      .from('TBL_MOVIMENTACOES')
       .select('placa, motorista')
+      .eq('tipo_entidade', 'veiculo')
       .eq('status', 'em_rota')
       .ilike('placa', padraoBuscaPlaca(placa))
       .limit(1000)
       .returns<RegistroEmRota[]>(),
     motoristaNormalizado
       ? supabase
-        .from('movimentacoes')
+        .from('TBL_MOVIMENTACOES')
         .select('placa, motorista')
+        .eq('tipo_entidade', 'veiculo')
         .eq('status', 'em_rota')
         .ilike('motorista', motoristaNormalizado)
         .limit(1000)
@@ -237,7 +240,8 @@ export async function POST(request: NextRequest) {
     if (!destino) return NextResponse.json({ error: 'Destino obrigatorio.' }, { status: 400 })
     if (!liberadoEm) return NextResponse.json({ error: 'Data invalida.' }, { status: 400 })
 
-    const { data: pedestre, error } = await supabase.from('movimentacoes_pedestres').insert({
+    const { data: pedestre, error } = await supabase.from('TBL_MOVIMENTACOES').insert({
+      tipo_entidade: 'pedestre',
       nome,
       cpf_rg: texto(body.cpf_rg),
       telefone: texto(body.telefone),
@@ -307,16 +311,17 @@ export async function POST(request: NextRequest) {
     if (bloqueioEmRota.error) return NextResponse.json({ error: bloqueioEmRota.error }, { status: 400 })
     if (bloqueioEmRota.mensagem) return NextResponse.json({ error: bloqueioEmRota.mensagem }, { status: 400 })
 
-    const { data: transferencia, error } = await supabase.from('transferencias').insert({
+    const { data: transferencia, error } = await supabase.from('TBL_MOVIMENTACOES').insert({
+      tipo_entidade: 'transferencia',
       placa: placaCadastro,
-      base_origem: baseOrigem,
-      base_destino: baseDestino,
+      localizacao: baseOrigem,
+      destino: baseDestino,
       motorista,
       km: kmTransferencia,
       observacao: texto(body.observacao),
       status: 'aguardando_confirmacao',
-      transferido_por: responsavelNome,
-      transferido_em: transferidoEm,
+      liberado_por: responsavelNome,
+      liberado_em: transferidoEm,
     }).select('*').single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
@@ -327,14 +332,14 @@ export async function POST(request: NextRequest) {
       entidade_id: transferencia.id,
       acao: 'liberacao',
       placa: transferencia.placa,
-      data_acao: transferencia.transferido_em,
+      data_acao: transferencia.liberado_em,
       responsavel_nome: responsavelNome,
       responsavel_email: responsavelEmail,
 
       dados: {
         placa: transferencia.placa,
-        base_origem: transferencia.base_origem,
-        base_destino: transferencia.base_destino,
+        base_origem: transferencia.localizacao,
+        base_destino: transferencia.destino,
         motorista: transferencia.motorista,
         km: transferencia.km,
         observacao: transferencia.observacao,
@@ -381,7 +386,8 @@ export async function POST(request: NextRequest) {
       if (bloqueioEmRota.mensagem) return NextResponse.json({ error: bloqueioEmRota.mensagem }, { status: 400 })
 
       const tipoVeiculoMovimentacao = movimento === 'saida' ? 'interno_saida' : 'interno_entrada'
-      const { data: movimentacao, error } = await supabase.from('movimentacoes').insert({
+      const { data: movimentacao, error } = await supabase.from('TBL_MOVIMENTACOES').insert({
+        tipo_entidade: 'veiculo',
         placa: placaCadastro,
         km: null,
         motorista,
@@ -495,7 +501,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { data: movimentacao, error } = await supabase.from('movimentacoes').insert({
+    const { data: movimentacao, error } = await supabase.from('TBL_MOVIMENTACOES').insert({
+      tipo_entidade: 'veiculo',
       placa: placaMovimentacao,
       km: kmAtual,
       motorista,

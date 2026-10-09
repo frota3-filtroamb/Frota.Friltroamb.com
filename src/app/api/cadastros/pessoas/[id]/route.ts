@@ -68,6 +68,20 @@ async function sincronizarGestorAutorizacao(
   return error?.message || null
 }
 
+async function desativarGestorAutorizacao(
+  supabase: ReturnType<typeof createAdminClient>,
+  email: string | null,
+) {
+  if (!email) return null
+
+  const { error } = await supabase
+    .from('gestores_autorizacao')
+    .update({ ativo: false })
+    .eq('email', email.toLowerCase())
+
+  return error?.message || null
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -119,6 +133,20 @@ export async function PATCH(
   }
 
   const supabase = createAdminClient()
+  const { data: cadastroAtual, error: buscaAtualError } = await supabase
+    .from('TBL_CADASTROS')
+    .select('id, email_gestor, funcao, tipo')
+    .eq('id', pessoaId)
+    .maybeSingle<{ id: number; email_gestor: string | null; funcao: string | null; tipo: string | null }>()
+
+  if (buscaAtualError) {
+    return NextResponse.json({ error: buscaAtualError.message }, { status: 400 })
+  }
+
+  if (!cadastroAtual) {
+    return NextResponse.json({ error: 'Cadastro interno nao encontrado.' }, { status: 404 })
+  }
+
   const { error } = await supabase
     .from('TBL_CADASTROS')
     .update({
@@ -142,6 +170,21 @@ export async function PATCH(
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 
+  const emailGestorAnterior = cadastroAtual.email_gestor?.toLowerCase() || null
+  const funcaoAnterior = (cadastroAtual.funcao || cadastroAtual.tipo || '').toLowerCase()
+  const funcaoAnteriorEhGestor = funcaoAnterior === 'gestor'
+  const funcaoAtualEhGestor = funcao.toLowerCase() === 'gestor'
+  const mudouEmailGestor = Boolean(funcaoAnteriorEhGestor && emailGestorAnterior && emailGestorAnterior !== emailGestor)
+  const deixouDeSerGestor = Boolean(funcaoAnteriorEhGestor && emailGestorAnterior && !funcaoAtualEhGestor)
+
+  if (mudouEmailGestor || deixouDeSerGestor) {
+    const desativarError = await desativarGestorAutorizacao(supabase, emailGestorAnterior)
+
+    if (desativarError) {
+      return NextResponse.json({ error: `Pessoa atualizada, mas o gestor antigo nao foi desativado: ${desativarError}` }, { status: 400 })
+    }
+  }
+
   const gestorError = await sincronizarGestorAutorizacao(supabase, {
     nome,
     email: emailGestor,
@@ -155,4 +198,66 @@ export async function PATCH(
   }
 
   return NextResponse.json({ mensagem: 'Pessoa atualizada com sucesso.' })
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const operador = await currentUser()
+
+  if (!operador) {
+    return NextResponse.json({ error: 'Nao autenticado.' }, { status: 401 })
+  }
+
+  if (!podeAcessarDetalhe(operador, 'cadastros', 'cadastros.pessoas')) {
+    return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 })
+  }
+
+  const { id } = await params
+  const pessoaId = Number(id)
+
+  if (!Number.isInteger(pessoaId)) {
+    return NextResponse.json({ error: 'ID invalido.' }, { status: 400 })
+  }
+
+  const supabase = createAdminClient()
+  const { data: pessoa, error: buscaError } = await supabase
+    .from('TBL_CADASTROS')
+    .select('id, email_gestor')
+    .eq('id', pessoaId)
+    .maybeSingle<{ id: number; email_gestor: string | null }>()
+
+  if (buscaError) {
+    return NextResponse.json({ error: buscaError.message }, { status: 400 })
+  }
+
+  if (!pessoa) {
+    return NextResponse.json({ error: 'Cadastro interno nao encontrado.' }, { status: 404 })
+  }
+
+  const { error } = await supabase
+    .from('TBL_CADASTROS')
+    .update({
+      ativo: false,
+      status: 'inativo',
+    })
+    .eq('id', pessoaId)
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 })
+  }
+
+  if (pessoa.email_gestor) {
+    const { error: gestorError } = await supabase
+      .from('gestores_autorizacao')
+      .update({ ativo: false })
+      .eq('email', pessoa.email_gestor.toLowerCase())
+
+    if (gestorError) {
+      return NextResponse.json({ error: `Cadastro inativado, mas o gestor nao foi desativado: ${gestorError.message}` }, { status: 400 })
+    }
+  }
+
+  return NextResponse.json({ mensagem: 'Cadastro interno inativado com sucesso.' })
 }

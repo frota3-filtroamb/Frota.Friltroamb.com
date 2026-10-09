@@ -207,13 +207,12 @@ export default function EntradaSaidaVeiculosPage() {
         return
       }
 
-      const { data: movimentacoesModelos, error: modelosError } = await supabase
-        .from('movimentacoes')
+      const { data: movimentacoesModelos } = await supabase
+        .from('TBL_MOVIMENTACOES')
         .select('id, modelo_externo')
+        .eq('tipo_entidade', 'veiculo')
         .in('id', movimentacaoIds)
         .returns<MovimentacaoModelo[]>()
-
-      if (modelosError) throw modelosError
 
       const modeloPorMovimentacao = new Map(
         (movimentacoesModelos || []).map((movimentacao) => [movimentacao.id, movimentacao.modelo_externo]),
@@ -223,8 +222,9 @@ export default function EntradaSaidaVeiculosPage() {
         ...acao,
         modelo_externo: acao.modelo_externo || modeloPorMovimentacao.get(acao.movimentacao_id || 0) || null,
       })))
-    } catch {
-      setMensagem('Erro ao carregar historico de acoes de veiculos.')
+    } catch (error) {
+      const detalhe = error instanceof Error ? error.message : 'Erro desconhecido.'
+      setMensagem(`Erro ao carregar historico de acoes de veiculos: ${detalhe}`)
     } finally {
       setCarregando(false)
     }
