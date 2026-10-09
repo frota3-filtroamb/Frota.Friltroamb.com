@@ -746,7 +746,7 @@ export default function Sidebar() {
       <div className="hidden w-[53px] shrink-0 min-[1025px]:block" aria-hidden="true" />
 
       <div className="app-topbar fixed left-[53px] right-0 top-0 z-20 hidden h-14 items-center gap-5 border-b border-slate-200 bg-white px-6 text-slate-950 min-[1025px]:flex">
-        <h1 className="min-w-[108px] whitespace-nowrap text-lg font-bold">
+        <h1 className="topbar-page-title min-w-[108px] whitespace-nowrap text-lg font-bold">
           {tituloDaPagina(pathname)}
         </h1>
 

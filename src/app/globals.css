@@ -236,23 +236,41 @@ html:not(.light) .bg-\[\#0a1625\] {
   color: #f8fafcd5 !important;
 }
 
+/* ==========================================================================
+   SIDEBAR - TEMA ESCURO
+   ========================================================================== */
+
 html:not(.light) aside,
 html:not(.light) .bg-\[\#0b1f33\] {
   background-color: #151431 !important;
   border-color: rgba(173, 153, 153, 0.05) !important;
 }
 
+/* ========================================================================== */
+/* ==========================================================================
+   FUNDO DAS TABELAS E CARDS
+/* ========================================================================== */
 html:not(.light) .bg-\[\#0f1c2e\] {
   background-color: #0f1c2e !important;
-  border-color: rgba(16, 185, 129, 0.15) !important;
+  border-color: rgba(16, 185, 129, 0.137) !important;
 }
+
+/*========================================================================== */
+
+
+
+/* ==========================================================================
+   FUNDO DA BARRA DE PESQUISA
+/* ========================================================================== */
 
 html:not(.light) .bg-\[\#132337\] {
   background-color: #132337 !important;
 }
 
+/* ========================================================================== */
+
 html:not(.light) .bg-\[\#132337\]\/60 {
-  background-color: rgba(19, 35, 55, 0.6) !important;
+  background-color: rgba(19, 35, 55, 0.404) !important;
 }
 
 html:not(.light) .text-white {
@@ -298,9 +316,17 @@ html:not(.light) aside button:hover {
 }
 
 html:not(.light) .app-topbar {
-  background-color: #151431 !important;
-  border-color: rgba(16, 185, 129, 0.14) !important;
+  background-color: #0a1625 !important;
+  border-color: transparent !important;
   color: #f8fafc !important;
+}
+
+html:not(.light) .topbar-page-title {
+  background-color: #151431 !important;
+  border: 1px solid rgba(16, 185, 129, 0.14) !important;
+  border-radius: 999px !important;
+  padding: 0.4rem 1rem !important;
+  line-height: 1 !important;
 }
 
 html:not(.light) .app-topbar button:hover {
@@ -421,7 +447,7 @@ html:not(.light) .feedback-submit {
   color: #ffffff !important;
 }
 
-html:not(.light) .topbar-notification-panel > div:first-child {
+html:not(.light) .topbar-notification-panel>div:first-child {
   border-color: rgba(148, 163, 184, 0.14) !important;
 }
 
@@ -523,7 +549,7 @@ html:not(.light) .bg-emerald-500 {
 }
 
 html:not(.light) .bg-orange-500 {
-  background-color: #f97316 !important;
+  background-color: #FF6B00 !important;
   color: #0a1625 !important;
 }
 
@@ -541,6 +567,12 @@ html:not(.light) .divide-white\/5>*+* {
 
 html:not(.light) .hover\:bg-emerald-500\/5:hover {
   background-color: rgba(16, 185, 129, 0.05) !important;
+}
+
+html:not(.light) .veiculos-page .text-emerald-300,
+html:not(.light) .veiculos-page .text-emerald-400,
+html:not(.light) .veiculos-page .text-emerald-400\/90 {
+  color: oklch(72.3% 0.219 149.579) !important;
 }
 
 /* ==========================================================================
@@ -586,8 +618,17 @@ html.light aside .bg-emerald-500\/15 {
 }
 
 html.light .app-topbar {
+  background-color: #b4b3b300 !important;
+  border-color: transparent !important;
+}
+
+html.light .topbar-page-title {
   background-color: #f1f1f1 !important;
-  border-color: #d7dde4 !important;
+  border: 1px solid #d7dde4 !important;
+  border-radius: 999px !important;
+  padding: 0.4rem 1rem !important;
+  line-height: 1 !important;
+  color: #0f172a !important;
 }
 
 html.light .mobile-app-header {
@@ -691,7 +732,7 @@ html.light .topbar-notification-panel {
   box-shadow: 0 18px 42px rgba(15, 23, 42, 0.14) !important;
 }
 
-html.light .topbar-notification-panel > div:first-child {
+html.light .topbar-notification-panel>div:first-child {
   border-color: #f1f5f9 !important;
 }
 
@@ -1035,7 +1076,7 @@ html.light .hover\:bg-emerald-400:hover {
 }
 
 html.light .bg-orange-500 {
-  background-color: #ea580c !important;
+  background-color: #FF6B00 !important;
   color: #ffffff !important;
 }
 
@@ -1073,6 +1114,219 @@ html.light .hover\:bg-purple-500\/5:hover {
 
 html.light [class*="shadow-[0_0_"] {
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+html:not(.light) .liberacao-page button.bg-emerald-500,
+html:not(.light) .liberacao-page button.bg-orange-500,
+html:not(.light) .liberacao-page button.bg-purple-500,
+html:not(.light) .liberacao-page button.bg-sky-500,
+html:not(.light) .liberacao-page button.bg-blue-500,
+html:not(.light) .liberacao-page button.bg-amber-500,
+html.light .liberacao-page button.bg-emerald-500,
+html.light .liberacao-page button.bg-orange-500,
+html.light .liberacao-page button.bg-purple-500,
+html.light .liberacao-page button.bg-sky-500,
+html.light .liberacao-page button.bg-blue-500,
+html.light .liberacao-page button.bg-amber-500 {
+  background-color: #009934 !important;
+  color: #ffffff !important;
+}
+
+html:not(.light) .liberacao-page button.hover\:bg-emerald-400:hover,
+html:not(.light) .liberacao-page button.hover\:bg-orange-400:hover,
+html:not(.light) .liberacao-page button.hover\:bg-purple-400:hover,
+html:not(.light) .liberacao-page button.hover\:bg-sky-400:hover,
+html:not(.light) .liberacao-page button.hover\:bg-blue-400:hover,
+html:not(.light) .liberacao-page button.hover\:bg-amber-400:hover,
+html.light .liberacao-page button.hover\:bg-emerald-400:hover,
+html.light .liberacao-page button.hover\:bg-orange-400:hover,
+html.light .liberacao-page button.hover\:bg-purple-400:hover,
+html.light .liberacao-page button.hover\:bg-sky-400:hover,
+html.light .liberacao-page button.hover\:bg-blue-400:hover,
+html.light .liberacao-page button.hover\:bg-amber-400:hover {
+  background-color: #00812c !important;
+  color: #ffffff !important;
+}
+
+html:not(.light) .liberacao-page [data-liberacao-tab="pedestre"].bg-purple-500,
+html.light .liberacao-page [data-liberacao-tab="pedestre"].bg-purple-500 {
+  background-color: #009934 !important;
+  color: #ffffff !important;
+}
+
+html:not(.light) .liberacao-page [data-liberacao-action="pedestre"].bg-purple-500,
+html.light .liberacao-page [data-liberacao-action="pedestre"].bg-purple-500 {
+  background-color: #009934 !important;
+  color: #ffffff !important;
+}
+
+html:not(.light) .liberacao-page [data-liberacao-action="pedestre"].hover\:bg-purple-400:hover,
+html.light .liberacao-page [data-liberacao-action="pedestre"].hover\:bg-purple-400:hover {
+  background-color: #00812c !important;
+}
+
+html:not(.light) .liberacao-page [data-liberacao-tab="transferencia"].bg-blue-500,
+html.light .liberacao-page [data-liberacao-tab="transferencia"].bg-blue-500,
+html:not(.light) .liberacao-page [data-liberacao-action="transferencia"].bg-blue-500,
+html.light .liberacao-page [data-liberacao-action="transferencia"].bg-blue-500 {
+  background-color: #009934 !important;
+  color: #ffffff !important;
+}
+
+html:not(.light) .liberacao-page [data-liberacao-action="transferencia"].hover\:bg-blue-400:hover,
+html.light .liberacao-page [data-liberacao-action="transferencia"].hover\:bg-blue-400:hover {
+  background-color: #00812c !important;
+}
+
+html.light .liberacao-page,
+html.light .liberacao-page .text-white,
+html.light .liberacao-page .text-slate-300,
+html.light .liberacao-page .text-slate-400,
+html.light .liberacao-page .text-slate-500,
+html.light .liberacao-page .text-emerald-300,
+html.light .liberacao-page .text-orange-300,
+html.light .liberacao-page .text-purple-300,
+html.light .liberacao-page .text-blue-300,
+html.light .liberacao-page .text-sky-300,
+html.light .liberacao-page .text-amber-300,
+html.light .liberacao-page label,
+html.light .liberacao-page button {
+  color: #000000 !important;
+}
+
+html.light .liberacao-page input::placeholder,
+html.light .liberacao-page textarea::placeholder {
+  color: #8e98a7 !important;
+}
+
+html.light .liberacao-page .bg-emerald-500,
+html.light .liberacao-page .bg-orange-500,
+html.light .liberacao-page .bg-purple-500,
+html.light .liberacao-page .bg-sky-500,
+html.light .liberacao-page .bg-amber-500,
+html.light .liberacao-page .bg-blue-500 {
+  color: #ffffff !important;
+}
+
+html.light .liberacao-page .text-\[\#0a1625\] {
+  color: #ffffff !important;
+}
+
+html.light .liberacao-page button:not(.bg-emerald-500):not(.bg-orange-500):not(.bg-purple-500):not(.bg-sky-500):not(.bg-amber-500):not(.bg-blue-500) {
+  color: #000000 !important;
+}
+
+html:not(.light) .liberacao-page,
+html:not(.light) .liberacao-page .text-white,
+html:not(.light) .liberacao-page .text-slate-300,
+html:not(.light) .liberacao-page .text-slate-400,
+html:not(.light) .liberacao-page .text-slate-500,
+html:not(.light) .liberacao-page .text-emerald-300,
+html:not(.light) .liberacao-page .text-orange-300,
+html:not(.light) .liberacao-page .text-purple-300,
+html:not(.light) .liberacao-page .text-blue-300,
+html:not(.light) .liberacao-page .text-sky-300,
+html:not(.light) .liberacao-page .text-amber-300,
+html:not(.light) .liberacao-page label,
+html:not(.light) .liberacao-page button {
+  color: #ffffff !important;
+}
+
+html:not(.light) .liberacao-page input::placeholder,
+html:not(.light) .liberacao-page textarea::placeholder {
+  color: #64748b !important;
+}
+
+html:not(.light) .liberacao-page .text-\[\#0a1625\],
+html:not(.light) .portaria-controle-page .text-\[\#0a1625\] {
+  color: #ffffff !important;
+}
+
+html:not(.light) .portaria-controle-page button.bg-emerald-500,
+html:not(.light) .portaria-controle-page button.bg-orange-500,
+html:not(.light) .portaria-controle-page button.bg-purple-500,
+html:not(.light) .portaria-controle-page button.bg-sky-500,
+html:not(.light) .portaria-controle-page button.bg-blue-500,
+html:not(.light) .portaria-controle-page button.bg-amber-500,
+html.light .portaria-controle-page button.bg-emerald-500,
+html.light .portaria-controle-page button.bg-orange-500,
+html.light .portaria-controle-page button.bg-purple-500,
+html.light .portaria-controle-page button.bg-sky-500,
+html.light .portaria-controle-page button.bg-blue-500,
+html.light .portaria-controle-page button.bg-amber-500 {
+  background-color: #009934 !important;
+  color: #ffffff !important;
+}
+
+html:not(.light) .portaria-controle-page button.hover\:bg-emerald-400:hover,
+html:not(.light) .portaria-controle-page button.hover\:bg-orange-400:hover,
+html:not(.light) .portaria-controle-page button.hover\:bg-purple-400:hover,
+html:not(.light) .portaria-controle-page button.hover\:bg-sky-400:hover,
+html:not(.light) .portaria-controle-page button.hover\:bg-blue-400:hover,
+html:not(.light) .portaria-controle-page button.hover\:bg-amber-400:hover,
+html.light .portaria-controle-page button.hover\:bg-emerald-400:hover,
+html.light .portaria-controle-page button.hover\:bg-orange-400:hover,
+html.light .portaria-controle-page button.hover\:bg-purple-400:hover,
+html.light .portaria-controle-page button.hover\:bg-sky-400:hover,
+html.light .portaria-controle-page button.hover\:bg-blue-400:hover,
+html.light .portaria-controle-page button.hover\:bg-amber-400:hover {
+  background-color: #00812c !important;
+  color: #ffffff !important;
+}
+
+html:not(.light) .portaria-controle-page [data-topic-button] {
+  color: #f8fafc !important;
+}
+
+html.light .portaria-controle-page [data-topic-button] {
+  color: #111827 !important;
+}
+
+html:not(.light) .portaria-controle-page [data-topic-button].bg-emerald-500,
+html:not(.light) .portaria-controle-page [data-topic-button].bg-orange-500,
+html:not(.light) .portaria-controle-page [data-topic-button].bg-purple-500,
+html:not(.light) .portaria-controle-page [data-topic-button].bg-sky-500,
+html.light .portaria-controle-page [data-topic-button].bg-emerald-500,
+html.light .portaria-controle-page [data-topic-button].bg-orange-500,
+html.light .portaria-controle-page [data-topic-button].bg-purple-500,
+html.light .portaria-controle-page [data-topic-button].bg-sky-500 {
+  color: #ffffff !important;
+}
+
+html:not(.light) .portaria-controle-page table td,
+html:not(.light) .portaria-controle-page table td .text-white,
+html:not(.light) .portaria-controle-page table td .text-slate-200,
+html:not(.light) .portaria-controle-page table td .text-slate-300 {
+  color: #f8fafc !important;
+}
+
+html.light .portaria-controle-page table td,
+html.light .portaria-controle-page table td .text-white,
+html.light .portaria-controle-page table td .text-slate-200,
+html.light .portaria-controle-page table td .text-slate-300 {
+  color: #111827 !important;
+}
+
+html:not(.light) .portaria-controle-page table td .text-slate-500,
+html:not(.light) .portaria-controle-page table td .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+
+html.light .portaria-controle-page table td .text-slate-500,
+html.light .portaria-controle-page table td .text-slate-600 {
+  color: #475569 !important;
+}
+
+html:not(.light) .portaria-controle-page table td:nth-child(7) span {
+  background-color: rgba(234, 179, 8, 0.16) !important;
+  border-color: rgba(234, 179, 8, 0.35) !important;
+  color: #fde68a !important;
+}
+
+html.light .portaria-controle-page table td:nth-child(7) span {
+  background-color: rgba(234, 179, 8, 0.18) !important;
+  border-color: rgba(202, 138, 4, 0.35) !important;
+  color: #854d0e !important;
 }
 
 /* ==========================================================================

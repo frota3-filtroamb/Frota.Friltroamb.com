@@ -1,11 +1,13 @@
 import { currentUser } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { registrarHistoricoAcao } from '@/lib/historico-acoes'
 import { getRole, podeAcessar } from '@/lib/roles'
 
 type Body = {
   tipo?: unknown
   id?: unknown
+  porteiro_id?: unknown
 }
 
 type Movimentacao = {
@@ -36,15 +38,45 @@ type Pedestre = {
 type Transferencia = {
   id: number
   placa: string
+  km: number | null
   base_origem: string
   base_destino: string
   motorista: string | null
   observacao: string | null
 }
 
+type Porteiro = {
+  id: number
+  nome: string
+}
+
 function numeroObrigatorio(valor: unknown) {
   const numero = typeof valor === 'number' ? valor : Number(valor)
   return Number.isInteger(numero) ? numero : null
+}
+
+async function buscarPorteiro(
+  supabase: ReturnType<typeof createAdminClient>,
+  valor: unknown,
+) {
+  const porteiroId = numeroObrigatorio(valor)
+
+  if (!porteiroId) {
+    return { data: null, error: 'Selecione o porteiro responsavel pela acao.' }
+  }
+
+  const { data, error } = await supabase
+    .from('TBL_CADASTROS')
+    .select('id, nome')
+    .eq('id', porteiroId)
+    .ilike('funcao', 'porteiro')
+    .eq('ativo', true)
+    .maybeSingle<Porteiro>()
+
+  if (error) return { data: null, error: error.message }
+  if (!data) return { data: null, error: 'Porteiro nao encontrado ou inativo.' }
+
+  return { data, error: null }
 }
 
 function nomeResponsavel(operador: Awaited<ReturnType<typeof currentUser>>) {
@@ -108,8 +140,19 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient()
   const responsavelNome = nomeResponsavel(operador)
   const responsavelEmail = operador.primaryEmailAddress?.emailAddress || null
-  const responsavelId = operador.id
   const agora = new Date().toISOString()
+  const exigePorteiro = [
+    'veiculo_saida',
+    'veiculo_entrada',
+    'pedestre_entrada',
+    'pedestre_saida',
+    'transferencia_confirmar',
+  ].includes(tipo)
+  const porteiro = exigePorteiro ? await buscarPorteiro(supabase, body.porteiro_id) : { data: null, error: null }
+
+  if (porteiro.error) {
+    return NextResponse.json({ error: porteiro.error }, { status: 400 })
+  }
 
   if (tipo === 'veiculo_saida') {
     if (!podeOperarVeiculos(operador)) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 })
@@ -121,6 +164,25 @@ export async function POST(request: NextRequest) {
       .single<Movimentacao>()
 
     if (buscaError) return NextResponse.json({ error: buscaError.message }, { status: 400 })
+
+    if (isVeiculoExterno(movimentacao.tipo_veiculo)) {
+      if (!movimentacao.entrada_em) {
+        return NextResponse.json({ error: 'Registre a entrada do veiculo externo antes da saida.' }, { status: 400 })
+      }
+
+      const { data: autorizacaoExistente, error: autorizacaoError } = await supabase
+        .from('TBL_HISTORICOS_ACOES')
+        .select('id')
+        .eq('tipo_entidade', 'veiculo')
+        .eq('entidade_id', movimentacao.id)
+        .eq('acao', 'saida_autorizada')
+        .maybeSingle()
+
+      if (autorizacaoError) return NextResponse.json({ error: autorizacaoError.message }, { status: 400 })
+      if (!autorizacaoExistente) {
+        return NextResponse.json({ error: 'A saida do veiculo externo ainda nao foi autorizada pelo gestor.' }, { status: 403 })
+      }
+    }
 
     const deveFinalizarNaSaida = isVeiculoExterno(movimentacao.tipo_veiculo) || (
       Boolean(movimentacao.entrada_em) && !isVeiculoInterno(movimentacao.tipo_veiculo)
@@ -140,25 +202,32 @@ export async function POST(request: NextRequest) {
 
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 })
 
-    const { error: acaoError } = await supabase.from('movimentacoes_acoes').insert({
-      movimentacao_id: movimentacao.id,
+    const historicoError = await registrarHistoricoAcao({
+      supabase,
+      tipo_entidade: 'veiculo',
+      entidade_id: movimentacao.id,
       acao: 'saida',
-      data_acao: dadosSaida.saida_em,
       placa: movimentacao.placa,
-      motorista: movimentacao.motorista,
-      km: movimentacao.km,
-      origem: movimentacao.localizacao,
-      destino: movimentacao.destino,
-      tipo_veiculo: movimentacao.tipo_veiculo || null,
-      status_movimentacao: dadosSaida.status,
+      data_acao: dadosSaida.saida_em,
       responsavel_nome: responsavelNome,
       responsavel_email: responsavelEmail,
-      responsavel_id: responsavelId,
+
+      porteiro_id: porteiro.data?.id || null,
+      porteiro_nome: porteiro.data?.nome || null,
+      dados: {
+        placa: movimentacao.placa,
+        motorista: movimentacao.motorista,
+        km: movimentacao.km,
+        origem: movimentacao.localizacao,
+        destino: movimentacao.destino,
+        tipo_veiculo: movimentacao.tipo_veiculo || null,
+        status_movimentacao: dadosSaida.status,
+      },
     })
 
     return NextResponse.json({
-      mensagem: acaoError
-        ? `Saida registrada, mas o historico de acoes nao foi gravado: ${acaoError.message}`
+      mensagem: historicoError
+        ? `Saida registrada, mas o historico de acoes nao foi gravado: ${historicoError}`
         : deveFinalizarNaSaida ? 'Saida do veiculo externo registrada e finalizada!' : 'Saida do veiculo registrada!',
     })
   }
@@ -184,6 +253,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Este veiculo externo ja possui saida registrada.' }, { status: 400 })
     }
 
+    if (!movimentacao.entrada_em) {
+      return NextResponse.json({ error: 'Registre a entrada do veiculo externo antes de autorizar a saida.' }, { status: 400 })
+    }
+
     const role = getRole(operador)
     const emailOperador = responsavelEmail?.toLowerCase() || ''
     if (
@@ -194,33 +267,46 @@ export async function POST(request: NextRequest) {
     }
 
     const { data: autorizacaoExistente, error: autorizacaoError } = await supabase
-      .from('movimentacoes_acoes')
+      .from('TBL_HISTORICOS_ACOES')
       .select('id')
-      .eq('movimentacao_id', movimentacao.id)
+      .eq('tipo_entidade', 'veiculo')
+      .eq('entidade_id', movimentacao.id)
       .eq('acao', 'saida_autorizada')
       .maybeSingle()
 
     if (autorizacaoError) return NextResponse.json({ error: autorizacaoError.message }, { status: 400 })
 
     if (!autorizacaoExistente) {
-      const { error: acaoError } = await supabase.from('movimentacoes_acoes').insert({
-        movimentacao_id: movimentacao.id,
+      const historicoError = await registrarHistoricoAcao({
+        supabase,
+        tipo_entidade: 'veiculo',
+        entidade_id: movimentacao.id,
         acao: 'saida_autorizada',
-        data_acao: agora,
         placa: movimentacao.placa,
-        motorista: movimentacao.motorista,
-        km: movimentacao.km,
-        origem: movimentacao.localizacao,
-        destino: movimentacao.destino,
-        tipo_veiculo: movimentacao.tipo_veiculo || null,
-        status_movimentacao: movimentacao.status,
+        data_acao: agora,
         responsavel_nome: responsavelNome,
         responsavel_email: responsavelEmail,
-        responsavel_id: responsavelId,
+
+        dados: {
+          placa: movimentacao.placa,
+          motorista: movimentacao.motorista,
+          km: movimentacao.km,
+          origem: movimentacao.localizacao,
+          destino: movimentacao.destino,
+          tipo_veiculo: movimentacao.tipo_veiculo || null,
+          status_movimentacao: movimentacao.status,
+        },
       })
 
-      if (acaoError) return NextResponse.json({ error: acaoError.message }, { status: 400 })
+      if (historicoError) return NextResponse.json({ error: historicoError }, { status: 400 })
     }
+
+    const { error: statusError } = await supabase
+      .from('movimentacoes')
+      .update({ status: 'saida_autorizada' })
+      .eq('id', movimentacao.id)
+
+    if (statusError) return NextResponse.json({ error: statusError.message }, { status: 400 })
 
     return NextResponse.json({ mensagem: 'Saida do veiculo externo autorizada para a portaria.' })
   }
@@ -236,37 +322,46 @@ export async function POST(request: NextRequest) {
 
     if (buscaError) return NextResponse.json({ error: buscaError.message }, { status: 400 })
 
-    if (isVeiculoExterno(movimentacao.tipo_veiculo) || (Boolean(movimentacao.entrada_em) && !isVeiculoInterno(movimentacao.tipo_veiculo))) {
+    if (Boolean(movimentacao.entrada_em) && (isVeiculoExterno(movimentacao.tipo_veiculo) || !isVeiculoInterno(movimentacao.tipo_veiculo))) {
       return NextResponse.json({ error: 'Este veiculo ja possui entrada registrada. Registre a saida.' }, { status: 400 })
     }
 
+    const statusEntrada = isVeiculoExterno(movimentacao.tipo_veiculo) ? 'aguardando_saida' : 'finalizado'
+
     const { error: updateError } = await supabase
       .from('movimentacoes')
-      .update({ status: 'finalizado', entrada_em: agora })
+      .update({ status: statusEntrada, entrada_em: agora })
       .eq('id', id)
 
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 })
 
-    const { error: acaoError } = await supabase.from('movimentacoes_acoes').insert({
-      movimentacao_id: movimentacao.id,
+    const historicoError = await registrarHistoricoAcao({
+      supabase,
+      tipo_entidade: 'veiculo',
+      entidade_id: movimentacao.id,
       acao: 'entrada',
-      data_acao: agora,
       placa: movimentacao.placa,
-      motorista: movimentacao.motorista,
-      km: movimentacao.km,
-      origem: movimentacao.localizacao,
-      destino: movimentacao.destino,
-      tipo_veiculo: movimentacao.tipo_veiculo || null,
-      status_movimentacao: 'finalizado',
+      data_acao: agora,
       responsavel_nome: responsavelNome,
       responsavel_email: responsavelEmail,
-      responsavel_id: responsavelId,
+
+      porteiro_id: porteiro.data?.id || null,
+      porteiro_nome: porteiro.data?.nome || null,
+      dados: {
+        placa: movimentacao.placa,
+        motorista: movimentacao.motorista,
+        km: movimentacao.km,
+        origem: movimentacao.localizacao,
+        destino: movimentacao.destino,
+        tipo_veiculo: movimentacao.tipo_veiculo || null,
+        status_movimentacao: statusEntrada,
+      },
     })
 
     return NextResponse.json({
-      mensagem: acaoError
-        ? `Entrada registrada, mas o historico de acoes nao foi gravado: ${acaoError.message}`
-        : 'Entrada do veiculo registrada!',
+      mensagem: historicoError
+        ? `Entrada registrada, mas o historico de acoes nao foi gravado: ${historicoError}`
+        : isVeiculoExterno(movimentacao.tipo_veiculo) ? 'Entrada do veiculo externo registrada! Aguardando autorizacao do gestor.' : 'Entrada do veiculo registrada!',
     })
   }
 
@@ -293,24 +388,30 @@ export async function POST(request: NextRequest) {
 
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 })
 
-    const { error: acaoError } = await supabase.from('movimentacoes_pedestres_acoes').insert({
-      movimentacao_pedestre_id: pedestre.id,
+    const historicoError = await registrarHistoricoAcao({
+      supabase,
+      tipo_entidade: 'pedestre',
+      entidade_id: pedestre.id,
       acao: entrada ? 'entrada' : 'saida',
       data_acao: agora,
-      nome: pedestre.nome,
-      cpf_rg: pedestre.cpf_rg,
-      telefone: pedestre.telefone,
-      empresa: pedestre.empresa,
-      destino: pedestre.destino,
-      status_movimentacao: entrada ? 'em_visita' : 'finalizado',
       responsavel_nome: responsavelNome,
       responsavel_email: responsavelEmail,
-      responsavel_id: responsavelId,
+
+      porteiro_id: porteiro.data?.id || null,
+      porteiro_nome: porteiro.data?.nome || null,
+      dados: {
+        nome: pedestre.nome,
+        cpf_rg: pedestre.cpf_rg,
+        telefone: pedestre.telefone,
+        empresa: pedestre.empresa,
+        destino: pedestre.destino,
+        status_movimentacao: entrada ? 'em_visita' : 'finalizado',
+      },
     })
 
     return NextResponse.json({
-      mensagem: acaoError
-        ? `${entrada ? 'Entrada' : 'Saida'} registrada, mas o historico de acoes nao foi gravado: ${acaoError.message}`
+      mensagem: historicoError
+        ? `${entrada ? 'Entrada' : 'Saida'} registrada, mas o historico de acoes nao foi gravado: ${historicoError}`
         : entrada ? 'Entrada de pedestre registrada!' : 'Saida de pedestre registrada!',
     })
   }
@@ -333,24 +434,32 @@ export async function POST(request: NextRequest) {
 
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 })
 
-    const { error: acaoError } = await supabase.from('movimentacoes_transferencias_acoes').insert({
-      transferencia_id: transferencia.id,
+    const historicoError = await registrarHistoricoAcao({
+      supabase,
+      tipo_entidade: 'transferencia',
+      entidade_id: transferencia.id,
       acao: 'confirmacao',
-      data_acao: agora,
       placa: transferencia.placa,
-      base_origem: transferencia.base_origem,
-      base_destino: transferencia.base_destino,
-      motorista: transferencia.motorista,
-      observacao: transferencia.observacao,
-      status_transferencia: 'concluida',
+      data_acao: agora,
       responsavel_nome: responsavelNome,
       responsavel_email: responsavelEmail,
-      responsavel_id: responsavelId,
+
+      porteiro_id: porteiro.data?.id || null,
+      porteiro_nome: porteiro.data?.nome || null,
+      dados: {
+        placa: transferencia.placa,
+        base_origem: transferencia.base_origem,
+        base_destino: transferencia.base_destino,
+        motorista: transferencia.motorista,
+        km: transferencia.km,
+        observacao: transferencia.observacao,
+        status_transferencia: 'concluida',
+      },
     })
 
     return NextResponse.json({
-      mensagem: acaoError
-        ? `Transferencia confirmada, mas o historico de acoes nao foi gravado: ${acaoError.message}`
+      mensagem: historicoError
+        ? `Transferencia confirmada, mas o historico de acoes nao foi gravado: ${historicoError}`
         : 'Transferencia confirmada e finalizada!',
     })
   }

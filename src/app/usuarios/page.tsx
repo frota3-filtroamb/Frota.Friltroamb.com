@@ -5,7 +5,7 @@ import { useTopbarSearch } from '@/components/TopbarSearchProvider'
 import { useUser } from '@clerk/nextjs'
 import { useEffect, useMemo, useState } from 'react'
 import { lerJsonSeguro } from '@/lib/http'
-import type { Permissao, Role } from '@/lib/roles'
+import { getPermissoes, type Permissao, type Role } from '@/lib/roles'
 
 type Usuario = {
   id: string
@@ -151,7 +151,12 @@ export default function UsuariosPage() {
   }, [usuarios, usuariosFiltrados.length])
 
   function alterarRole(usuarioId: string, role: Role) {
-    setUsuarios((atuais) => atuais.map((usuario) => (usuario.id === usuarioId ? { ...usuario, role } : usuario)))
+    const permissoesPadrao = getPermissoes({ publicMetadata: { role } })
+    setUsuarios((atuais) =>
+      atuais.map((usuario) =>
+        usuario.id === usuarioId ? { ...usuario, role, permissoes: permissoesPadrao } : usuario,
+      ),
+    )
   }
 
   function alternarPermissao(usuarioId: string, permissao: Permissao) {

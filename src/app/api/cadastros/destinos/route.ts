@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = createAdminClient()
   const { data: existente, error: buscaError } = await supabase
-    .from('destinos')
+    .from('TBL_DESTINOS')
     .select('id')
     .ilike('nome', nome)
     .limit(1)
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Esse destino ja esta cadastrado.' }, { status: 400 })
   }
 
-  const { error } = await supabase.from('destinos').insert({
+  const { error } = await supabase.from('TBL_DESTINOS').insert({
     nome,
     tipo_destino: tipoDestino,
     endereco,

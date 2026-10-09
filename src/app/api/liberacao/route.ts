@@ -1,6 +1,7 @@
 import { currentUser } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { registrarHistoricoAcao } from '@/lib/historico-acoes'
 import { podeAcessarDetalhe } from '@/lib/roles'
 
 type Body = Record<string, unknown>
@@ -19,6 +20,19 @@ type GestorAutorizacao = {
 type RegistroKm = {
   placa: string | null
   km: number | string | null
+}
+
+type RegistroHistoricoKm = {
+  placa: string | null
+  dados: {
+    placa?: string | null
+    km?: number | string | null
+  } | null
+}
+
+type RegistroEmRota = {
+  placa: string | null
+  motorista: string | null
 }
 
 function texto(valor: unknown) {
@@ -64,36 +78,94 @@ function maiorKmDosRegistros(registros: RegistroKm[], placa: string) {
   }, null)
 }
 
+function padraoBuscaPlaca(placa: string) {
+  const limpa = placaNormalizada(placa)
+  return limpa ? `%${limpa.split('').join('%')}%` : '%'
+}
+
 async function buscarMaiorKmRegistrado(
   supabase: ReturnType<typeof createAdminClient>,
   placa: string,
 ) {
-  const variantes = variantesPlaca(placa)
+  const padraoPlaca = padraoBuscaPlaca(placa)
   const [movimentacoesQuery, acoesQuery] = await Promise.all([
     supabase
       .from('movimentacoes')
       .select('placa, km')
-      .in('placa', variantes)
+      .ilike('placa', padraoPlaca)
       .not('km', 'is', null)
       .limit(1000)
       .returns<RegistroKm[]>(),
     supabase
-      .from('movimentacoes_acoes')
-      .select('placa, km')
-      .in('placa', variantes)
-      .not('km', 'is', null)
+      .from('TBL_HISTORICOS_ACOES')
+      .select('placa, dados')
+      .eq('tipo_entidade', 'veiculo')
+      .ilike('placa', padraoPlaca)
       .limit(1000)
-      .returns<RegistroKm[]>(),
+      .returns<RegistroHistoricoKm[]>(),
   ])
 
   if (movimentacoesQuery.error) return { km: null, error: movimentacoesQuery.error.message }
   if (acoesQuery.error) return { km: null, error: acoesQuery.error.message }
 
   const maiorMovimentacoes = maiorKmDosRegistros(movimentacoesQuery.data || [], placa)
-  const maiorAcoes = maiorKmDosRegistros(acoesQuery.data || [], placa)
+  const registrosHistorico = (acoesQuery.data || []).map((registro) => ({
+    placa: registro.placa || registro.dados?.placa || null,
+    km: registro.dados?.km ?? null,
+  }))
+  const maiorAcoes = maiorKmDosRegistros(registrosHistorico, placa)
   const kms = [maiorMovimentacoes, maiorAcoes].filter((km): km is number => km !== null)
 
   return { km: kms.length ? Math.max(...kms) : null, error: null }
+}
+
+async function buscarBloqueioEmRota(
+  supabase: ReturnType<typeof createAdminClient>,
+  placa: string,
+  motorista: string | null,
+) {
+  const motoristaNormalizado = motorista?.trim().toLowerCase() || null
+  const [placaQuery, motoristaQuery] = await Promise.all([
+    supabase
+      .from('movimentacoes')
+      .select('placa, motorista')
+      .eq('status', 'em_rota')
+      .ilike('placa', padraoBuscaPlaca(placa))
+      .limit(1000)
+      .returns<RegistroEmRota[]>(),
+    motoristaNormalizado
+      ? supabase
+        .from('movimentacoes')
+        .select('placa, motorista')
+        .eq('status', 'em_rota')
+        .ilike('motorista', motoristaNormalizado)
+        .limit(1000)
+        .returns<RegistroEmRota[]>()
+      : Promise.resolve({ data: [], error: null }),
+  ])
+
+  if (placaQuery.error) return { error: placaQuery.error.message, mensagem: null }
+  if (motoristaQuery.error) return { error: motoristaQuery.error.message, mensagem: null }
+
+  const placaEmRota = (placaQuery.data || []).some((registro) => placasIguais(registro.placa, placa))
+  const motoristaEmRota = Boolean(
+    motoristaNormalizado &&
+    (motoristaQuery.data || []).some((registro) => registro.motorista?.trim().toLowerCase() === motoristaNormalizado),
+  )
+
+  if (placaEmRota && motoristaEmRota) {
+    return { error: null, mensagem: 'Este motorista e veiculo estao em rota e nao podem receber nova liberacao.' }
+  }
+
+  if (placaEmRota) {
+    return { error: null, mensagem: 'Este veiculo esta em rota e nao pode receber nova liberacao.' }
+  }
+
+  if (motoristaEmRota) {
+    return { error: null, mensagem: 'Este motorista esta em rota e nao pode receber nova liberacao.' }
+  }
+
+  return { error: null, mensagem: null }
 }
 
 async function buscarVeiculoPorPlaca(
@@ -101,7 +173,7 @@ async function buscarVeiculoPorPlaca(
   placa: string,
 ) {
   return supabase
-    .from('veiculos')
+    .from('TBL_VEICULOS')
     .select('NR_PLACA')
     .in('NR_PLACA', variantesPlaca(placa))
     .limit(1)
@@ -129,6 +201,16 @@ function podeOperar(operador: Awaited<ReturnType<typeof currentUser>>, detalhe: 
   return Boolean(operador && podeAcessarDetalhe(operador, 'liberacao', detalhe))
 }
 
+function podeOperarVeiculoInterno(operador: Awaited<ReturnType<typeof currentUser>>) {
+  return Boolean(
+    operador &&
+    (
+      podeAcessarDetalhe(operador, 'liberacao', 'liberacao.veiculo_interno') ||
+      podeAcessarDetalhe(operador, 'portaria', 'portaria.veiculos')
+    ),
+  )
+}
+
 export async function POST(request: NextRequest) {
   const operador = await currentUser()
 
@@ -141,7 +223,6 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient()
   const responsavelNome = nomeResponsavel(operador)
   const responsavelEmail = operador.primaryEmailAddress?.emailAddress || null
-  const responsavelId = operador.id
 
   if (tipo === 'pedestre') {
     if (!podeOperar(operador, 'liberacao.pedestre')) {
@@ -162,6 +243,7 @@ export async function POST(request: NextRequest) {
       telefone: texto(body.telefone),
       empresa: texto(body.empresa),
       destino,
+      observacao: texto(body.observacao),
       status: 'aguardando_entrada',
       liberado_por: responsavelNome,
       liberado_em: liberadoEm,
@@ -169,24 +251,29 @@ export async function POST(request: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-    const { error: acaoError } = await supabase.from('movimentacoes_pedestres_acoes').insert({
-      movimentacao_pedestre_id: pedestre.id,
+    const historicoError = await registrarHistoricoAcao({
+      supabase,
+      tipo_entidade: 'pedestre',
+      entidade_id: pedestre.id,
       acao: 'liberacao',
       data_acao: pedestre.liberado_em,
-      nome: pedestre.nome,
-      cpf_rg: pedestre.cpf_rg,
-      telefone: pedestre.telefone,
-      empresa: pedestre.empresa,
-      destino: pedestre.destino,
-      status_movimentacao: pedestre.status,
       responsavel_nome: responsavelNome,
       responsavel_email: responsavelEmail,
-      responsavel_id: responsavelId,
+
+      dados: {
+        nome: pedestre.nome,
+        cpf_rg: pedestre.cpf_rg,
+        telefone: pedestre.telefone,
+        empresa: pedestre.empresa,
+        destino: pedestre.destino,
+        observacao: pedestre.observacao,
+        status_movimentacao: pedestre.status,
+      },
     })
 
     return NextResponse.json({
-      mensagem: acaoError
-        ? `Pedestre liberado, mas o historico de acoes nao foi gravado: ${acaoError.message}`
+      mensagem: historicoError
+        ? `Pedestre liberado, mas o historico de acoes nao foi gravado: ${historicoError}`
         : 'Pedestre liberado com sucesso! A Portaria ja pode ver.',
     })
   }
@@ -200,10 +287,12 @@ export async function POST(request: NextRequest) {
     const baseOrigem = texto(body.base_origem)
     const baseDestino = texto(body.base_destino)
     const transferidoEm = dataIso(body.transferido_em)
+    const kmTransferencia = numero(body.km)
 
     if (!placa) return NextResponse.json({ error: 'Placa obrigatoria.' }, { status: 400 })
     if (!baseOrigem || !baseDestino) return NextResponse.json({ error: 'Origem e destino obrigatorios.' }, { status: 400 })
     if (baseOrigem === baseDestino) return NextResponse.json({ error: 'Origem e destino nao podem ser iguais.' }, { status: 400 })
+    if (!kmTransferencia || kmTransferencia <= 0) return NextResponse.json({ error: 'Informe um KM maior que zero.' }, { status: 400 })
     if (!transferidoEm) return NextResponse.json({ error: 'Data invalida.' }, { status: 400 })
 
     const { data: veiculo, error: veiculoError } = await buscarVeiculoPorPlaca(supabase, placa)
@@ -212,13 +301,19 @@ export async function POST(request: NextRequest) {
     if (!veiculo) return NextResponse.json({ error: 'Veiculo nao encontrado na frota.' }, { status: 400 })
 
     const placaCadastro = veiculo.NR_PLACA || placa
+    const motorista = texto(body.motorista)
+    const bloqueioEmRota = await buscarBloqueioEmRota(supabase, placaCadastro, motorista)
+
+    if (bloqueioEmRota.error) return NextResponse.json({ error: bloqueioEmRota.error }, { status: 400 })
+    if (bloqueioEmRota.mensagem) return NextResponse.json({ error: bloqueioEmRota.mensagem }, { status: 400 })
 
     const { data: transferencia, error } = await supabase.from('transferencias').insert({
       placa: placaCadastro,
       base_origem: baseOrigem,
       base_destino: baseDestino,
-      motorista: texto(body.motorista),
-      observacao: null,
+      motorista,
+      km: kmTransferencia,
+      observacao: texto(body.observacao),
       status: 'aguardando_confirmacao',
       transferido_por: responsavelNome,
       transferido_em: transferidoEm,
@@ -226,24 +321,30 @@ export async function POST(request: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-    const { error: acaoError } = await supabase.from('movimentacoes_transferencias_acoes').insert({
-      transferencia_id: transferencia.id,
+    const historicoError = await registrarHistoricoAcao({
+      supabase,
+      tipo_entidade: 'transferencia',
+      entidade_id: transferencia.id,
       acao: 'liberacao',
-      data_acao: transferencia.transferido_em,
       placa: transferencia.placa,
-      base_origem: transferencia.base_origem,
-      base_destino: transferencia.base_destino,
-      motorista: transferencia.motorista,
-      observacao: transferencia.observacao,
-      status_transferencia: transferencia.status,
+      data_acao: transferencia.transferido_em,
       responsavel_nome: responsavelNome,
       responsavel_email: responsavelEmail,
-      responsavel_id: responsavelId,
+
+      dados: {
+        placa: transferencia.placa,
+        base_origem: transferencia.base_origem,
+        base_destino: transferencia.base_destino,
+        motorista: transferencia.motorista,
+        km: transferencia.km,
+        observacao: transferencia.observacao,
+        status_transferencia: transferencia.status,
+      },
     })
 
     return NextResponse.json({
-      mensagem: acaoError
-        ? `Transferencia registrada, mas o historico de acoes nao foi gravado: ${acaoError.message}`
+      mensagem: historicoError
+        ? `Transferencia registrada, mas o historico de acoes nao foi gravado: ${historicoError}`
         : 'Transferencia registrada com sucesso!',
     })
   }
@@ -259,7 +360,7 @@ export async function POST(request: NextRequest) {
     if (!dataRegistro) return NextResponse.json({ error: 'Data invalida.' }, { status: 400 })
 
     if (tipo === 'veiculo_interno') {
-      if (!podeOperar(operador, 'liberacao.veiculo_interno')) {
+      if (!podeOperarVeiculoInterno(operador)) {
         return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 })
       }
 
@@ -274,6 +375,11 @@ export async function POST(request: NextRequest) {
       if (!veiculoEmpresa) return NextResponse.json({ error: 'Veiculo nao encontrado na frota.' }, { status: 400 })
 
       const placaCadastro = veiculoEmpresa.NR_PLACA || placa
+      const bloqueioEmRota = await buscarBloqueioEmRota(supabase, placaCadastro, motorista)
+
+      if (bloqueioEmRota.error) return NextResponse.json({ error: bloqueioEmRota.error }, { status: 400 })
+      if (bloqueioEmRota.mensagem) return NextResponse.json({ error: bloqueioEmRota.mensagem }, { status: 400 })
+
       const tipoVeiculoMovimentacao = movimento === 'saida' ? 'interno_saida' : 'interno_entrada'
       const { data: movimentacao, error } = await supabase.from('movimentacoes').insert({
         placa: placaCadastro,
@@ -291,25 +397,30 @@ export async function POST(request: NextRequest) {
 
       if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-      const { error: acaoError } = await supabase.from('movimentacoes_acoes').insert({
-        movimentacao_id: movimentacao.id,
+      const historicoError = await registrarHistoricoAcao({
+        supabase,
+        tipo_entidade: 'veiculo',
+        entidade_id: movimentacao.id,
         acao: movimento,
-        data_acao: dataRegistro,
         placa: placaCadastro,
-        motorista,
-        km: null,
-        origem: texto(body.origem),
-        destino: null,
-        tipo_veiculo: tipoVeiculoMovimentacao,
-        status_movimentacao: 'finalizado',
+        data_acao: dataRegistro,
         responsavel_nome: responsavelNome,
         responsavel_email: responsavelEmail,
-        responsavel_id: responsavelId,
+
+        dados: {
+          placa: placaCadastro,
+          motorista,
+          km: null,
+          origem: texto(body.origem),
+          destino: null,
+          tipo_veiculo: tipoVeiculoMovimentacao,
+          status_movimentacao: 'finalizado',
+        },
       })
 
       return NextResponse.json({
-        mensagem: acaoError
-          ? `Veiculo interno registrado, mas o historico de acoes nao foi gravado: ${acaoError.message}`
+        mensagem: historicoError
+          ? `Veiculo interno registrado, mas o historico de acoes nao foi gravado: ${historicoError}`
           : `Veiculo interno registrado com sucesso como ${movimento} no historico do controle.`,
       })
     }
@@ -340,6 +451,13 @@ export async function POST(request: NextRequest) {
 
     const destino = texto(body.destino)
     if (!destino) return NextResponse.json({ error: 'Destino obrigatorio.' }, { status: 400 })
+
+    if (tipoVeiculo === 'interno') {
+      const bloqueioEmRota = await buscarBloqueioEmRota(supabase, placaMovimentacao, motorista)
+
+      if (bloqueioEmRota.error) return NextResponse.json({ error: bloqueioEmRota.error }, { status: 400 })
+      if (bloqueioEmRota.mensagem) return NextResponse.json({ error: bloqueioEmRota.mensagem }, { status: 400 })
+    }
 
     let gestorResponsavel: GestorAutorizacao | null = null
     if (tipoVeiculo === 'externo') {
@@ -383,38 +501,51 @@ export async function POST(request: NextRequest) {
       motorista,
       localizacao: texto(body.origem),
       destino,
-      status: 'aguardando_saida',
+      status: tipoVeiculo === 'externo' ? 'aguardando_entrada' : 'aguardando_saida',
       liberado_por: responsavelNome,
       liberado_em: dataRegistro,
-      entrada_em: tipoVeiculo === 'externo' ? dataRegistro : null,
+      entrada_em: null,
       tipo_veiculo: tipoVeiculo,
       gestor_responsavel_id: gestorResponsavel?.id || null,
       gestor_responsavel_nome: gestorResponsavel?.nome || null,
       gestor_responsavel_email: gestorResponsavel?.email || null,
       gestor_responsavel_setor: gestorResponsavel?.setor || null,
+      modelo_externo: tipoVeiculo === 'externo' ? texto(body.modelo_externo) : null,
+      observacao: texto(body.observacao),
     }).select('id').single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-    const { error: acaoError } = await supabase.from('movimentacoes_acoes').insert({
-      movimentacao_id: movimentacao.id,
+    const historicoError = await registrarHistoricoAcao({
+      supabase,
+      tipo_entidade: 'veiculo',
+      entidade_id: movimentacao.id,
       acao: 'liberacao',
-      data_acao: dataRegistro,
       placa: placaMovimentacao,
-      motorista,
-      km: kmAtual,
-      origem: texto(body.origem),
-      destino,
-      tipo_veiculo: tipoVeiculo,
-      status_movimentacao: 'aguardando_saida',
+      data_acao: dataRegistro,
       responsavel_nome: responsavelNome,
       responsavel_email: responsavelEmail,
-      responsavel_id: responsavelId,
+
+      dados: {
+        placa: placaMovimentacao,
+        motorista,
+        km: kmAtual,
+        origem: texto(body.origem),
+        destino,
+        tipo_veiculo: tipoVeiculo,
+        modelo_externo: tipoVeiculo === 'externo' ? texto(body.modelo_externo) : null,
+        status_movimentacao: tipoVeiculo === 'externo' ? 'aguardando_entrada' : 'aguardando_saida',
+        observacao: texto(body.observacao),
+        gestor_responsavel_id: gestorResponsavel?.id || null,
+        gestor_responsavel_nome: gestorResponsavel?.nome || null,
+        gestor_responsavel_email: gestorResponsavel?.email || null,
+        gestor_responsavel_setor: gestorResponsavel?.setor || null,
+      },
     })
 
     return NextResponse.json({
-      mensagem: acaoError
-        ? `Veiculo liberado, mas o historico de acoes nao foi registrado: ${acaoError.message}`
+      mensagem: historicoError
+        ? `Veiculo liberado, mas o historico de acoes nao foi registrado: ${historicoError}`
         : 'Veiculo liberado com sucesso! A Portaria ja pode ver.',
     })
   }

@@ -2,6 +2,7 @@
 
 import RequirePermissao from '@/components/RequirePermissao'
 import Sidebar from '@/components/Sidebar'
+import ColumnFilterHeader from '@/components/ColumnFilterHeader'
 import { useTopbarSearch } from '@/components/TopbarSearchProvider'
 import { usePermissions } from '@/components/PermissionsProvider'
 import { lerJsonSeguro } from '@/lib/http'
@@ -10,7 +11,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 
 type AcaoBase = 'liberacao' | 'saida' | 'entrada' | 'saida_autorizada'
-type AcaoBanco = AcaoBase | 'correcao'
+type AcaoBanco = AcaoBase | 'correcao' | 'exclusao'
 
 type MovimentacaoAcao = {
   id: number
@@ -22,15 +23,30 @@ type MovimentacaoAcao = {
   km: number | null
   origem: string | null
   destino: string | null
+  observacao: string | null
   tipo_veiculo: string | null
+  modelo_externo: string | null
   status_movimentacao: string | null
   responsavel_nome: string | null
   responsavel_email: string | null
-  responsavel_id: string | null
   corrige_acao_id: number | null
   corrigido_por_nome: string | null
   corrigido_em: string | null
   motivo_correcao: string | null
+}
+
+type HistoricoAcaoRow = {
+  id: number
+  tipo_entidade: string
+  entidade_id: number | null
+  acao: AcaoBanco
+  placa: string | null
+  data_acao: string
+  responsavel_nome: string | null
+  responsavel_email: string | null
+  porteiro_nome: string | null
+  motivo: string | null
+  dados: Record<string, unknown> | null
 }
 
 type RegistroExibido = MovimentacaoAcao & {
@@ -61,6 +77,14 @@ type OpcaoCadastro = {
   nome: string | null
 }
 
+type MovimentacaoModelo = {
+  id: number
+  modelo_externo: string | null
+}
+
+type ColunaFiltro = 'placa' | 'acao' | 'data' | 'motorista' | 'km' | 'responsavel' | 'destino' | 'tipo' | 'obs'
+type FiltrosColuna = Record<ColunaFiltro, string[]>
+
 const FORM_VAZIO: FormEdicao = {
   placa: '',
   motorista: '',
@@ -78,6 +102,59 @@ const acaoLabel: Record<AcaoBase, string> = {
   saida: 'Saida',
   entrada: 'Entrada',
   saida_autorizada: 'Saida autorizada',
+}
+
+const FILTROS_INICIAIS: FiltrosColuna = {
+  placa: [],
+  acao: [],
+  data: [],
+  motorista: [],
+  km: [],
+  responsavel: [],
+  destino: [],
+  tipo: [],
+  obs: [],
+}
+
+function textoJson(dados: Record<string, unknown>, campo: string) {
+  const valor = dados[campo]
+  return typeof valor === 'string' ? valor : null
+}
+
+function numeroJson(dados: Record<string, unknown>, campo: string) {
+  const valor = dados[campo]
+  if (typeof valor === 'number' && Number.isFinite(valor)) return valor
+  if (typeof valor === 'string') {
+    const numero = Number(valor)
+    return Number.isFinite(numero) ? numero : null
+  }
+  return null
+}
+
+function historicoParaMovimentacaoAcao(registro: HistoricoAcaoRow): MovimentacaoAcao {
+  const dados = registro.dados || {}
+
+  return {
+    id: registro.id,
+    movimentacao_id: registro.entidade_id,
+    acao: registro.acao,
+    data_acao: registro.data_acao,
+    placa: registro.placa || textoJson(dados, 'placa'),
+    motorista: textoJson(dados, 'motorista'),
+    km: numeroJson(dados, 'km'),
+    origem: textoJson(dados, 'origem'),
+    destino: textoJson(dados, 'destino'),
+    observacao: textoJson(dados, 'observacao'),
+    tipo_veiculo: textoJson(dados, 'tipo_veiculo'),
+    modelo_externo: textoJson(dados, 'modelo_externo'),
+    status_movimentacao: textoJson(dados, 'status_movimentacao'),
+    responsavel_nome: registro.responsavel_nome,
+    responsavel_email: registro.responsavel_email,
+    corrige_acao_id: numeroJson(dados, 'corrige_acao_id'),
+    corrigido_por_nome: textoJson(dados, 'corrigido_por_nome'),
+    corrigido_em: textoJson(dados, 'corrigido_em'),
+    motivo_correcao: textoJson(dados, 'motivo_correcao') || registro.motivo,
+  }
 }
 
 export default function EntradaSaidaVeiculosPage() {
@@ -100,6 +177,8 @@ export default function EntradaSaidaVeiculosPage() {
   const [confirmandoExclusaoId, setConfirmandoExclusaoId] = useState<number | null>(null)
   const [motivoExclusao, setMotivoExclusao] = useState('')
   const [excluindoId, setExcluindoId] = useState<number | null>(null)
+  const [filtrosColuna, setFiltrosColuna] = useState<FiltrosColuna>(FILTROS_INICIAIS)
+  const [menuFiltroAberto, setMenuFiltroAberto] = useState<ColunaFiltro | null>(null)
   const motivoCorrecaoValido = formEdicao.motivo_correcao.trim().length >= 12
   const motivoExclusaoValido = motivoExclusao.trim().length >= 12
 
@@ -108,14 +187,42 @@ export default function EntradaSaidaVeiculosPage() {
     setMensagem('')
 
     try {
-      const { data, error } = await supabase
-        .from('movimentacoes_acoes')
-        .select('*')
-        .order('data_acao', { ascending: false })
-        .limit(3000)
+      const resposta = await fetch('/api/relatorios/historicos-acoes?tipo=veiculo')
+      const resultado = await lerJsonSeguro(resposta)
 
-      if (error) throw error
-      setHistorico(data || [])
+      if (!resposta.ok) {
+        throw new Error(typeof resultado.error === 'string' ? resultado.error : 'Erro ao carregar historico.')
+      }
+
+      const data = Array.isArray(resultado.data) ? resultado.data as HistoricoAcaoRow[] : []
+      const acoes = (data || []).map(historicoParaMovimentacaoAcao)
+      const movimentacaoIds = Array.from(new Set(
+        acoes
+          .map((acao) => acao.movimentacao_id)
+          .filter((id): id is number => typeof id === 'number'),
+      ))
+
+      if (movimentacaoIds.length === 0) {
+        setHistorico(acoes)
+        return
+      }
+
+      const { data: movimentacoesModelos, error: modelosError } = await supabase
+        .from('movimentacoes')
+        .select('id, modelo_externo')
+        .in('id', movimentacaoIds)
+        .returns<MovimentacaoModelo[]>()
+
+      if (modelosError) throw modelosError
+
+      const modeloPorMovimentacao = new Map(
+        (movimentacoesModelos || []).map((movimentacao) => [movimentacao.id, movimentacao.modelo_externo]),
+      )
+
+      setHistorico(acoes.map((acao) => ({
+        ...acao,
+        modelo_externo: acao.modelo_externo || modeloPorMovimentacao.get(acao.movimentacao_id || 0) || null,
+      })))
     } catch {
       setMensagem('Erro ao carregar historico de acoes de veiculos.')
     } finally {
@@ -130,9 +237,9 @@ export default function EntradaSaidaVeiculosPage() {
   useEffect(() => {
     async function carregarCadastros() {
       const [veiculosQuery, motoristasQuery, destinosQuery] = await Promise.all([
-        supabase.from('veiculos').select('NR_PLACA, DS_MODELO').order('NR_PLACA'),
-        supabase.from('motoristas').select('id, nome').order('nome'),
-        supabase.from('destinos').select('id, nome').order('nome'),
+        supabase.from('TBL_VEICULOS').select('NR_PLACA, DS_MODELO').order('NR_PLACA'),
+        supabase.from('TBL_CADASTROS').select('id, nome').order('nome'),
+        supabase.from('TBL_DESTINOS').select('id, nome').order('nome'),
       ])
 
       if (!veiculosQuery.error) setVeiculosCadastro(veiculosQuery.data || [])
@@ -160,7 +267,7 @@ export default function EntradaSaidaVeiculosPage() {
     })
 
     return historico
-      .filter((registro): registro is MovimentacaoAcao & { acao: AcaoBase } => registro.acao !== 'correcao')
+      .filter((registro): registro is MovimentacaoAcao & { acao: AcaoBase } => registro.acao !== 'correcao' && registro.acao !== 'exclusao')
       .map((registro) => {
         const correcao = correcoesPorOriginal.get(registro.id)
         const fonte = correcao || registro
@@ -227,11 +334,49 @@ export default function EntradaSaidaVeiculosPage() {
     return true
   }
 
-  function formatarTipoVeiculo(tipo: string | null) {
+  function formatarTipoVeiculo(tipo: string | null, modeloExterno?: string | null) {
     if (!tipo) return '-'
+    if ((tipo === 'externo' || tipo === 'veiculo_externo') && modeloExterno) {
+      return `Externo - ${modeloExterno}`
+    }
     if (tipo === 'interno_entrada') return 'Interno Entrada'
     if (tipo === 'interno_saida') return 'Interno Saida'
     return tipo.charAt(0).toUpperCase() + tipo.slice(1)
+  }
+
+  function valorColuna(registro: RegistroExibido, coluna: ColunaFiltro) {
+    if (coluna === 'placa') return registro.placa || 'Nao informado'
+    if (coluna === 'acao') return acaoLabel[registro.acao_exibida]
+    if (coluna === 'data') return formatarData(registro.data_acao)
+    if (coluna === 'motorista') return registro.motorista || 'Nao informado'
+    if (coluna === 'km') return formatarNumero(registro.km)
+    if (coluna === 'responsavel') return registro.responsavel_nome || 'Nao informado'
+    if (coluna === 'destino') return registro.destino || 'Nao informado'
+    if (coluna === 'tipo') return formatarTipoVeiculo(registro.tipo_veiculo, registro.modelo_externo)
+    return registro.observacao || 'Nao informado'
+  }
+
+  const opcoesPorColuna = (() => {
+    const colunasFiltro: ColunaFiltro[] = ['placa', 'acao', 'data', 'motorista', 'km', 'responsavel', 'destino', 'tipo', 'obs']
+    return colunasFiltro.reduce((acc, coluna) => {
+      acc[coluna] = Array.from(new Set(historicoVigente.map((registro) => valorColuna(registro, coluna))))
+        .sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }))
+      return acc
+    }, {} as Record<ColunaFiltro, string[]>)
+  })()
+
+  function alternarFiltroColuna(coluna: ColunaFiltro, valor: string) {
+    setFiltrosColuna((atuais) => {
+      const selecionados = atuais[coluna]
+      const proximos = selecionados.includes(valor)
+        ? selecionados.filter((item) => item !== valor)
+        : [...selecionados, valor]
+      return { ...atuais, [coluna]: proximos }
+    })
+  }
+
+  function limparFiltroColuna(coluna: ColunaFiltro) {
+    setFiltrosColuna((atuais) => ({ ...atuais, [coluna]: [] }))
   }
 
   function iniciarEdicao(registro: RegistroExibido) {
@@ -282,7 +427,7 @@ export default function EntradaSaidaVeiculosPage() {
     setMensagem('')
 
     try {
-      const resposta = await fetch(`/api/relatorios/movimentacoes-acoes/${editandoId}`, {
+      const resposta = await fetch(`/api/relatorios/historicos-acoes/${editandoId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -320,7 +465,7 @@ export default function EntradaSaidaVeiculosPage() {
     setMensagem('')
 
     try {
-      const resposta = await fetch(`/api/relatorios/movimentacoes-acoes/${registro.acao_original_id}`, {
+      const resposta = await fetch(`/api/relatorios/historicos-acoes/${registro.acao_original_id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ motivo_exclusao: motivoExclusao.trim() }),
@@ -347,11 +492,17 @@ export default function EntradaSaidaVeiculosPage() {
       registro.motorista?.toLowerCase().includes(textoFiltro) ||
       registro.origem?.toLowerCase().includes(textoFiltro) ||
       registro.destino?.toLowerCase().includes(textoFiltro) ||
+      registro.observacao?.toLowerCase().includes(textoFiltro) ||
       acaoLabel[registro.acao_exibida].toLowerCase().includes(textoFiltro)
-    ) && estaNoPeriodo(registro)
+    ) && estaNoPeriodo(registro) && (Object.keys(filtrosColuna) as ColunaFiltro[]).every((coluna) => {
+      const selecionados = filtrosColuna[coluna]
+      if (selecionados.length === 0) return true
+      return selecionados.includes(valorColuna(registro, coluna))
+    })
   )
+  const filtrosAtivos = Object.values(filtrosColuna).some((valores) => valores.length > 0)
 
-  const colunas = podeEditar ? 9 : 8
+  const colunas = podeEditar ? 10 : 9
   const registroEditando = editandoId
     ? historicoVigente.find((registro) => registro.acao_original_id === editandoId) || null
     : null
@@ -419,19 +570,51 @@ export default function EntradaSaidaVeiculosPage() {
               </div>
             )}
 
+            {filtrosAtivos && (
+              <div className="mb-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFiltrosColuna(FILTROS_INICIAIS)
+                    setMenuFiltroAberto(null)
+                  }}
+                  className="rounded-lg border border-emerald-500/20 bg-[#132337] px-3 py-2 text-xs font-semibold text-slate-300 transition hover:border-emerald-500/40 hover:text-white cursor-pointer"
+                >
+                  Limpar filtros
+                </button>
+              </div>
+            )}
+
             <div className="bg-[#0f1c2e] rounded-2xl border border-emerald-500/15 overflow-hidden">
               <div className="app-scroll max-h-[68vh] overflow-y-auto overflow-x-auto">
-                <table className="w-full min-w-[940px] text-xs">
+                <table className="w-full min-w-[1040px] text-xs">
                   <thead>
                     <tr className="bg-[#132337] border-b border-emerald-500/15 sticky top-0 z-10">
-                      <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Placa</th>
-                      <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Acao</th>
-                      <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Data/Hora</th>
-                      <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Motorista</th>
-                      <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">KM</th>
-                      <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Responsavel</th>
-                      <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Destino</th>
-                      <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Tipo</th>
+                      {([
+                        ['placa', 'Placa'],
+                        ['acao', 'Acao'],
+                        ['data', 'Data/Hora'],
+                        ['motorista', 'Motorista'],
+                        ['km', 'KM'],
+                        ['responsavel', 'Responsavel'],
+                        ['destino', 'Destino'],
+                        ['tipo', 'Tipo'],
+                        ['obs', 'OBS'],
+                      ] as Array<[ColunaFiltro, string]>).map(([coluna, label]) => (
+                        <ColumnFilterHeader
+                          key={coluna}
+                          coluna={coluna}
+                          label={label}
+                          selecionados={filtrosColuna[coluna]}
+                          opcoes={opcoesPorColuna[coluna]}
+                          aberto={menuFiltroAberto === coluna}
+                          ativo={filtrosColuna[coluna].length > 0}
+                          onAbrir={(proximaColuna) => setMenuFiltroAberto(menuFiltroAberto === proximaColuna ? null : proximaColuna)}
+                          onAlternar={alternarFiltroColuna}
+                          onFechar={() => setMenuFiltroAberto(null)}
+                          onLimpar={limparFiltroColuna}
+                        />
+                      ))}
                       {podeEditar && <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Acoes</th>}
                     </tr>
                   </thead>
@@ -455,7 +638,8 @@ export default function EntradaSaidaVeiculosPage() {
                             <td className="px-3 py-2.5 text-center text-sm font-bold whitespace-nowrap">{formatarNumero(registro.km)}</td>
                             <td className="px-3 py-2.5 text-center text-sm font-bold whitespace-nowrap">{registro.responsavel_nome || '-'}</td>
                             <td className="px-3 py-2.5 text-center text-sm font-bold whitespace-nowrap">{registro.destino || '-'}</td>
-                            <td className="px-3 py-2.5 text-center text-sm font-bold whitespace-nowrap">{formatarTipoVeiculo(registro.tipo_veiculo)}</td>
+                            <td className="px-3 py-2.5 text-center text-sm font-bold whitespace-nowrap">{formatarTipoVeiculo(registro.tipo_veiculo, registro.modelo_externo)}</td>
+                            <td className="max-w-[180px] truncate px-3 py-2.5 text-center text-sm font-bold" title={registro.observacao || undefined}>{registro.observacao || '-'}</td>
                             {podeEditar && (
                               <td className="px-3 py-2.5 text-center whitespace-nowrap">
                                 <div className="flex items-center justify-center gap-2">

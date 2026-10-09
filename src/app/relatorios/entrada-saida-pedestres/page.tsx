@@ -2,14 +2,14 @@
 
 import RequirePermissao from '@/components/RequirePermissao'
 import Sidebar from '@/components/Sidebar'
+import ColumnFilterHeader from '@/components/ColumnFilterHeader'
 import { useTopbarSearch } from '@/components/TopbarSearchProvider'
 import { usePermissions } from '@/components/PermissionsProvider'
 import { lerJsonSeguro } from '@/lib/http'
-import { createClient } from '@/lib/supabase/client'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 
 type AcaoBase = 'liberacao' | 'saida' | 'entrada'
-type AcaoBanco = AcaoBase | 'correcao'
+type AcaoBanco = AcaoBase | 'correcao' | 'exclusao'
 
 type MovimentacaoAcao = {
   id: number
@@ -24,7 +24,6 @@ type MovimentacaoAcao = {
   status_movimentacao: string | null
   responsavel_nome: string | null
   responsavel_email: string | null
-  responsavel_id: string | null
   corrige_acao_id: number | null
   corrigido_por_nome: string | null
   corrigido_em: string | null
@@ -32,18 +31,16 @@ type MovimentacaoAcao = {
   sintetico?: boolean
 }
 
-type Pedestre = {
+type HistoricoAcaoRow = {
   id: number
-  nome: string
-  cpf_rg: string | null
-  telefone: string | null
-  empresa: string | null
-  destino: string | null
-  status: string
-  liberado_em: string | null
-  entrada_em: string | null
-  saida_em: string | null
-  liberado_por?: string | null
+  tipo_entidade: string
+  entidade_id: number | null
+  acao: AcaoBanco
+  data_acao: string
+  responsavel_nome: string | null
+  responsavel_email: string | null
+  motivo: string | null
+  dados: Record<string, unknown> | null
 }
 
 type RegistroExibido = MovimentacaoAcao & {
@@ -60,6 +57,9 @@ type FormEdicao = {
   motivo_correcao: string
 }
 
+type ColunaFiltro = 'nome' | 'acao' | 'data' | 'empresa' | 'destino' | 'responsavel'
+type FiltrosColuna = Record<ColunaFiltro, string[]>
+
 const FORM_VAZIO: FormEdicao = {
   nome: '',
   empresa: '',
@@ -74,9 +74,54 @@ const acaoLabel: Record<AcaoBase, string> = {
   entrada: 'Entrada',
 }
 
+const FILTROS_INICIAIS: FiltrosColuna = {
+  nome: [],
+  acao: [],
+  data: [],
+  empresa: [],
+  destino: [],
+  responsavel: [],
+}
+
+function textoJson(dados: Record<string, unknown>, campo: string) {
+  const valor = dados[campo]
+  return typeof valor === 'string' ? valor : null
+}
+
+function numeroJson(dados: Record<string, unknown>, campo: string) {
+  const valor = dados[campo]
+  if (typeof valor === 'number' && Number.isFinite(valor)) return valor
+  if (typeof valor === 'string') {
+    const numero = Number(valor)
+    return Number.isFinite(numero) ? numero : null
+  }
+  return null
+}
+
+function historicoParaMovimentacaoAcao(registro: HistoricoAcaoRow): MovimentacaoAcao {
+  const dados = registro.dados || {}
+
+  return {
+    id: registro.id,
+    movimentacao_pedestre_id: registro.entidade_id,
+    acao: registro.acao,
+    data_acao: registro.data_acao,
+    nome: textoJson(dados, 'nome'),
+    cpf_rg: textoJson(dados, 'cpf_rg'),
+    telefone: textoJson(dados, 'telefone'),
+    empresa: textoJson(dados, 'empresa'),
+    destino: textoJson(dados, 'destino'),
+    status_movimentacao: textoJson(dados, 'status_movimentacao'),
+    responsavel_nome: registro.responsavel_nome,
+    responsavel_email: registro.responsavel_email,
+    corrige_acao_id: numeroJson(dados, 'corrige_acao_id'),
+    corrigido_por_nome: textoJson(dados, 'corrigido_por_nome'),
+    corrigido_em: textoJson(dados, 'corrigido_em'),
+    motivo_correcao: textoJson(dados, 'motivo_correcao') || registro.motivo,
+  }
+}
 
 export default function EntradaSaidaPedestresPage() {
-  const supabase = useMemo(() => createClient(), [])
   const permissoesAtualizadas = usePermissions()
   const podeEditar = ['dev', 'editor'].includes(permissoesAtualizadas.role)
 
@@ -92,6 +137,8 @@ export default function EntradaSaidaPedestresPage() {
   const [confirmandoExclusaoId, setConfirmandoExclusaoId] = useState<number | null>(null)
   const [motivoExclusao, setMotivoExclusao] = useState('')
   const [excluindoId, setExcluindoId] = useState<number | null>(null)
+  const [filtrosColuna, setFiltrosColuna] = useState<FiltrosColuna>(FILTROS_INICIAIS)
+  const [menuFiltroAberto, setMenuFiltroAberto] = useState<ColunaFiltro | null>(null)
   const motivoCorrecaoValido = formEdicao.motivo_correcao.trim().length >= 12
   const motivoExclusaoValido = motivoExclusao.trim().length >= 12
 
@@ -100,83 +147,21 @@ export default function EntradaSaidaPedestresPage() {
     setMensagem('')
 
     try {
-      const { data, error } = await supabase
-        .from('movimentacoes_pedestres_acoes')
-        .select('*')
-        .order('data_acao', { ascending: false })
-        .limit(3000)
+      const resposta = await fetch('/api/relatorios/historicos-acoes?tipo=pedestre')
+      const resultado = await lerJsonSeguro(resposta)
 
-      if (error) throw error
-
-      const acoes = data || []
-      const { data: pedestres, error: pedestresError } = await supabase
-        .from('movimentacoes_pedestres')
-        .select('*')
-        .order('liberado_em', { ascending: false })
-        .limit(3000)
-
-      if (pedestresError) throw pedestresError
-
-      const idsComLiberacao = new Set(
-        acoes
-          .filter((acao) => acao.acao === 'liberacao' && acao.movimentacao_pedestre_id)
-          .map((acao) => acao.movimentacao_pedestre_id),
-      )
-      const pedestresSemLiberacao = (pedestres || []).filter((pedestre: Pedestre) => !idsComLiberacao.has(pedestre.id))
-
-      let acoesFaltantes: MovimentacaoAcao[] = []
-      if (pedestresSemLiberacao.length > 0) {
-        const novasAcoes = pedestresSemLiberacao.map((pedestre: Pedestre) => ({
-          movimentacao_pedestre_id: pedestre.id,
-          acao: 'liberacao',
-          data_acao: pedestre.liberado_em || new Date().toISOString(),
-          nome: pedestre.nome,
-          cpf_rg: pedestre.cpf_rg,
-          telefone: pedestre.telefone,
-          empresa: pedestre.empresa,
-          destino: pedestre.destino,
-          status_movimentacao: pedestre.status,
-          responsavel_nome: pedestre.liberado_por || null,
-        }))
-
-        const { data: inseridas, error: inserirError } = await supabase
-          .from('movimentacoes_pedestres_acoes')
-          .insert(novasAcoes)
-          .select('*')
-
-        if (inserirError) {
-          acoesFaltantes = pedestresSemLiberacao.map((pedestre: Pedestre) => ({
-            id: -pedestre.id,
-            movimentacao_pedestre_id: pedestre.id,
-            acao: 'liberacao' as const,
-            data_acao: pedestre.liberado_em || new Date().toISOString(),
-            nome: pedestre.nome,
-            cpf_rg: pedestre.cpf_rg,
-            telefone: pedestre.telefone,
-            empresa: pedestre.empresa,
-            destino: pedestre.destino,
-            status_movimentacao: pedestre.status,
-            responsavel_nome: pedestre.liberado_por || null,
-            responsavel_email: null,
-            responsavel_id: null,
-            corrige_acao_id: null,
-            corrigido_por_nome: null,
-            corrigido_em: null,
-            motivo_correcao: null,
-            sintetico: true,
-          }))
-        } else {
-          acoesFaltantes = inseridas || []
-        }
+      if (!resposta.ok) {
+        throw new Error(typeof resultado.error === 'string' ? resultado.error : 'Erro ao carregar historico.')
       }
 
-      setHistorico([...acoes, ...acoesFaltantes])
+      const data = Array.isArray(resultado.data) ? resultado.data as HistoricoAcaoRow[] : []
+      setHistorico(data.map(historicoParaMovimentacaoAcao))
     } catch {
       setMensagem('Erro ao carregar historico de acoes de pedestres.')
     } finally {
       setCarregando(false)
     }
-  }, [supabase])
+  }, [])
 
   useEffect(() => {
     carregar()
@@ -199,7 +184,7 @@ export default function EntradaSaidaPedestresPage() {
     })
 
     return historico
-      .filter((registro): registro is MovimentacaoAcao & { acao: AcaoBase } => registro.acao !== 'correcao')
+      .filter((registro): registro is MovimentacaoAcao & { acao: AcaoBase } => registro.acao !== 'correcao' && registro.acao !== 'exclusao')
       .map((registro) => {
         const correcao = correcoesPorOriginal.get(registro.id)
         const fonte = correcao || registro
@@ -261,6 +246,38 @@ export default function EntradaSaidaPedestresPage() {
     return true
   }
 
+  function valorColuna(registro: RegistroExibido, coluna: ColunaFiltro) {
+    if (coluna === 'nome') return registro.nome || 'Nao informado'
+    if (coluna === 'acao') return acaoLabel[registro.acao_exibida]
+    if (coluna === 'data') return formatarData(registro.data_acao)
+    if (coluna === 'empresa') return registro.empresa || 'Nao informado'
+    if (coluna === 'destino') return registro.destino || 'Nao informado'
+    return registro.responsavel_nome || 'Nao informado'
+  }
+
+  const opcoesPorColuna = (() => {
+    const colunasFiltro: ColunaFiltro[] = ['nome', 'acao', 'data', 'empresa', 'destino', 'responsavel']
+    return colunasFiltro.reduce((acc, coluna) => {
+      acc[coluna] = Array.from(new Set(historicoVigente.map((registro) => valorColuna(registro, coluna))))
+        .sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }))
+      return acc
+    }, {} as Record<ColunaFiltro, string[]>)
+  })()
+
+  function alternarFiltroColuna(coluna: ColunaFiltro, valor: string) {
+    setFiltrosColuna((atuais) => {
+      const selecionados = atuais[coluna]
+      const proximos = selecionados.includes(valor)
+        ? selecionados.filter((item) => item !== valor)
+        : [...selecionados, valor]
+      return { ...atuais, [coluna]: proximos }
+    })
+  }
+
+  function limparFiltroColuna(coluna: ColunaFiltro) {
+    setFiltrosColuna((atuais) => ({ ...atuais, [coluna]: [] }))
+  }
+
   function iniciarEdicao(registro: RegistroExibido) {
     if (!podeEditar) return
 
@@ -306,7 +323,7 @@ export default function EntradaSaidaPedestresPage() {
     setMensagem('')
 
     try {
-      const resposta = await fetch(`/api/relatorios/movimentacoes-pedestres-acoes/${editandoId}`, {
+      const resposta = await fetch(`/api/relatorios/historicos-acoes/${editandoId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -345,7 +362,7 @@ export default function EntradaSaidaPedestresPage() {
     setMensagem('')
 
     try {
-      const resposta = await fetch(`/api/relatorios/movimentacoes-pedestres-acoes/${registro.acao_original_id}`, {
+      const resposta = await fetch(`/api/relatorios/historicos-acoes/${registro.acao_original_id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ motivo_exclusao: motivoExclusao.trim() }),
@@ -374,8 +391,13 @@ export default function EntradaSaidaPedestresPage() {
       registro.destino?.toLowerCase().includes(textoFiltro) ||
       registro.responsavel_nome?.toLowerCase().includes(textoFiltro) ||
       acaoLabel[registro.acao_exibida].toLowerCase().includes(textoFiltro)
-    ) && estaNoPeriodo(registro)
+    ) && estaNoPeriodo(registro) && (Object.keys(filtrosColuna) as ColunaFiltro[]).every((coluna) => {
+      const selecionados = filtrosColuna[coluna]
+      if (selecionados.length === 0) return true
+      return selecionados.includes(valorColuna(registro, coluna))
+    })
   )
+  const filtrosAtivos = Object.values(filtrosColuna).some((valores) => valores.length > 0)
 
   const colunas = podeEditar ? 7 : 6
   const registroEditando = editandoId
@@ -445,17 +467,48 @@ export default function EntradaSaidaPedestresPage() {
               </div>
             )}
 
+            {filtrosAtivos && (
+              <div className="mb-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFiltrosColuna(FILTROS_INICIAIS)
+                    setMenuFiltroAberto(null)
+                  }}
+                  className="rounded-lg border border-emerald-500/20 bg-[#132337] px-3 py-2 text-xs font-semibold text-slate-300 transition hover:border-emerald-500/40 hover:text-white cursor-pointer"
+                >
+                  Limpar filtros
+                </button>
+              </div>
+            )}
+
             <div className="bg-[#0f1c2e] rounded-2xl border border-emerald-500/15 overflow-hidden">
               <div className="app-scroll max-h-[68vh] overflow-y-auto overflow-x-auto">
                 <table className="w-full min-w-[900px] text-xs">
                   <thead>
                     <tr className="bg-[#132337] border-b border-emerald-500/15 sticky top-0 z-10">
-                      <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Nome</th>
-                      <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Acao</th>
-                      <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Data/Hora</th>
-                      <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Empresa</th>
-                      <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Destino</th>
-                      <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Responsavel</th>
+                      {([
+                        ['nome', 'Nome'],
+                        ['acao', 'Acao'],
+                        ['data', 'Data/Hora'],
+                        ['empresa', 'Empresa'],
+                        ['destino', 'Destino'],
+                        ['responsavel', 'Responsavel'],
+                      ] as Array<[ColunaFiltro, string]>).map(([coluna, label]) => (
+                        <ColumnFilterHeader
+                          key={coluna}
+                          coluna={coluna}
+                          label={label}
+                          selecionados={filtrosColuna[coluna]}
+                          opcoes={opcoesPorColuna[coluna]}
+                          aberto={menuFiltroAberto === coluna}
+                          ativo={filtrosColuna[coluna].length > 0}
+                          onAbrir={(proximaColuna) => setMenuFiltroAberto(menuFiltroAberto === proximaColuna ? null : proximaColuna)}
+                          onAlternar={alternarFiltroColuna}
+                          onFechar={() => setMenuFiltroAberto(null)}
+                          onLimpar={limparFiltroColuna}
+                        />
+                      ))}
                       {podeEditar && <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Editar</th>}
                     </tr>
                   </thead>
