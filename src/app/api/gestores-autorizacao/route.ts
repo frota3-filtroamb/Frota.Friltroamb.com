@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { podeAcessar } from '@/lib/roles'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const operador = await currentUser()

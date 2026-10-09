@@ -6,7 +6,7 @@ export default async function Home() {
   const supabase = await createClient()
 
   const { data: veiculos, error } = await supabase
-    .from('veiculos')
+    .from('TBL_VEICULOS')
     .select('*')
     .order('NR_PLACA')
 

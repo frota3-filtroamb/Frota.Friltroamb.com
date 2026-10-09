@@ -2,14 +2,14 @@
 
 import RequirePermissao from '@/components/RequirePermissao'
 import Sidebar from '@/components/Sidebar'
+import ColumnFilterHeader from '@/components/ColumnFilterHeader'
 import { useTopbarSearch } from '@/components/TopbarSearchProvider'
 import { usePermissions } from '@/components/PermissionsProvider'
 import { lerJsonSeguro } from '@/lib/http'
-import { createClient } from '@/lib/supabase/client'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 
 type AcaoBase = 'liberacao' | 'confirmacao'
-type AcaoBanco = AcaoBase | 'correcao'
+type AcaoBanco = AcaoBase | 'correcao' | 'exclusao'
 
 type TransferenciaAcao = {
   id: number
@@ -24,11 +24,23 @@ type TransferenciaAcao = {
   status_transferencia: string | null
   responsavel_nome: string | null
   responsavel_email: string | null
-  responsavel_id: string | null
   corrige_acao_id: number | null
   corrigido_por_nome: string | null
   corrigido_em: string | null
   motivo_correcao: string | null
+}
+
+type HistoricoAcaoRow = {
+  id: number
+  tipo_entidade: string
+  entidade_id: number | null
+  acao: AcaoBanco
+  placa: string | null
+  data_acao: string
+  responsavel_nome: string | null
+  responsavel_email: string | null
+  motivo: string | null
+  dados: Record<string, unknown> | null
 }
 
 type RegistroExibido = TransferenciaAcao & {
@@ -48,6 +60,9 @@ type FormEdicao = {
   motivo_correcao: string
 }
 
+type ColunaFiltro = 'placa' | 'acao' | 'data' | 'origem' | 'destino' | 'motorista' | 'responsavel' | 'observacao'
+type FiltrosColuna = Record<ColunaFiltro, string[]>
+
 const FORM_VAZIO: FormEdicao = {
   placa: '',
   base_origem: '',
@@ -64,8 +79,56 @@ const acaoLabel: Record<AcaoBase, string> = {
   confirmacao: 'Confirmacao',
 }
 
+const FILTROS_INICIAIS: FiltrosColuna = {
+  placa: [],
+  acao: [],
+  data: [],
+  origem: [],
+  destino: [],
+  motorista: [],
+  responsavel: [],
+  observacao: [],
+}
+
+function textoJson(dados: Record<string, unknown>, campo: string) {
+  const valor = dados[campo]
+  return typeof valor === 'string' ? valor : null
+}
+
+function numeroJson(dados: Record<string, unknown>, campo: string) {
+  const valor = dados[campo]
+  if (typeof valor === 'number' && Number.isFinite(valor)) return valor
+  if (typeof valor === 'string') {
+    const numero = Number(valor)
+    return Number.isFinite(numero) ? numero : null
+  }
+  return null
+}
+
+function historicoParaTransferenciaAcao(registro: HistoricoAcaoRow): TransferenciaAcao {
+  const dados = registro.dados || {}
+
+  return {
+    id: registro.id,
+    transferencia_id: registro.entidade_id,
+    acao: registro.acao,
+    data_acao: registro.data_acao,
+    placa: registro.placa || textoJson(dados, 'placa'),
+    base_origem: textoJson(dados, 'base_origem'),
+    base_destino: textoJson(dados, 'base_destino'),
+    motorista: textoJson(dados, 'motorista'),
+    observacao: textoJson(dados, 'observacao'),
+    status_transferencia: textoJson(dados, 'status_transferencia'),
+    responsavel_nome: registro.responsavel_nome,
+    responsavel_email: registro.responsavel_email,
+    corrige_acao_id: numeroJson(dados, 'corrige_acao_id'),
+    corrigido_por_nome: textoJson(dados, 'corrigido_por_nome'),
+    corrigido_em: textoJson(dados, 'corrigido_em'),
+    motivo_correcao: textoJson(dados, 'motivo_correcao') || registro.motivo,
+  }
+}
+
 export default function TransferenciasPage() {
-  const supabase = useMemo(() => createClient(), [])
   const permissoesAtualizadas = usePermissions()
   const podeEditar = ['dev', 'editor'].includes(permissoesAtualizadas.role)
 
@@ -78,6 +141,8 @@ export default function TransferenciasPage() {
   const [editandoId, setEditandoId] = useState<number | null>(null)
   const [formEdicao, setFormEdicao] = useState<FormEdicao>(FORM_VAZIO)
   const [salvando, setSalvando] = useState(false)
+  const [filtrosColuna, setFiltrosColuna] = useState<FiltrosColuna>(FILTROS_INICIAIS)
+  const [menuFiltroAberto, setMenuFiltroAberto] = useState<ColunaFiltro | null>(null)
   const motivoCorrecaoValido = formEdicao.motivo_correcao.trim().length >= 12
 
   const carregar = useCallback(async function carregar() {
@@ -85,20 +150,21 @@ export default function TransferenciasPage() {
     setMensagem('')
 
     try {
-      const { data, error } = await supabase
-        .from('movimentacoes_transferencias_acoes')
-        .select('*')
-        .order('data_acao', { ascending: false })
-        .limit(3000)
+      const resposta = await fetch('/api/relatorios/historicos-acoes?tipo=transferencia')
+      const resultado = await lerJsonSeguro(resposta)
 
-      if (error) throw error
-      setHistorico(data || [])
+      if (!resposta.ok) {
+        throw new Error(typeof resultado.error === 'string' ? resultado.error : 'Erro ao carregar historico.')
+      }
+
+      const data = Array.isArray(resultado.data) ? resultado.data as HistoricoAcaoRow[] : []
+      setHistorico(data.map(historicoParaTransferenciaAcao))
     } catch {
       setMensagem('Erro ao carregar historico de acoes de transferencias.')
     } finally {
       setCarregando(false)
     }
-  }, [supabase])
+  }, [])
 
   useEffect(() => {
     carregar()
@@ -121,7 +187,7 @@ export default function TransferenciasPage() {
     })
 
     return historico
-      .filter((registro): registro is TransferenciaAcao & { acao: AcaoBase } => registro.acao !== 'correcao')
+      .filter((registro): registro is TransferenciaAcao & { acao: AcaoBase } => registro.acao !== 'correcao' && registro.acao !== 'exclusao')
       .map((registro) => {
         const correcao = correcoesPorOriginal.get(registro.id)
         const fonte = correcao || registro
@@ -183,6 +249,40 @@ export default function TransferenciasPage() {
     return true
   }
 
+  function valorColuna(registro: RegistroExibido, coluna: ColunaFiltro) {
+    if (coluna === 'placa') return registro.placa || 'Nao informado'
+    if (coluna === 'acao') return acaoLabel[registro.acao_exibida]
+    if (coluna === 'data') return formatarData(registro.data_acao)
+    if (coluna === 'origem') return registro.base_origem || 'Nao informado'
+    if (coluna === 'destino') return registro.base_destino || 'Nao informado'
+    if (coluna === 'motorista') return registro.motorista || 'Nao informado'
+    if (coluna === 'responsavel') return registro.responsavel_nome || 'Nao informado'
+    return registro.observacao || 'Nao informado'
+  }
+
+  const opcoesPorColuna = (() => {
+    const colunasFiltro: ColunaFiltro[] = ['placa', 'acao', 'data', 'origem', 'destino', 'motorista', 'responsavel', 'observacao']
+    return colunasFiltro.reduce((acc, coluna) => {
+      acc[coluna] = Array.from(new Set(historicoVigente.map((registro) => valorColuna(registro, coluna))))
+        .sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }))
+      return acc
+    }, {} as Record<ColunaFiltro, string[]>)
+  })()
+
+  function alternarFiltroColuna(coluna: ColunaFiltro, valor: string) {
+    setFiltrosColuna((atuais) => {
+      const selecionados = atuais[coluna]
+      const proximos = selecionados.includes(valor)
+        ? selecionados.filter((item) => item !== valor)
+        : [...selecionados, valor]
+      return { ...atuais, [coluna]: proximos }
+    })
+  }
+
+  function limparFiltroColuna(coluna: ColunaFiltro) {
+    setFiltrosColuna((atuais) => ({ ...atuais, [coluna]: [] }))
+  }
+
   function iniciarEdicao(registro: RegistroExibido) {
     if (!podeEditar) return
 
@@ -217,7 +317,7 @@ export default function TransferenciasPage() {
     setMensagem('')
 
     try {
-      const resposta = await fetch(`/api/relatorios/movimentacoes-transferencias-acoes/${editandoId}`, {
+      const resposta = await fetch(`/api/relatorios/historicos-acoes/${editandoId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formEdicao),
@@ -245,8 +345,13 @@ export default function TransferenciasPage() {
       registro.motorista?.toLowerCase().includes(textoFiltro) ||
       registro.responsavel_nome?.toLowerCase().includes(textoFiltro) ||
       acaoLabel[registro.acao_exibida].toLowerCase().includes(textoFiltro)
-    ) && estaNoPeriodo(registro)
+    ) && estaNoPeriodo(registro) && (Object.keys(filtrosColuna) as ColunaFiltro[]).every((coluna) => {
+      const selecionados = filtrosColuna[coluna]
+      if (selecionados.length === 0) return true
+      return selecionados.includes(valorColuna(registro, coluna))
+    })
   )
+  const filtrosAtivos = Object.values(filtrosColuna).some((valores) => valores.length > 0)
 
   const colunas = podeEditar ? 9 : 8
   const registroEditando = editandoId
@@ -313,19 +418,50 @@ export default function TransferenciasPage() {
               </div>
             )}
 
+            {filtrosAtivos && (
+              <div className="mb-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFiltrosColuna(FILTROS_INICIAIS)
+                    setMenuFiltroAberto(null)
+                  }}
+                  className="rounded-lg border border-emerald-500/20 bg-[#132337] px-3 py-2 text-xs font-semibold text-slate-300 transition hover:border-emerald-500/40 hover:text-white cursor-pointer"
+                >
+                  Limpar filtros
+                </button>
+              </div>
+            )}
+
             <div className="bg-[#0f1c2e] rounded-2xl border border-emerald-500/15 overflow-hidden">
               <div className="app-scroll max-h-[68vh] overflow-y-auto overflow-x-auto">
                 <table className="w-full min-w-[980px] text-xs">
                   <thead>
                     <tr className="bg-[#132337] border-b border-emerald-500/15 sticky top-0 z-10">
-                      <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Placa</th>
-                      <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Acao</th>
-                      <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Data/Hora</th>
-                      <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">De</th>
-                      <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Para</th>
-                      <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Motorista</th>
-                      <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Responsavel</th>
-                      <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Observacao</th>
+                      {([
+                        ['placa', 'Placa'],
+                        ['acao', 'Acao'],
+                        ['data', 'Data/Hora'],
+                        ['origem', 'De'],
+                        ['destino', 'Para'],
+                        ['motorista', 'Motorista'],
+                        ['responsavel', 'Responsavel'],
+                        ['observacao', 'Observacao'],
+                      ] as Array<[ColunaFiltro, string]>).map(([coluna, label]) => (
+                        <ColumnFilterHeader
+                          key={coluna}
+                          coluna={coluna}
+                          label={label}
+                          selecionados={filtrosColuna[coluna]}
+                          opcoes={opcoesPorColuna[coluna]}
+                          aberto={menuFiltroAberto === coluna}
+                          ativo={filtrosColuna[coluna].length > 0}
+                          onAbrir={(proximaColuna) => setMenuFiltroAberto(menuFiltroAberto === proximaColuna ? null : proximaColuna)}
+                          onAlternar={alternarFiltroColuna}
+                          onFechar={() => setMenuFiltroAberto(null)}
+                          onLimpar={limparFiltroColuna}
+                        />
+                      ))}
                       {podeEditar && <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-400/90 uppercase tracking-wide whitespace-nowrap">Editar</th>}
                     </tr>
                   </thead>

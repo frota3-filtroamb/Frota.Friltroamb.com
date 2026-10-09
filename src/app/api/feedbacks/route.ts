@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     anexoTamanho = arquivo.size
   }
 
-  const { error } = await supabase.from('feedbacks').insert({
+  const { error } = await supabase.from('TBL_FEEDBACKS').insert({
     tipo,
     mensagem,
     pagina,

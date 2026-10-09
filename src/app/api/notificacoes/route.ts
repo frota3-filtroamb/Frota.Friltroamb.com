@@ -16,7 +16,7 @@ type Movimentacao = {
 }
 
 type AcaoMovimentacao = {
-  movimentacao_id: number | null
+  entidade_id: number | string | null
   data_acao: string
 }
 
@@ -51,8 +51,9 @@ export async function GET() {
       .order('liberado_em', { ascending: false })
       .returns<Movimentacao[]>(),
     supabase
-      .from('movimentacoes_acoes')
-      .select('movimentacao_id, data_acao')
+      .from('TBL_HISTORICOS_ACOES')
+      .select('entidade_id, data_acao')
+      .eq('tipo_entidade', 'veiculo')
       .eq('acao', 'saida_autorizada')
       .returns<AcaoMovimentacao[]>(),
   ])
@@ -67,10 +68,11 @@ export async function GET() {
 
   const autorizacoes = new Map<number, string>()
   ;(autorizacoesQuery.data || []).forEach((acao) => {
-    if (acao.movimentacao_id) autorizacoes.set(acao.movimentacao_id, acao.data_acao)
+    if (acao.entidade_id) autorizacoes.set(Number(acao.entidade_id), acao.data_acao)
   })
 
   const notificacoesGestor = (movimentacoesQuery.data || [])
+    .filter((movimentacao) => Boolean(movimentacao.entrada_em))
     .filter((movimentacao) => !autorizacoes.has(movimentacao.id))
     .filter((movimentacao) => {
       if (role !== 'gestor') return role === 'dev' || role === 'editor'
@@ -82,7 +84,7 @@ export async function GET() {
       titulo: `Veiculo ${movimentacao.placa} aguardando autorizacao`,
       descricao: `${movimentacao.motorista || 'Motorista nao informado'} - ${movimentacao.destino || 'Destino nao informado'}`,
       data: movimentacao.entrada_em || movimentacao.liberado_em,
-      href: '/portaria?aba=autorizacoes',
+      href: '/liberacao?aba=autorizacoes',
       placa: movimentacao.placa,
       gestor: movimentacao.gestor_responsavel_nome,
       setor: movimentacao.gestor_responsavel_setor,

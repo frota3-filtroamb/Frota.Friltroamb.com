@@ -17,7 +17,7 @@ type Veiculo = {
 }
 
 type Item = {
-  id: number
+  id: number | string
   nome: string
 }
 
@@ -32,6 +32,38 @@ type RegistroKm = {
   placa: string | null
   km: number | string | null
 }
+
+type RegistroHistoricoKm = {
+  placa: string | null
+  dados: {
+    placa?: string | null
+    km?: number | string | null
+  } | null
+}
+
+type MovimentacaoAutorizacao = {
+  id: number
+  placa: string
+  km: number | null
+  motorista: string | null
+  localizacao: string | null
+  destino: string | null
+  status: string
+  liberado_em: string | null
+  saida_em: string | null
+  entrada_em: string | null
+  tipo_veiculo: string | null
+  gestor_responsavel_nome: string | null
+  gestor_responsavel_email: string | null
+  gestor_responsavel_setor: string | null
+}
+
+type AcaoMovimentacao = {
+  entidade_id: number | string | null
+  acao: string
+}
+
+type TipoLiberacao = 'interno' | 'externo' | 'veiculo_interno' | 'transferencia' | 'pedestre' | 'autorizacoes'
 
 function placasIguaisKm(a: string | null | undefined, b: string) {
   const placaA = formatPlate(a || '')
@@ -62,6 +94,22 @@ function padraoBuscaPlacaKm(placa: string) {
   return limpa ? `%${limpa.split('').join('%')}%` : '%'
 }
 
+function formatarData(data: string | null) {
+  if (!data) return '--'
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(data)).replace(',', '')
+}
+
+function isVeiculoExterno(tipo: string | null | undefined) {
+  const tipoNormalizado = (tipo || '').toLowerCase().trim()
+  return tipoNormalizado === 'externo' || tipoNormalizado === 'veiculo_externo'
+}
+
 export default function LiberacaoPage() {
   const supabase = useMemo(() => createClient(), [])
   const { user, isLoaded } = useUser()
@@ -72,8 +120,11 @@ export default function LiberacaoPage() {
   const [destinos, setDestinos] = useState<Item[]>([])
   const [motoristas, setMotoristas] = useState<Item[]>([])
   const [gestores, setGestores] = useState<GestorAutorizacao[]>([])
+  const [erroGestores, setErroGestores] = useState('')
+  const [movimentacoesAutorizacao, setMovimentacoesAutorizacao] = useState<MovimentacaoAutorizacao[]>([])
+  const [acoesMovimentacoes, setAcoesMovimentacoes] = useState<AcaoMovimentacao[]>([])
 
-  const [tipoVeiculo, setTipoVeiculo] = useState<'interno' | 'externo' | 'veiculo_interno' | 'transferencia' | 'pedestre'>('interno')
+  const [tipoVeiculo, setTipoVeiculo] = useState<TipoLiberacao>('interno')
   const [movimentoVeiculoInterno, setMovimentoVeiculoInterno] = useState<'entrada' | 'saida'>('entrada')
 
   const [buscaPlaca, setBuscaPlaca] = useState('')
@@ -88,9 +139,7 @@ export default function LiberacaoPage() {
   const [motoristaSelecionado, setMotoristaSelecionado] = useState('')
   const [mostrarListaMotorista, setMostrarListaMotorista] = useState(false)
 
-  const [buscaOrigem, setBuscaOrigem] = useState('Matriz Filtroamb')
-  const [origemSelecionada, setOrigemSelecionada] = useState('Matriz Filtroamb')
-  const [mostrarListaOrigem, setMostrarListaOrigem] = useState(false)
+  const origemPadrao = 'Matriz Filtroamb'
 
   const [buscaDestino, setBuscaDestino] = useState('')
   const [destinoSelecionado, setDestinoSelecionado] = useState('')
@@ -102,6 +151,10 @@ export default function LiberacaoPage() {
 
   const [km, setKm] = useState('')
   const [dataHora, setDataHora] = useState('')
+  const [observacaoVeiculoEmpresa, setObservacaoVeiculoEmpresa] = useState('')
+  const [observacaoTransferencia, setObservacaoTransferencia] = useState('')
+  const [kmTransferencia, setKmTransferencia] = useState('')
+  const [observacaoVeiculoExterno, setObservacaoVeiculoExterno] = useState('')
 
   // States specific to Transferencia
   const [baseOrigem, setBaseOrigem] = useState('')
@@ -114,28 +167,28 @@ export default function LiberacaoPage() {
   const [cpfPedestre, setCpfPedestre] = useState('')
   const [telefonePedestre, setTelefonePedestre] = useState('')
   const [empresaPedestre, setEmpresaPedestre] = useState('')
+  const [observacaoPedestre, setObservacaoPedestre] = useState('')
 
   const [carregando, setCarregando] = useState(false)
   const [mensagem, setMensagem] = useState('')
+  const [acaoEmAndamentoId, setAcaoEmAndamentoId] = useState<string | null>(null)
 
   const podeVeiculoEmpresa = permissoesAtualizadas.podeAcessarDetalhe('liberacao', 'liberacao.veiculo_empresa')
   const podeVeiculoExterno = permissoesAtualizadas.podeAcessarDetalhe('liberacao', 'liberacao.veiculo_externo')
   const podePedestre = permissoesAtualizadas.podeAcessarDetalhe('liberacao', 'liberacao.pedestre')
   const podeTransferencia = permissoesAtualizadas.podeAcessarDetalhe('liberacao', 'liberacao.transferencia')
-  const podeVeiculoInterno = permissoesAtualizadas.podeAcessarDetalhe('liberacao', 'liberacao.veiculo_interno')
-  const identificadorLiberacao =
-    user?.fullName ||
-    user?.username ||
-    user?.primaryEmailAddress?.emailAddress ||
-    'Usuario nao identificado'
+  const roleUsuario = permissoesAtualizadas.role
+  const emailUsuario = user?.primaryEmailAddress?.emailAddress?.toLowerCase() || ''
+  const podeAutorizarSaida = ['dev', 'gestor', 'editor'].includes(roleUsuario)
+  const podeAutorizacoes = podeVeiculoExterno && podeAutorizarSaida
 
   const tiposPermitidos = useMemo(() => [
     podeVeiculoEmpresa ? 'interno' : null,
     podeVeiculoExterno ? 'externo' : null,
     podePedestre ? 'pedestre' : null,
     podeTransferencia ? 'transferencia' : null,
-    podeVeiculoInterno ? 'veiculo_interno' : null,
-  ].filter(Boolean) as typeof tipoVeiculo[], [podeVeiculoEmpresa, podeVeiculoExterno, podePedestre, podeTransferencia, podeVeiculoInterno])
+    podeAutorizacoes ? 'autorizacoes' : null,
+  ].filter(Boolean) as TipoLiberacao[], [podeVeiculoEmpresa, podeVeiculoExterno, podePedestre, podeTransferencia, podeAutorizacoes])
 
   const placaExternaNormalizada = formatPlate(placaExterna)
   const placaExternaPertenceEmpresa =
@@ -212,29 +265,104 @@ export default function LiberacaoPage() {
     return typeof resultado.mensagem === 'string' ? resultado.mensagem : 'Registro criado com sucesso.'
   }
 
+  async function executarPortariaSegura(tipo: string, id: number) {
+    const resposta = await fetch('/api/portaria/acoes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tipo, id }),
+    })
+    const resultado = await lerJsonSeguro(resposta)
+
+    if (!resposta.ok) {
+      throw new Error(typeof resultado.error === 'string' ? resultado.error : 'Erro ao executar acao da portaria.')
+    }
+
+    setMensagem(typeof resultado.mensagem === 'string' ? resultado.mensagem : 'Acao registrada.')
+    await carregarDados()
+  }
+
+  function chaveAcao(tipo: string, id: number) {
+    return `${tipo}:${id}`
+  }
+
+  async function autorizarSaidaVeiculoSegura(movimentacao: MovimentacaoAutorizacao) {
+    const chave = chaveAcao('veiculo_autorizar_saida', movimentacao.id)
+    if (acaoEmAndamentoId) return
+
+    setAcaoEmAndamentoId(chave)
+    try {
+      await executarPortariaSegura('veiculo_autorizar_saida', movimentacao.id)
+    } catch (error) {
+      setMensagem(error instanceof Error ? `Erro ao autorizar saida: ${error.message}` : 'Erro ao autorizar saida.')
+    } finally {
+      setAcaoEmAndamentoId(null)
+    }
+  }
+
+  const carregarGestores = useCallback(async function carregarGestores() {
+    setErroGestores('')
+
+    try {
+      const resposta = await fetch('/api/gestores-autorizacao', {
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+      })
+      const resultado = await lerJsonSeguro(resposta)
+
+      if (!resposta.ok) {
+        throw new Error(typeof resultado.error === 'string' ? resultado.error : 'Erro ao carregar gestores.')
+      }
+
+      setGestores(Array.isArray(resultado.gestores) ? resultado.gestores : [])
+    } catch (error) {
+      const mensagemErro = error instanceof Error ? error.message : 'Erro ao carregar gestores.'
+      setGestores([])
+      setErroGestores(mensagemErro)
+      if (tipoVeiculo === 'externo') {
+        setMensagem(`Erro ao carregar gestores: ${mensagemErro}`)
+      }
+    }
+  }, [tipoVeiculo])
+
   const carregarDados = useCallback(async function carregarDados() {
-    const [v, o, d, m, gestoresResposta] = await Promise.all([
-      supabase.from('veiculos').select('NR_PLACA, DS_MODELO, DS_MARCA, NR_ANO_MODELO').order('NR_PLACA'),
+    const [v, o, d, motoristasResponse, autorizacoes, acoes] = await Promise.all([
+      supabase.from('TBL_VEICULOS').select('NR_PLACA, DS_MODELO, DS_MARCA, NR_ANO_MODELO').order('NR_PLACA'),
       supabase.from('origens').select('id, nome').order('nome'),
-      supabase.from('destinos').select('id, nome').order('nome'),
-      supabase.from('motoristas').select('id, nome').order('nome'),
-      fetch('/api/gestores-autorizacao'),
+      supabase.from('TBL_DESTINOS').select('id, nome').order('nome'),
+      fetch('/api/cadastros/pessoas/selecao?tipo=motorista', { cache: 'no-store' }),
+      supabase
+        .from('movimentacoes')
+        .select('id, placa, km, motorista, localizacao, destino, status, liberado_em, saida_em, entrada_em, tipo_veiculo, gestor_responsavel_nome, gestor_responsavel_email, gestor_responsavel_setor')
+        .in('tipo_veiculo', ['externo', 'veiculo_externo'])
+        .is('saida_em', null)
+        .order('liberado_em', { ascending: false })
+        .returns<MovimentacaoAutorizacao[]>(),
+      supabase
+        .from('TBL_HISTORICOS_ACOES')
+        .select('entidade_id, acao')
+        .eq('tipo_entidade', 'veiculo')
+        .eq('acao', 'saida_autorizada')
+        .returns<AcaoMovimentacao[]>(),
     ])
     if (v.data) setVeiculos(v.data)
     if (o.data) setOrigens(o.data)
     if (d.data) setDestinos(d.data)
-    if (m.data) setMotoristas(m.data)
-
-    try {
-      const resultadoGestores = await lerJsonSeguro(gestoresResposta)
-      if (!gestoresResposta.ok) {
-        throw new Error(typeof resultadoGestores.error === 'string' ? resultadoGestores.error : 'Erro ao carregar gestores.')
-      }
-      setGestores(Array.isArray(resultadoGestores.gestores) ? resultadoGestores.gestores : [])
-    } catch (error) {
-      setMensagem(error instanceof Error ? `Erro ao carregar gestores: ${error.message}` : 'Erro ao carregar gestores.')
+    if (motoristasResponse.ok) {
+      const resultado = await lerJsonSeguro(motoristasResponse)
+      setMotoristas(Array.isArray(resultado.pessoas) ? resultado.pessoas : [])
+    } else {
+      setMotoristas([])
     }
-  }, [supabase])
+    if (autorizacoes.data) setMovimentacoesAutorizacao(autorizacoes.data)
+    if (acoes.data) setAcoesMovimentacoes(acoes.data)
+
+    if (autorizacoes.error || acoes.error) {
+      const erro = autorizacoes.error?.message || acoes.error?.message || 'Erro desconhecido'
+      setMensagem(`Erro ao carregar autorizacoes: ${erro}`)
+    }
+
+    await carregarGestores()
+  }, [carregarGestores, supabase])
 
   useEffect(() => {
     carregarDados()
@@ -246,6 +374,15 @@ export default function LiberacaoPage() {
     setMensagem('')
   }, [isLoaded, tiposPermitidos, tipoVeiculo])
 
+  useEffect(() => {
+    if (!isLoaded || !podeAutorizacoes || typeof window === 'undefined') return
+    const aba = new URLSearchParams(window.location.search).get('aba')
+    if (aba === 'autorizacoes') {
+      setTipoVeiculo('autorizacoes')
+      setMensagem('')
+    }
+  }, [isLoaded, podeAutorizacoes])
+
   // Fecha dropdowns ao clicar fora
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -253,7 +390,6 @@ export default function LiberacaoPage() {
       if (!target.closest('[data-dropdown]')) {
         setMostrarListaPlaca(false)
         setMostrarListaMotorista(false)
-        setMostrarListaOrigem(false)
         setMostrarListaDestino(false)
         setMostrarListaBaseOrigem(false)
         setMostrarListaBaseDestino(false)
@@ -264,6 +400,24 @@ export default function LiberacaoPage() {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  function temSaidaAutorizada(movimentacaoId: number) {
+    return acoesMovimentacoes.some((acao) => String(acao.entidade_id) === String(movimentacaoId) && acao.acao === 'saida_autorizada')
+  }
+
+  function podeAutorizarMovimentacao(movimentacao: MovimentacaoAutorizacao) {
+    return podeAutorizarSaida &&
+      (roleUsuario !== 'gestor' || Boolean(emailUsuario && movimentacao.gestor_responsavel_email?.toLowerCase() === emailUsuario))
+  }
+
+  const autorizacoesPendentes = movimentacoesAutorizacao.filter((movimentacao) =>
+    isVeiculoExterno(movimentacao.tipo_veiculo) &&
+    Boolean(movimentacao.entrada_em) &&
+    !movimentacao.saida_em &&
+    movimentacao.status !== 'saida_autorizada' &&
+    !temSaidaAutorizada(movimentacao.id) &&
+    podeAutorizarMovimentacao(movimentacao)
+  )
 
   async function validarKmVeiculo(placa: string) {
     const kmAtual = Number(km.replace(/\D/g, ''))
@@ -283,12 +437,12 @@ export default function LiberacaoPage() {
         .limit(1000)
         .returns<RegistroKm[]>(),
       supabase
-        .from('movimentacoes_acoes')
-        .select('placa, km')
+        .from('TBL_HISTORICOS_ACOES')
+        .select('placa, dados')
+        .eq('tipo_entidade', 'veiculo')
         .ilike('placa', padraoPlaca)
-        .not('km', 'is', null)
         .limit(1000)
-        .returns<RegistroKm[]>(),
+        .returns<RegistroHistoricoKm[]>(),
     ])
 
     if (movimentacoesQuery.error || acoesQuery.error) {
@@ -298,7 +452,11 @@ export default function LiberacaoPage() {
     }
 
     const maiorMovimentacoes = maiorKmDosRegistros(movimentacoesQuery.data || [], placa)
-    const maiorAcoes = maiorKmDosRegistros(acoesQuery.data || [], placa)
+    const registrosHistorico = (acoesQuery.data || []).map((registro) => ({
+      placa: registro.placa || registro.dados?.placa || null,
+      km: registro.dados?.km ?? null,
+    }))
+    const maiorAcoes = maiorKmDosRegistros(registrosHistorico, placa)
     const kmsRegistrados = [maiorMovimentacoes, maiorAcoes].filter((kmRegistro): kmRegistro is number => kmRegistro !== null)
     const ultimoKm = kmsRegistrados.length ? Math.max(...kmsRegistrados) : 0
     if (ultimoKm > 0 && kmAtual < ultimoKm) {
@@ -316,6 +474,8 @@ export default function LiberacaoPage() {
       setMensagem('Voce nao tem permissao para acessar este topico.')
       return
     }
+
+    if (tipoVeiculo === 'autorizacoes') return
 
     if (tipoVeiculo === 'veiculo_interno') {
       await registrarMovimentoVeiculoInterno()
@@ -355,6 +515,7 @@ export default function LiberacaoPage() {
           empresa: empresaPedestre || null,
           destino: destinoSelecionado || buscaDestino,
           liberado_em: dataHora || null,
+          observacao: observacaoPedestre || null,
         })
         setMensagem(mensagemSucesso)
       } catch (error) {
@@ -367,6 +528,7 @@ export default function LiberacaoPage() {
       setCpfPedestre('')
       setTelefonePedestre('')
       setEmpresaPedestre('')
+      setObservacaoPedestre('')
       setDestinoSelecionado('')
       setBuscaDestino('')
       setDataHora('')
@@ -386,6 +548,10 @@ export default function LiberacaoPage() {
         setMensagem('Origem e destino nao podem ser iguais')
         return
       }
+      if (!kmTransferencia) {
+        setMensagem('Preencha o KM atual')
+        return
+      }
 
       setCarregando(true)
       setMensagem('')
@@ -397,7 +563,9 @@ export default function LiberacaoPage() {
           base_origem: baseOrigem,
           base_destino: baseDestino,
           motorista: motoristaSelecionado || buscaMotorista || null,
+          km: Number(kmTransferencia),
           transferido_em: dataHora || null,
+          observacao: observacaoTransferencia || null,
         })
         setMensagem(mensagemSucesso)
       } catch (error) {
@@ -412,7 +580,9 @@ export default function LiberacaoPage() {
       setBaseDestino('')
       setBuscaMotorista('')
       setMotoristaSelecionado('')
+      setKmTransferencia('')
       setDataHora('')
+      setObservacaoTransferencia('')
       carregarDados()
       return
     }
@@ -475,10 +645,12 @@ export default function LiberacaoPage() {
         placa: placaFinal,
         km: kmAtual,
         motorista: motoristaFinal,
-        origem: origemSelecionada || buscaOrigem || null,
+        origem: origemPadrao,
         destino: destinoSelecionado,
         data: dataHora,
         gestor_responsavel_id: tipoVeiculo === 'externo' ? gestorSelecionado?.id : null,
+        modelo_externo: tipoVeiculo === 'externo' ? modeloExterno.trim() || null : null,
+        observacao: tipoVeiculo === 'externo' ? observacaoVeiculoExterno || null : observacaoVeiculoEmpresa || null,
       })
       setMensagem(mensagemSucesso)
     } catch (error) {
@@ -499,6 +671,8 @@ export default function LiberacaoPage() {
     setBuscaGestor('')
     setKm('')
     setDataHora('')
+    setObservacaoVeiculoEmpresa('')
+    setObservacaoVeiculoExterno('')
   }
 
   async function registrarMovimentoVeiculoInterno(e?: React.FormEvent) {
@@ -525,7 +699,7 @@ export default function LiberacaoPage() {
         tipo: 'veiculo_interno',
         placa: placaFinal,
         motorista: motoristaSelecionado,
-        origem: origemSelecionada || buscaOrigem || null,
+        origem: origemPadrao,
         movimento: movimentoVeiculoInterno,
         data: dataHora,
       })
@@ -566,11 +740,6 @@ export default function LiberacaoPage() {
         placeholder="Buscar motorista..."
         className="w-full px-4 py-2.5 bg-[#132337] border border-emerald-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition"
       />
-      {motoristaSelecionado && (
-        <div className="mt-2 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-sm text-emerald-300">
-          {motoristaSelecionado}
-        </div>
-      )}
       {mostrarListaMotorista && !motoristaSelecionado && (
         <div className="app-scroll absolute z-20 w-full mt-1.5 bg-[#132337] border border-emerald-500/25 rounded-xl shadow-2xl max-h-40 overflow-auto">
           {motoristas
@@ -610,45 +779,6 @@ export default function LiberacaoPage() {
         placeholder="Nome do motorista externo"
         className="w-full px-4 py-2.5 bg-[#132337] border border-orange-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-400/40 transition"
       />
-    </div>
-  )
-
-  const OrigemDropdown = () => (
-    <div data-dropdown className="relative">
-      <div className="flex items-center justify-between mb-1.5">
-        <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Origem</label>
-      </div>
-      <input
-        type="text"
-        value={buscaOrigem}
-        onChange={(e) => {
-          setBuscaOrigem(e.target.value)
-          setOrigemSelecionada('')
-          setMostrarListaOrigem(true)
-        }}
-        onFocus={() => setMostrarListaOrigem(true)}
-        className="w-full px-4 py-2.5 bg-[#132337] border border-emerald-500/20 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition"
-      />
-      {mostrarListaOrigem && (
-        <div className="app-scroll absolute z-20 w-full mt-1.5 bg-[#132337] border border-emerald-500/25 rounded-xl shadow-2xl max-h-40 overflow-auto">
-          {origens
-            .filter((o) => o.nome.toLowerCase().includes(buscaOrigem.toLowerCase()))
-            .map((o) => (
-              <button
-                key={o.id}
-                type="button"
-                onClick={() => {
-                  setOrigemSelecionada(o.nome)
-                  setBuscaOrigem(o.nome)
-                  setMostrarListaOrigem(false)
-                }}
-                className="w-full text-left px-4 py-2.5 hover:bg-emerald-500/10 text-sm text-slate-200 border-b border-white/5 last:border-0"
-              >
-                {o.nome}
-              </button>
-            ))}
-        </div>
-      )}
     </div>
   )
 
@@ -715,16 +845,11 @@ export default function LiberacaoPage() {
           placeholder="Buscar gestor por nome, email ou setor..."
           className="w-full px-4 py-2.5 bg-[#132337] border border-orange-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-400/40 transition"
         />
-        {gestorSelecionado && (
-          <div className="mt-2 px-3 py-2 bg-orange-500/10 border border-orange-500/20 rounded-xl text-sm text-orange-300">
-            {gestorSelecionado.nome} - {gestorSelecionado.setor}
-          </div>
-        )}
         {mostrarListaGestor && !gestorSelecionado && (
           <div className="app-scroll absolute z-20 w-full mt-1.5 bg-[#132337] border border-orange-500/25 rounded-xl shadow-2xl max-h-48 overflow-auto">
             {gestoresFiltrados.length === 0 ? (
               <div className="px-4 py-3 text-sm text-slate-400">
-                {gestores.length === 0 ? 'Nenhum gestor ativo cadastrado.' : 'Nenhum gestor encontrado.'}
+                {erroGestores ? `Erro ao carregar gestores: ${erroGestores}` : gestores.length === 0 ? 'Nenhum gestor ativo cadastrado.' : 'Nenhum gestor encontrado.'}
               </div>
             ) : (
               gestoresFiltrados.map((gestor) => (
@@ -749,26 +874,6 @@ export default function LiberacaoPage() {
     )
   }
 
-  const IdentificadorLiberacao = (destaque: 'emerald' | 'purple' | 'blue' | 'sky' = 'emerald') => {
-    const estilos = {
-      emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300',
-      purple: 'bg-purple-500/10 border-purple-500/20 text-purple-300',
-      blue: 'bg-blue-500/10 border-blue-500/20 text-blue-300',
-      sky: 'bg-sky-500/10 border-sky-500/20 text-sky-300',
-    }
-
-    return (
-      <div>
-        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-          Identificador
-        </label>
-        <div className={`w-full px-4 py-2.5 border rounded-xl text-sm font-semibold ${estilos[destaque]}`}>
-          {identificadorLiberacao}
-        </div>
-      </div>
-    )
-  }
-
   return (
     <RequirePermissao permissao="liberacao">
       <div className="min-h-screen flex bg-[#0a1625]">
@@ -779,11 +884,11 @@ export default function LiberacaoPage() {
             <main className={`liberacao-page px-4 md:px-8 xl:px-14 ${tipoVeiculo === 'transferencia' ? 'py-4' : 'py-6'}`}>
               <div className="w-full">
                 <div className="app-scroll mb-4 flex gap-1.5 overflow-x-auto rounded-xl border border-emerald-500/20 bg-[#132337] p-1.5">
-                  {podeVeiculoEmpresa && (
+                  {(podeVeiculoEmpresa || podeTransferencia) && (
                     <button
                       type="button"
-                      onClick={() => { setTipoVeiculo('interno'); setMensagem('') }}
-                      className={`min-w-[160px] flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-200 whitespace-nowrap active:translate-y-0 cursor-pointer ${tipoVeiculo === 'interno' ? 'bg-emerald-500 text-[#0a1625] shadow-sm' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+                      onClick={() => { setTipoVeiculo(podeVeiculoEmpresa ? 'interno' : 'transferencia'); setMensagem('') }}
+                      className={`min-w-[160px] flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-200 whitespace-nowrap active:translate-y-0 cursor-pointer ${tipoVeiculo === 'interno' || tipoVeiculo === 'transferencia' ? 'bg-emerald-500 text-[#0a1625] shadow-sm' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
                     >
                       Veiculo Empresa
                     </button>
@@ -800,28 +905,20 @@ export default function LiberacaoPage() {
                   {podePedestre && (
                     <button
                       type="button"
+                      data-liberacao-tab="pedestre"
                       onClick={() => { setTipoVeiculo('pedestre'); setMensagem('') }}
                       className={`min-w-[170px] flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-200 whitespace-nowrap active:translate-y-0 cursor-pointer ${tipoVeiculo === 'pedestre' ? 'bg-purple-500 text-white shadow-sm' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
                     >
                       Pedestres / Visitantes
                     </button>
                   )}
-                  {podeTransferencia && (
+                  {podeAutorizacoes && (
                     <button
                       type="button"
-                      onClick={() => { setTipoVeiculo('transferencia'); setMensagem('') }}
-                      className={`min-w-[170px] flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-200 whitespace-nowrap active:translate-y-0 cursor-pointer ${tipoVeiculo === 'transferencia' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+                      onClick={() => { setTipoVeiculo('autorizacoes'); setMensagem('') }}
+                      className={`min-w-[160px] flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-200 whitespace-nowrap active:translate-y-0 cursor-pointer ${tipoVeiculo === 'autorizacoes' ? 'bg-amber-500 text-[#0a1625] shadow-sm' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
                     >
-                      Transferencia
-                    </button>
-                  )}
-                  {podeVeiculoInterno && (
-                    <button
-                      type="button"
-                      onClick={() => { setTipoVeiculo('veiculo_interno'); setMovimentoVeiculoInterno('entrada'); setMensagem('') }}
-                      className={`min-w-[160px] flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-200 whitespace-nowrap active:translate-y-0 cursor-pointer ${tipoVeiculo === 'veiculo_interno' ? 'bg-sky-500 text-white shadow-sm' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
-                    >
-                      Veiculo Interno
+                      Autorizacoes
                     </button>
                   )}
                 </div>
@@ -832,7 +929,8 @@ export default function LiberacaoPage() {
                       <h2 className="text-sm font-semibold text-white">
                         {tipoVeiculo === 'transferencia' ? 'Nova Transferencia' :
                           tipoVeiculo === 'pedestre' ? 'Liberar Entrada de Pedestre' :
-                            tipoVeiculo === 'veiculo_interno' ? `Registrar ${movimentoVeiculoInterno === 'entrada' ? 'Entrada' : 'Saida'} de Veiculo Interno` : 'Nova Autorizacao de Saida'}
+                            tipoVeiculo === 'veiculo_interno' ? `Registrar ${movimentoVeiculoInterno === 'entrada' ? 'Entrada' : 'Saida'} de Veiculo Interno` :
+                              tipoVeiculo === 'autorizacoes' ? 'Autorizar Saida de Veiculo Externo' : 'Nova Autorizacao de Saida'}
                       </h2>
                       <p className="text-xs text-slate-500 mt-0.5">
                         {tipoVeiculo === 'interno' && 'Frota propria Filtroamb'}
@@ -840,24 +938,153 @@ export default function LiberacaoPage() {
                         {tipoVeiculo === 'pedestre' && 'Pessoas entrando a pe ou visitantes que deixam o carro fora'}
                         {tipoVeiculo === 'transferencia' && 'Use quando o veiculo muda de base de trabalho'}
                         {tipoVeiculo === 'veiculo_interno' && `${movimentoVeiculoInterno === 'entrada' ? 'Entrada' : 'Saida'} de veiculo interno da empresa`}
+                        {tipoVeiculo === 'autorizacoes' && 'Solicitacoes liberadas pela portaria aguardando o gestor'}
                       </p>
                     </div>
-                    <span className={`text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full ${tipoVeiculo === 'interno' ? 'bg-emerald-500/15 text-emerald-300' :
-                      tipoVeiculo === 'externo' ? 'bg-orange-500/15 text-orange-300' :
-                        tipoVeiculo === 'pedestre' ? 'bg-purple-500/15 text-purple-300' :
-                          tipoVeiculo === 'veiculo_interno' ? 'bg-sky-500/15 text-sky-300' :
-                            'bg-blue-500/15 text-blue-300'
-                      }`}>
-                      {tipoVeiculo === 'interno' ? 'Interno' :
-                        tipoVeiculo === 'externo' ? 'Externo' :
-                          tipoVeiculo === 'pedestre' ? 'Pedestre' :
-                            tipoVeiculo === 'veiculo_interno' ? 'Veiculo Interno' : 'Transferencia'}
-                    </span>
                   </div>
 
                   <form onSubmit={handleSubmit} className="p-6">
 
-                    {tipoVeiculo === 'pedestre' ? (
+                    {(tipoVeiculo === 'interno' || tipoVeiculo === 'transferencia') && podeVeiculoEmpresa && podeTransferencia && (
+                      <div className="mb-5 grid w-full grid-cols-2 gap-3 rounded-xl border border-emerald-500/15 bg-[#132337]/60 p-1.5">
+                        <button
+                          type="button"
+                          onClick={() => { setTipoVeiculo('interno'); setMensagem('') }}
+                          className={`rounded-lg py-2.5 text-sm font-semibold transition-all duration-200 cursor-pointer ${tipoVeiculo === 'interno' ? 'bg-emerald-500 text-[#0a1625] shadow-[0_0_18px_rgba(16,185,129,0.22)]' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+                        >
+                          Liberacao
+                        </button>
+                        <button
+                          type="button"
+                          data-liberacao-tab="transferencia"
+                          onClick={() => { setTipoVeiculo('transferencia'); setMensagem('') }}
+                          className={`rounded-lg py-2.5 text-sm font-semibold transition-all duration-200 cursor-pointer ${tipoVeiculo === 'transferencia' ? 'bg-blue-500 text-white shadow-[0_0_18px_rgba(59,130,246,0.22)]' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+                        >
+                          Transferencia
+                        </button>
+                      </div>
+                    )}
+
+                    {tipoVeiculo === 'autorizacoes' ? (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                          <div className="rounded-2xl border border-amber-500/20 bg-[#132337]/60 p-4">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Aguardando gestor</p>
+                            <p className="mt-1 text-3xl font-bold text-amber-300">{autorizacoesPendentes.length}</p>
+                          </div>
+                          <div className="rounded-2xl border border-orange-500/15 bg-[#132337]/60 p-4 md:col-span-2">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Fluxo</p>
+                            <p className="mt-1 text-sm font-medium text-slate-200">
+                              Autorize a saida do veiculo externo para liberar a baixa final na portaria.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="hidden overflow-hidden rounded-2xl border border-amber-500/15 bg-[#0f1c2e] min-[1025px]:block">
+                          <div className="app-scroll max-h-[52vh] overflow-y-auto overflow-x-auto">
+                            <table className="w-full min-w-[780px] text-xs">
+                              <thead>
+                                <tr className="sticky top-0 z-10 border-b border-amber-500/15 bg-[#132337]">
+                                  <th className="px-3 py-3 text-center text-[13px] font-semibold uppercase tracking-wider text-amber-300">Placa</th>
+                                  <th className="px-3 py-3 text-center text-[13px] font-semibold uppercase tracking-wider text-amber-300">Motorista</th>
+                                  <th className="px-3 py-3 text-center text-[13px] font-semibold uppercase tracking-wider text-amber-300">Liberado</th>
+                                  <th className="px-3 py-3 text-center text-[13px] font-semibold uppercase tracking-wider text-amber-300">Destino</th>
+                                  <th className="px-3 py-3 text-center text-[13px] font-semibold uppercase tracking-wider text-amber-300">Gestor</th>
+                                  <th className="px-3 py-3 text-center text-[13px] font-semibold uppercase tracking-wider text-amber-300">Setor</th>
+                                  <th className="px-3 py-3 text-center text-[13px] font-semibold uppercase tracking-wider text-amber-300">Acao</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-white/5">
+                                {autorizacoesPendentes.length === 0 ? (
+                                  <tr>
+                                    <td colSpan={7} className="px-3 py-8 text-center text-slate-500">Nenhum veiculo externo aguardando autorizacao de saida.</td>
+                                  </tr>
+                                ) : (
+                                  autorizacoesPendentes.map((movimentacao) => (
+                                    <tr key={movimentacao.id} className="transition-colors hover:bg-amber-500/5">
+                                      <td className="px-3 py-3 text-center">
+                                        <span className="text-sm font-semibold tracking-wide text-amber-300">{formatPlateDisplay(movimentacao.placa)}</span>
+                                      </td>
+                                      <td className="px-3 py-3 text-center text-[13px] font-semibold text-white">{movimentacao.motorista || '--'}</td>
+                                      <td className="px-3 py-3 text-center text-[13px] font-semibold text-white">{formatarData(movimentacao.entrada_em || movimentacao.liberado_em)}</td>
+                                      <td className="px-3 py-3 text-center text-[13px] font-semibold text-white">{movimentacao.destino || '--'}</td>
+                                      <td className="px-3 py-3 text-center text-[13px] font-semibold text-white">{movimentacao.gestor_responsavel_nome || '--'}</td>
+                                      <td className="px-3 py-3 text-center text-[13px] font-semibold text-white">{movimentacao.gestor_responsavel_setor || '--'}</td>
+                                      <td className="px-3 py-3 text-center">
+                                        <button
+                                          type="button"
+                                          onClick={() => autorizarSaidaVeiculoSegura(movimentacao)}
+                                          disabled={acaoEmAndamentoId === chaveAcao('veiculo_autorizar_saida', movimentacao.id)}
+                                          className="rounded-lg bg-amber-500 px-3 py-1.5 text-[11px] font-semibold text-[#0a1625] transition-all duration-150 hover:bg-amber-400 hover:brightness-110 active:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                          {acaoEmAndamentoId === chaveAcao('veiculo_autorizar_saida', movimentacao.id) ? 'Registrando...' : 'Autorizar Saida'}
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3 min-[1025px]:hidden">
+                          {autorizacoesPendentes.length === 0 ? (
+                            <div className="rounded-2xl border border-amber-500/15 bg-[#132337]/60 p-5 text-center text-sm text-slate-500">
+                              Nenhum veiculo externo aguardando autorizacao de saida.
+                            </div>
+                          ) : (
+                            autorizacoesPendentes.map((movimentacao) => (
+                              <div key={movimentacao.id} className="rounded-2xl border border-amber-500/15 bg-[#132337]/60 p-4">
+                                <div className="flex items-start justify-between gap-3">
+                                  <p className="text-lg font-bold tracking-wide text-amber-300">{formatPlateDisplay(movimentacao.placa)}</p>
+                                  <span className="shrink-0 rounded-full border border-amber-500/20 bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-amber-300">
+                                    Aguardando
+                                  </span>
+                                </div>
+                                <div className="mt-4 grid grid-cols-1 gap-3 text-sm">
+                                  <div>
+                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Motorista</p>
+                                    <p className="mt-1 font-semibold text-white">{movimentacao.motorista || '--'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Destino</p>
+                                    <p className="mt-1 font-semibold text-white">{movimentacao.destino || '--'}</p>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div className="rounded-xl bg-[#0f1c2e] p-3">
+                                      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Liberado</p>
+                                      <p className="mt-1 font-semibold text-slate-200">{formatarData(movimentacao.entrada_em || movimentacao.liberado_em)}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-[#0f1c2e] p-3">
+                                      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Gestor</p>
+                                      <p className="mt-1 font-semibold text-slate-200">{movimentacao.gestor_responsavel_nome || '--'}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => autorizarSaidaVeiculoSegura(movimentacao)}
+                                  disabled={acaoEmAndamentoId === chaveAcao('veiculo_autorizar_saida', movimentacao.id)}
+                                  className="mt-4 w-full rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-[#0a1625] transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  {acaoEmAndamentoId === chaveAcao('veiculo_autorizar_saida', movimentacao.id) ? 'Registrando...' : 'Autorizar Saida'}
+                                </button>
+                              </div>
+                            ))
+                          )}
+                        </div>
+
+                        {mensagem && (
+                          <div className={`p-3 rounded-xl text-sm ${mensagem.includes('Erro')
+                            ? 'bg-red-500/10 text-red-300 border border-red-500/20'
+                            : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
+                            }`}>
+                            {mensagem}
+                          </div>
+                        )}
+                      </div>
+                    ) : tipoVeiculo === 'pedestre' ? (
                       /* ======= FORMULÃRIO DE PEDESTRE ======= */
                       <div className="space-y-3">
                         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -966,13 +1193,23 @@ export default function LiberacaoPage() {
                             />
                           </div>
                           <div className="xl:order-6">
-                            {IdentificadorLiberacao('purple')}
+                            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                              Observacao
+                            </label>
+                            <input
+                              type="text"
+                              value={observacaoPedestre}
+                              onChange={(e) => setObservacaoPedestre(e.target.value)}
+                              placeholder="Observacao opcional..."
+                              className="w-full px-4 py-2.5 bg-[#132337] border border-purple-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-400/40 transition"
+                            />
                           </div>
                         </div>
 
                         <div>
                           <button
                             type="submit"
+                            data-liberacao-action="pedestre"
                             disabled={carregando}
                             className="w-full bg-purple-500 hover:bg-purple-400 text-white font-semibold py-3 rounded-xl transition shadow-[0_0_20px_rgba(168,85,247,0.25)] disabled:opacity-40"
                           >
@@ -1012,11 +1249,6 @@ export default function LiberacaoPage() {
                               placeholder="Buscar placa..."
                               className="w-full px-4 py-2.5 bg-[#132337] border border-emerald-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 uppercase transition"
                             />
-                            {veiculoSelecionado && (
-                              <div className="mt-2 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-sm text-emerald-300">
-                                ✓ {formatPlateDisplay(veiculoSelecionado.NR_PLACA)} — {veiculoSelecionado.DS_MODELO}
-                              </div>
-                            )}
                             {mostrarListaPlaca && !veiculoSelecionado && buscaPlaca.length >= 1 && (
                               <div className="app-scroll absolute z-50 w-full mt-1.5 bg-[#132337] border border-emerald-500/25 rounded-xl shadow-2xl max-h-56 overflow-auto">
                                 {veiculosFiltradosPorPlaca.length > 0 ? (
@@ -1114,23 +1346,51 @@ export default function LiberacaoPage() {
                               </div>
                             )}
                           </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                                KM Atual
+                              </label>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={kmTransferencia}
+                                onChange={(e) => setKmTransferencia(e.target.value.replace(/\D/g, ''))}
+                                placeholder="0"
+                                className="w-full px-4 py-2.5 bg-[#132337] border border-emerald-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                                Data e hora
+                              </label>
+                              <input
+                                type="datetime-local"
+                                value={dataHora}
+                                onChange={(e) => setDataHora(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-[#132337] border border-emerald-500/20 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition"
+                              />
+                            </div>
+                          </div>
                           <div>
                             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                              Data e hora
+                              Observacao
                             </label>
                             <input
-                              type="datetime-local"
-                              value={dataHora}
-                              onChange={(e) => setDataHora(e.target.value)}
-                              className="w-full px-4 py-2.5 bg-[#132337] border border-emerald-500/20 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition"
+                              type="text"
+                              value={observacaoTransferencia}
+                              onChange={(e) => setObservacaoTransferencia(e.target.value)}
+                              placeholder="Observacao opcional..."
+                              className="w-full px-4 py-2.5 bg-[#132337] border border-emerald-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 transition"
                             />
                           </div>
-                          {IdentificadorLiberacao('blue')}
                         </div>
 
                         <div className="pt-2">
                           <button
                             type="submit"
+                            data-liberacao-action="transferencia"
                             disabled={carregando}
                             className="w-full bg-blue-500 hover:bg-blue-400 text-white font-semibold py-3 rounded-xl transition disabled:opacity-40"
                           >
@@ -1149,7 +1409,7 @@ export default function LiberacaoPage() {
                       </div>
                     ) : (
                       /* ======= FORMULÃRIO DE LIBERAÃ‡ÃƒO ======= */
-                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 gap-x-6 gap-y-4 xl:grid-cols-2">
                         {tipoVeiculo === 'veiculo_interno' && (
                           <div className="xl:col-span-2">
                             <div className="grid w-full grid-cols-2 gap-3 rounded-xl border border-sky-500/15 bg-[#132337]/60 p-1.5">
@@ -1170,7 +1430,7 @@ export default function LiberacaoPage() {
                             </div>
                           </div>
                         )}
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                           {(tipoVeiculo === 'interno' || tipoVeiculo === 'veiculo_interno') ? (
                             <div data-dropdown className="relative">
                               <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Veiculo</label>
@@ -1188,11 +1448,6 @@ export default function LiberacaoPage() {
                                 placeholder="Buscar por placa..."
                                 className="w-full px-4 py-2.5 bg-[#132337] border border-emerald-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 uppercase transition"
                               />
-                              {veiculoSelecionado && (
-                                <div className="mt-2 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-sm text-emerald-300">
-                                  {formatPlateDisplay(veiculoSelecionado.NR_PLACA)} • {veiculoSelecionado.DS_MODELO}
-                                </div>
-                              )}
                               {mostrarListaPlaca && !veiculoSelecionado && buscaPlaca.length >= 1 && (
                                 <div className="app-scroll absolute z-50 w-full mt-1.5 bg-[#132337] border border-emerald-500/25 rounded-xl shadow-2xl max-h-52 overflow-auto">
                                   {veiculosFiltradosPorPlaca.length > 0 ? (
@@ -1270,21 +1525,28 @@ export default function LiberacaoPage() {
                             </div>
                           </div>
 
-                          {tipoVeiculo === 'externo' ? DestinoDropdown() : tipoVeiculo === 'veiculo_interno' ? null : OrigemDropdown()}
+                          {tipoVeiculo === 'externo' ? DestinoDropdown() : null}
                         </div>
 
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                           {tipoVeiculo === 'externo' ? MotoristaExternoInput() : MotoristaDropdown(false)}
 
-                          {tipoVeiculo === 'veiculo_interno' ? (
-                            IdentificadorLiberacao('sky')
-                          ) : tipoVeiculo === 'externo' ? (
-                            IdentificadorLiberacao('blue')
-                          ) : (
-                            IdentificadorLiberacao()
-                          )}
-
                           {tipoVeiculo === 'externo' && GestorDropdown()}
+
+                          {tipoVeiculo === 'externo' && (
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                                Observacao
+                              </label>
+                              <input
+                                type="text"
+                                value={observacaoVeiculoExterno}
+                                onChange={(e) => setObservacaoVeiculoExterno(e.target.value)}
+                                placeholder="Observacao opcional..."
+                                className="w-full px-4 py-2.5 bg-[#132337] border border-orange-500/20 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-400/40 transition"
+                              />
+                            </div>
+                          )}
 
                           {tipoVeiculo !== 'veiculo_interno' && tipoVeiculo !== 'externo' && DestinoDropdown()}
 
@@ -1307,7 +1569,7 @@ export default function LiberacaoPage() {
                             </div>
                           )}
 
-                          {mensagem && (
+                          {tipoVeiculo !== 'interno' && mensagem && (
                             <div className={`p-3 rounded-xl text-sm ${mensagem.includes('sucesso')
                               ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
                               : 'bg-red-500/10 text-red-300 border border-red-500/20'
@@ -1317,25 +1579,55 @@ export default function LiberacaoPage() {
                           )}
                         </div>
 
-                        {(tipoVeiculo === 'interno' || tipoVeiculo === 'externo' || tipoVeiculo === 'veiculo_interno') && (
+                        {tipoVeiculo === 'interno' && (
+                          <div className="xl:col-span-2">
+                            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-end">
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                                  Observacao
+                                </label>
+                                <input
+                                  type="text"
+                                  value={observacaoVeiculoEmpresa}
+                                  onChange={(e) => setObservacaoVeiculoEmpresa(e.target.value)}
+                                  placeholder="Observacao opcional..."
+                                  className="w-full rounded-xl border border-emerald-500/20 bg-[#132337] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 transition focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                                />
+                              </div>
+                              <button
+                                type="submit"
+                                disabled={carregando}
+                                className="w-full rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-[#0a1625] shadow-[0_0_20px_rgba(16,185,129,0.25)] transition hover:bg-emerald-400 disabled:opacity-40"
+                              >
+                                {carregando ? 'Liberando...' : 'Liberar Veiculo da Empresa'}
+                              </button>
+                            </div>
+                            {mensagem && (
+                              <div className={`mt-4 p-3 rounded-xl text-sm ${mensagem.includes('sucesso')
+                                ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
+                                : 'bg-red-500/10 text-red-300 border border-red-500/20'
+                                }`}>
+                                {mensagem}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {(tipoVeiculo === 'externo' || tipoVeiculo === 'veiculo_interno') && (
                           <div className="xl:col-span-2 pt-2">
                             <button
                               type="submit"
                               disabled={carregando}
-                              className={`w-full font-semibold py-3 rounded-xl transition disabled:opacity-40 ${tipoVeiculo === 'interno'
-                                ? 'bg-emerald-500 hover:bg-emerald-400 text-[#0a1625] shadow-[0_0_20px_rgba(16,185,129,0.25)]'
-                                : tipoVeiculo === 'veiculo_interno'
-                                  ? 'bg-sky-500 hover:bg-sky-400 text-white shadow-[0_0_20px_rgba(14,165,233,0.25)]'
-                                  : 'bg-orange-500 hover:bg-orange-400 text-[#0a1625] shadow-[0_0_20px_rgba(249,115,22,0.25)]'
+                              className={`w-full font-semibold py-3 rounded-xl transition disabled:opacity-40 ${tipoVeiculo === 'veiculo_interno'
+                                ? 'bg-sky-500 hover:bg-sky-400 text-white shadow-[0_0_20px_rgba(14,165,233,0.25)]'
+                                : 'bg-orange-500 hover:bg-orange-400 text-[#0a1625] shadow-[0_0_20px_rgba(249,115,22,0.25)]'
                                 }`}
                             >
                               {carregando
                                 ? tipoVeiculo === 'veiculo_interno' ? 'Registrando...' : 'Liberando...'
-                                : tipoVeiculo === 'interno'
-                                  ? 'Liberar Veiculo da Empresa'
-                                  : tipoVeiculo === 'veiculo_interno'
-                                    ? `Registrar ${movimentoVeiculoInterno === 'entrada' ? 'Entrada' : 'Saida'} de Veiculo Interno`
-                                    : 'Liberar Veiculo Externo'}
+                                : tipoVeiculo === 'veiculo_interno'
+                                  ? `Registrar ${movimentoVeiculoInterno === 'entrada' ? 'Entrada' : 'Saida'} de Veiculo Interno`
+                                  : 'Liberar Veiculo Externo'}
                             </button>
                           </div>
                         )}

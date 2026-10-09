@@ -35,7 +35,7 @@ export default function DestinosPage() {
 
     try {
       const { data, error } = await supabase
-        .from('destinos')
+        .from('TBL_DESTINOS')
         .select('id, nome, tipo_destino, endereco')
         .order('nome')
 

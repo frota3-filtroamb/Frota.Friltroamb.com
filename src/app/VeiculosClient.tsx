@@ -2,6 +2,7 @@
 
 import { useTopbarSearch } from '@/components/TopbarSearchProvider'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 type Veiculo = {
   NR_PLACA: string
@@ -52,23 +53,32 @@ function CabecalhoFiltro({
 }) {
   const filtroRef = useRef<HTMLTableCellElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
-  const [posicaoMenu, setPosicaoMenu] = useState({ top: 0, left: 0 })
+  const [montado, setMontado] = useState(false)
+  const [posicaoMenu, setPosicaoMenu] = useState<{ top: number; left: number } | null>(null)
 
   useEffect(() => {
-    if (!aberto) return
+    setMontado(true)
+  }, [])
+
+  useEffect(() => {
+    if (!aberto) {
+      setPosicaoMenu(null)
+      return
+    }
 
     function atualizarPosicao() {
       const rect = filtroRef.current?.getBoundingClientRect()
       if (!rect) return
-      const larguraMenu = 224
+      const larguraMenu = 240
       const margem = 12
-      setPosicaoMenu({
-        top: rect.bottom + 6,
+      const proximaPosicao = {
+        top: rect.bottom + 8,
         left: Math.min(
-          Math.max(rect.left + rect.width / 2, margem + larguraMenu / 2),
-          window.innerWidth - margem - larguraMenu / 2,
+          Math.max(rect.left, margem),
+          window.innerWidth - margem - larguraMenu,
         ),
-      })
+      }
+      setPosicaoMenu(proximaPosicao)
     }
 
     atualizarPosicao()
@@ -102,10 +112,10 @@ function CabecalhoFiltro({
         <span className="text-[11px]">{aberto ? '^' : 'v'}</span>
       </button>
 
-      {aberto && (
+      {aberto && montado && posicaoMenu && createPortal(
         <div
           ref={menuRef}
-          className="fixed z-[90] w-56 -translate-x-1/2 rounded-lg border border-emerald-500/20 bg-[#0f1c2e] p-2 text-left shadow-2xl shadow-black/40"
+          className="fixed z-[9999] w-[240px] rounded-lg border border-emerald-500/20 bg-[#0f1c2e] p-2 text-left shadow-2xl shadow-black/40"
           style={{ top: posicaoMenu.top, left: posicaoMenu.left }}
         >
           <div className="mb-2 flex items-center justify-between gap-2 border-b border-white/10 pb-2">
@@ -134,7 +144,8 @@ function CabecalhoFiltro({
               </label>
             ))}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </th>
   )
@@ -202,7 +213,7 @@ export default function VeiculosClient({ veiculos }: { veiculos: Veiculo[] }) {
   }
 
   return (
-    <main className="animate-tab flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0a1625] p-4 lg:p-5 xl:p-6">
+    <main className="veiculos-page animate-tab flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0a1625] p-4 lg:p-5 xl:p-6">
       {filtrosAtivos && (
         <div className="mb-3 flex shrink-0 justify-end">
           <button
